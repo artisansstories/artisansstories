@@ -42,6 +42,31 @@ export async function POST(request: NextRequest) {
           },
         });
         console.log(`Order updated to PAID/PROCESSING for PaymentIntent: ${paymentIntent.id}`);
+
+        // Confirm Stripe Tax transaction if not already done (backup for /confirm route)
+        const taxCalculationId: string = paymentIntent.metadata?.taxCalculationId || "";
+        if (taxCalculationId) {
+          const order = await prisma.order.findFirst({
+            where: { stripePaymentIntentId: paymentIntent.id },
+            select: { id: true, orderNumber: true, stripeTaxTransactionId: true },
+          });
+          if (order && !order.stripeTaxTransactionId) {
+            try {
+              const taxTransaction = await stripe.tax.transactions.createFromCalculation({
+                calculation: taxCalculationId,
+                reference: order.orderNumber,
+                metadata: { orderId: order.id },
+              });
+              await prisma.order.update({
+                where: { id: order.id },
+                data: { stripeTaxTransactionId: taxTransaction.id },
+              });
+              console.log(`Stripe Tax transaction confirmed via webhook: ${taxTransaction.id}`);
+            } catch (taxErr) {
+              console.error("Webhook: failed to confirm Stripe Tax transaction:", taxErr);
+            }
+          }
+        }
         break;
       }
 

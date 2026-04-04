@@ -294,6 +294,7 @@ model Order {
   currency                String          @default("usd")
   stripePaymentIntentId   String?
   stripeCheckoutSessionId String?
+  stripeTaxTransactionId  String?
   discountCode            String?
   customerNote            String?
   adminNote               String?

@@ -6,8 +6,6 @@ import { prisma } from "@/lib/prisma";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-27.acacia" }) as any;
 
-const TAX_RATE = 0.0825;
-
 interface CheckoutItem {
   variantId: string;
   quantity: number;
@@ -88,6 +86,10 @@ export async function POST(request: NextRequest) {
     // Apply discount if provided
     let discountTotal = 0;
     let validatedDiscountCode: string | undefined;
+    // Track taxable amounts separately for correct Stripe Tax line items
+    let taxableGoods = subtotal;
+    let taxableShipping = shippingTotal;
+
     if (discountCode) {
       const discount = await prisma.discount.findUnique({
         where: { code: discountCode.toUpperCase() },
@@ -101,19 +103,64 @@ export async function POST(request: NextRequest) {
         if (notExpired && notExceeded && meetsMinimum) {
           if (discount.type === "PERCENTAGE") {
             discountTotal = Math.floor((subtotal * discount.value) / 100);
+            taxableGoods = subtotal - discountTotal;
           } else if (discount.type === "FIXED_AMOUNT") {
             discountTotal = Math.min(discount.value, subtotal);
+            taxableGoods = subtotal - discountTotal;
           } else if (discount.type === "FREE_SHIPPING") {
             discountTotal = shippingTotal;
+            taxableShipping = 0;
+            // taxableGoods stays = subtotal (no discount on goods)
           }
           validatedDiscountCode = discountCode.toUpperCase();
         }
       }
     }
 
-    // Calculate tax on (subtotal - discount + shipping)
-    const taxableAmount = Math.max(0, subtotal - discountTotal);
-    const taxTotal = Math.round(taxableAmount * TAX_RATE);
+    // Calculate tax via Stripe Tax (automatic, address-based)
+    let taxTotal = 0;
+    let taxCalculationId = "";
+    try {
+      const taxLineItems = [
+        {
+          amount: Math.max(0, taxableGoods),
+          reference: "goods",
+          tax_code: "txcd_99999999", // General tangible goods
+          tax_behavior: "exclusive",
+        },
+        ...(taxableShipping > 0
+          ? [{
+              amount: taxableShipping,
+              reference: "shipping",
+              tax_code: "txcd_92010001", // Shipping
+              tax_behavior: "exclusive",
+            }]
+          : []),
+      ];
+
+      const taxCalculation = await stripe.tax.calculations.create({
+        currency: "usd",
+        customer_details: {
+          address: {
+            line1: shippingAddress.address1,
+            line2: shippingAddress.address2 || "",
+            city: shippingAddress.city,
+            state: shippingAddress.stateCode,
+            postal_code: shippingAddress.zip,
+            country: shippingAddress.countryCode || "US",
+          },
+          address_source: "shipping",
+        },
+        line_items: taxLineItems,
+      });
+
+      taxTotal = taxCalculation.tax_amount_exclusive;
+      taxCalculationId = taxCalculation.id;
+    } catch (taxErr) {
+      console.error("Stripe Tax calculation failed, proceeding with 0% tax:", taxErr);
+      taxTotal = 0;
+      taxCalculationId = "";
+    }
 
     // Calculate total
     const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal);
@@ -127,6 +174,8 @@ export async function POST(request: NextRequest) {
         email,
         discountCode: validatedDiscountCode || "",
         shippingRateId,
+        taxCalculationId,
+        taxTotal: String(taxTotal),
       },
       receipt_email: email,
     });

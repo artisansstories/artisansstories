@@ -10,8 +10,6 @@ const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const TAX_RATE = 0.0825;
-
 interface CartItem {
   productId: string;
   variantId: string;
@@ -153,8 +151,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const taxableAmount = Math.max(0, subtotal - discountTotal);
-    const taxTotal = Math.round(taxableAmount * TAX_RATE);
+    // Get taxTotal from PaymentIntent metadata (set by Stripe Tax during create-payment-intent)
+    const taxTotal = parseInt(paymentIntent.metadata?.taxTotal || "0", 10);
+    const taxCalculationId: string = paymentIntent.metadata?.taxCalculationId || "";
+
     const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal);
 
     // Create Order and OrderItems in a transaction
@@ -212,6 +212,24 @@ export async function POST(request: NextRequest) {
 
       return newOrder;
     });
+
+    // Confirm tax calculation with Stripe Tax (records it in tax reports)
+    if (taxCalculationId) {
+      try {
+        const taxTransaction = await stripe.tax.transactions.createFromCalculation({
+          calculation: taxCalculationId,
+          reference: orderNumber,
+          metadata: { orderId: order.id },
+        });
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { stripeTaxTransactionId: taxTransaction.id },
+        });
+      } catch (taxErr) {
+        // Non-fatal: log and continue. Tax transaction can be reconciled manually.
+        console.error("Failed to confirm Stripe Tax transaction (order created successfully):", taxErr);
+      }
+    }
 
     // Decrement inventory for each variant
     for (const item of items) {

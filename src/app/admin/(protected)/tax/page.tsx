@@ -47,140 +47,6 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
-// ─── Multi-Select for US States ───────────────────────────────────────────────
-
-function StatesSelect({
-  selected,
-  onChange,
-}: {
-  selected: string[];
-  onChange: (v: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filtered = US_STATES.filter(
-    (s) =>
-      !selected.includes(s.code) &&
-      (s.name.toLowerCase().includes(search.toLowerCase()) || s.code.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  function toggle(code: string) {
-    if (selected.includes(code)) {
-      onChange(selected.filter((c) => c !== code));
-    } else {
-      onChange([...selected, code]);
-    }
-  }
-
-  return (
-    <div style={{ position: "relative" }}>
-      <div
-        style={{
-          border: "1px solid #e0d5c5",
-          borderRadius: 8,
-          padding: "6px 8px",
-          background: "#fff",
-          cursor: "text",
-          minHeight: 42,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 4,
-          alignItems: "center",
-        }}
-        onClick={() => setOpen(true)}
-      >
-        {selected.map((code) => {
-          const state = US_STATES.find((s) => s.code === code);
-          return (
-            <span
-              key={code}
-              style={{
-                background: "#f5ede0",
-                color: "#8B6914",
-                border: "1px solid #e8d5b0",
-                borderRadius: 5,
-                padding: "2px 8px",
-                fontSize: 12,
-                fontWeight: 500,
-                display: "flex",
-                alignItems: "center",
-                gap: 4,
-              }}
-            >
-              {state?.code ?? code} — {state?.name ?? code}
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); toggle(code); }}
-                style={{ border: "none", background: "none", cursor: "pointer", color: "#8B6914", padding: 0, lineHeight: 1, fontSize: 15 }}
-              >
-                ×
-              </button>
-            </span>
-          );
-        })}
-        <input
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          placeholder={selected.length === 0 ? "Search states…" : ""}
-          style={{ border: "none", outline: "none", fontSize: 13, flex: "1 1 100px", minWidth: 80, background: "transparent", fontFamily: "'Inter',sans-serif" }}
-        />
-      </div>
-      {open && (
-        <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => { setOpen(false); setSearch(""); }} />
-          <div style={{
-            position: "absolute",
-            top: "100%",
-            left: 0,
-            right: 0,
-            zIndex: 20,
-            background: "#fff",
-            border: "1px solid #e0d5c5",
-            borderRadius: 8,
-            marginTop: 4,
-            maxHeight: 220,
-            overflowY: "auto",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-          }}>
-            {filtered.length === 0 ? (
-              <p style={{ padding: "10px 14px", fontSize: 13, color: "#9a876e" }}>No states match</p>
-            ) : (
-              filtered.map((s) => (
-                <button
-                  key={s.code}
-                  type="button"
-                  onClick={() => { toggle(s.code); setSearch(""); }}
-                  style={{
-                    display: "flex",
-                    width: "100%",
-                    padding: "8px 14px",
-                    border: "none",
-                    background: "transparent",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    fontSize: 13,
-                    color: "#3a2e24",
-                    fontFamily: "'Inter',sans-serif",
-                    alignItems: "center",
-                    gap: 10,
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#faf3e8"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                >
-                  <span style={{ fontSize: 11, color: "#9a876e", fontWeight: 700, width: 26 }}>{s.code}</span>
-                  {s.name}
-                </button>
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 // ─── Field wrapper ────────────────────────────────────────────────────────────
 
 function Field({
@@ -205,7 +71,7 @@ function Field({
 
 export default function TaxPage() {
   const [settings, setSettings] = useState<TaxSettings>({
-    stripeTaxEnabled: false,
+    stripeTaxEnabled: true,
     defaultTaxRate: 8.25,
     nexusStates: ["CA"],
   });
@@ -255,7 +121,7 @@ export default function TaxPage() {
           Tax Settings
         </h1>
         <p style={{ fontSize: 14, color: "#9a876e", marginTop: 4 }}>
-          Configure tax calculation and nexus obligations
+          Stripe Tax calculates tax automatically based on each customer&apos;s shipping address
         </p>
       </div>
 
@@ -267,119 +133,159 @@ export default function TaxPage() {
           <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
         </div>
       ) : (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e0d5c5", overflow: "hidden", maxWidth: 680 }}>
-          {/* Card header */}
-          <div style={{ padding: "16px 24px", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", gap: 10 }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" />
-            </svg>
-            <h2 style={{ fontSize: 15, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>
-              Tax Configuration
-            </h2>
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 680 }}>
 
-          <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 24 }}>
-            {/* Stripe Tax toggle */}
-            <Field
-              label="Stripe Tax"
-              hint="When enabled, Stripe Tax will automatically calculate the correct tax amount based on the customer's location and your nexus. Requires Stripe Tax to be activated in your Stripe dashboard."
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#faf7f2", borderRadius: 8, border: "1px solid #ede8df" }}>
-                <Toggle
-                  value={settings.stripeTaxEnabled}
-                  onChange={(v) => setSettings((s) => ({ ...s, stripeTaxEnabled: v }))}
-                />
+          {/* Business Location card */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e0d5c5", overflow: "hidden" }}>
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/>
+              </svg>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>
+                Business Location
+              </h2>
+            </div>
+            <div style={{ padding: 24 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 16px", background: "#faf7f2", borderRadius: 8, border: "1px solid #ede8df" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: "#f5ede0", border: "1px solid #e8d5b0", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                </div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", margin: 0 }}>
-                    {settings.stripeTaxEnabled ? "Stripe Tax is enabled" : "Stripe Tax is disabled"}
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#3a2e24", margin: "0 0 3px", fontFamily: "'Inter',sans-serif" }}>
+                    Livermore, California (Alameda County)
                   </p>
-                  <p style={{ fontSize: 12, color: "#9a876e", margin: "2px 0 0" }}>
-                    Automatic tax calculation via Stripe
+                  <p style={{ fontSize: 12, color: "#9a876e", margin: 0, lineHeight: 1.5 }}>
+                    Combined rate: 10.25% — registered in Stripe Tax as your origin address.
+                    California customers are charged the correct local rate; out-of-state customers are charged $0 tax.
                   </p>
                 </div>
               </div>
-            </Field>
-
-            {/* Divider */}
-            <div style={{ borderTop: "1px solid #ede8df" }} />
-
-            {/* Default tax rate */}
-            <Field
-              label="Default Tax Rate (%)"
-              hint="Used as a fallback when Stripe Tax is disabled. Applied to all taxable items."
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={settings.defaultTaxRate}
-                  onChange={(e) => setSettings((s) => ({ ...s, defaultTaxRate: parseFloat(e.target.value) || 0 }))}
-                  style={{
-                    width: 120,
-                    padding: "9px 12px",
-                    border: "1px solid #e0d5c5",
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontFamily: "'Inter',sans-serif",
-                    outline: "none",
-                    color: "#3a2e24",
-                  }}
-                />
-                <span style={{ fontSize: 14, color: "#9a876e" }}>%</span>
-                {settings.defaultTaxRate > 0 && !settings.stripeTaxEnabled && (
-                  <span style={{ fontSize: 12, color: "#8B6914", background: "#fdf5e4", border: "1px solid #e8d5b0", borderRadius: 5, padding: "3px 8px" }}>
-                    Applied as fallback rate
-                  </span>
-                )}
-              </div>
-            </Field>
-
-            {/* Divider */}
-            <div style={{ borderTop: "1px solid #ede8df" }} />
-
-            {/* Nexus States */}
-            <Field
-              label="Nexus States"
-              hint="Nexus states are where your business has a physical presence and a sales tax collection obligation. Tax will be collected for orders shipping to these states."
-            >
-              <StatesSelect
-                selected={settings.nexusStates}
-                onChange={(v) => setSettings((s) => ({ ...s, nexusStates: v }))}
-              />
-              {settings.nexusStates.length > 0 && (
-                <p style={{ fontSize: 12, color: "#7a5c3a", marginTop: 4 }}>
-                  {settings.nexusStates.length} state{settings.nexusStates.length !== 1 ? "s" : ""} with nexus:{" "}
-                  {settings.nexusStates
-                    .map((c) => US_STATES.find((s) => s.code === c)?.name ?? c)
-                    .join(", ")}
-                </p>
-              )}
-            </Field>
-
-            {/* Info banner */}
-            <div style={{
-              display: "flex",
-              gap: 10,
-              padding: "12px 14px",
-              background: "#fffbf0",
-              border: "1px solid #e8d5b0",
-              borderRadius: 8,
-              borderLeft: "3px solid #C9A84C",
-            }}>
-              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
-                <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
-              </svg>
-              <p style={{ fontSize: 12, color: "#7a5c3a", margin: 0, lineHeight: 1.6 }}>
-                Tax obligations vary by jurisdiction. Consult a tax professional to determine your full nexus obligations.
-                This configuration does not constitute tax advice.
-              </p>
             </div>
           </div>
 
-          {/* Footer */}
-          <div style={{ padding: "14px 24px", borderTop: "1px solid #ede8df", display: "flex", justifyContent: "flex-end" }}>
+          {/* Stripe Tax toggle */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e0d5c5", overflow: "hidden" }}>
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" />
+              </svg>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>
+                Automatic Tax Calculation
+              </h2>
+            </div>
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+              <Field
+                label="Stripe Tax"
+                hint="Stripe Tax calculates the correct tax for every order based on the customer's shipping address and your nexus configuration. No manual rate entry needed."
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "#faf7f2", borderRadius: 8, border: "1px solid #ede8df" }}>
+                  <Toggle
+                    value={settings.stripeTaxEnabled}
+                    onChange={(v) => setSettings((s) => ({ ...s, stripeTaxEnabled: v }))}
+                  />
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", margin: 0 }}>
+                      {settings.stripeTaxEnabled ? "Stripe Tax is enabled" : "Stripe Tax is disabled"}
+                    </p>
+                    <p style={{ fontSize: 12, color: "#9a876e", margin: "2px 0 0" }}>
+                      {settings.stripeTaxEnabled
+                        ? "Tax is calculated automatically per order — no hardcoded rates"
+                        : "Enable to activate automatic tax calculation"}
+                    </p>
+                  </div>
+                </div>
+              </Field>
+            </div>
+          </div>
+
+          {/* Nexus States */}
+          <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e0d5c5", overflow: "hidden" }}>
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", gap: 10 }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+              </svg>
+              <h2 style={{ fontSize: 15, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>
+                Nexus States
+              </h2>
+            </div>
+            <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* CA chip — always shown, read-only */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{
+                  background: "#f0f9f0",
+                  color: "#2d6a2d",
+                  border: "1px solid #b8dbb8",
+                  borderRadius: 6,
+                  padding: "5px 12px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  fontFamily: "'Inter',sans-serif",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}>
+                  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  CA — California
+                </span>
+                <span style={{ fontSize: 12, color: "#9a876e" }}>Active nexus — matches your Stripe Tax configuration</span>
+              </div>
+
+              {/* Show additional saved nexus states (beyond CA) if any */}
+              {settings.nexusStates.filter((c) => c !== "CA").length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {settings.nexusStates.filter((c) => c !== "CA").map((code) => {
+                    const state = US_STATES.find((s) => s.code === code);
+                    return (
+                      <span
+                        key={code}
+                        style={{
+                          background: "#f5ede0",
+                          color: "#8B6914",
+                          border: "1px solid #e8d5b0",
+                          borderRadius: 5,
+                          padding: "3px 10px",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          fontFamily: "'Inter',sans-serif",
+                        }}
+                      >
+                        {state?.code ?? code} — {state?.name ?? code}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Info */}
+              <div style={{
+                display: "flex",
+                gap: 10,
+                padding: "12px 14px",
+                background: "#fffbf0",
+                border: "1px solid #e8d5b0",
+                borderRadius: 8,
+                borderLeft: "3px solid #C9A84C",
+              }}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#8B6914" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 1 }}>
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                </svg>
+                <p style={{ fontSize: 12, color: "#7a5c3a", margin: 0, lineHeight: 1.6 }}>
+                  Tax rates are determined by Stripe Tax based on the customer&apos;s shipping address.
+                  California orders are taxed at the correct local rate (Livermore/Alameda County: 10.25%).
+                  Out-of-state orders are charged $0 until you reach economic nexus thresholds in those states.
+                  To add nexus states as your business grows, add them at{" "}
+                  <strong>dashboard.stripe.com/tax/registrations</strong>.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Save button */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button
               type="button"
               onClick={handleSave}
