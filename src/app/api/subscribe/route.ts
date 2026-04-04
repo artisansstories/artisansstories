@@ -14,9 +14,7 @@ const welcomeEmailHtml = `<!DOCTYPE html>
 
       <!-- Brand name as text -->
       <div style="text-align:center;margin-bottom:28px;">
-        <span style="font-size:11px;font-family:system-ui,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">Artisans</span>
-        <span style="font-size:22px;font-family:Georgia,serif;font-style:italic;color:#5a3e2b;margin:0 6px;">of</span>
-        <span style="font-size:11px;font-family:system-ui,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">Stories</span>
+        <span style="font-size:11px;font-family:system-ui,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">Artisans&rsquo; Stories</span>
       </div>
 
       <!-- Divider -->
