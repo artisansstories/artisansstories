@@ -44,7 +44,6 @@ model AdminUser {
   id        String    @id @default(cuid())
   email     String    @unique
   name      String
-  password  String
   role      AdminRole @default(EDITOR)
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
@@ -55,6 +54,26 @@ enum AdminRole {
   SUPER_ADMIN
   ADMIN
   EDITOR
+}
+
+// ─── MAGIC LINK TOKENS ───────────────────────────────────────────────────────
+
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  email     String
+  type      TokenType @default(CUSTOMER)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@index([token])
+}
+
+enum TokenType {
+  ADMIN
+  CUSTOMER
 }
 
 // ─── CATEGORIES ─────────────────────────────────────────────────────────────

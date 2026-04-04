@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Verify order belongs to this customer
     const order = await prisma.order.findFirst({
-      where: { id: orderId, customerId: session.customerId },
+      where: { id: orderId, customerId: session.id },
       include: { items: true },
     });
 

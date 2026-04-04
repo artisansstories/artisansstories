@@ -17,7 +17,7 @@ export default async function AccountPage() {
   }
 
   const customer = await prisma.customer.findUnique({
-    where: { id: session.customerId },
+    where: { id: session.id },
     select: {
       id: true,
       email: true,

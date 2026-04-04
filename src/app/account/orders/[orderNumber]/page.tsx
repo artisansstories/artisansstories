@@ -48,7 +48,7 @@ export default async function OrderDetailPage({
   const order = await prisma.order.findFirst({
     where: {
       orderNumber,
-      customerId: session.customerId,
+      customerId: session.id,
     },
     include: {
       items: {

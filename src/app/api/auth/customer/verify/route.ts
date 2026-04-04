@@ -1,45 +1,50 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { verifyMagicToken, createSessionToken } from '@/lib/customer-auth';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { createCustomerSession } from "@/lib/customer-auth";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
   if (!token) {
-    return NextResponse.redirect(new URL('/account/login?error=invalid', request.url));
+    return NextResponse.redirect(new URL("/account/login?error=invalid", request.url));
   }
 
-  const payload = await verifyMagicToken(token);
-  if (!payload) {
-    return NextResponse.redirect(new URL('/account/login?error=invalid', request.url));
+  const record = await prisma.magicLinkToken.findUnique({ where: { token } });
+
+  if (!record || record.type !== "CUSTOMER") {
+    return NextResponse.redirect(new URL("/account/login?error=invalid", request.url));
   }
 
-  const { email } = payload;
+  if (record.expiresAt < new Date()) {
+    return NextResponse.redirect(new URL("/account/login?error=expired", request.url));
+  }
+
+  if (record.usedAt !== null) {
+    return NextResponse.redirect(new URL("/account/login?error=used", request.url));
+  }
 
   // Find or create customer
-  let customer = await prisma.customer.findUnique({ where: { email } });
+  let customer = await prisma.customer.findUnique({ where: { email: record.email } });
   if (!customer) {
     customer = await prisma.customer.create({
-      data: {
-        email,
-        createdAt: new Date(),
-      },
+      data: { email: record.email },
     });
   }
 
-  const sessionToken = await createSessionToken(customer.id, customer.email);
-
-  const thirtyDays = 60 * 60 * 24 * 30;
-
-  const response = NextResponse.redirect(new URL('/account', request.url));
-  response.cookies.set('customer_session', sessionToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: thirtyDays,
-    path: '/',
+  // Mark token as used
+  await prisma.magicLinkToken.update({
+    where: { token },
+    data: { usedAt: new Date() },
   });
 
-  return response;
+  // Create session
+  await createCustomerSession({
+    id: customer.id,
+    email: customer.email,
+    firstName: customer.firstName,
+    lastName: customer.lastName,
+  });
+
+  return NextResponse.redirect(new URL("/account", request.url));
 }

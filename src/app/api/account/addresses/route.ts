@@ -11,7 +11,7 @@ export async function GET() {
 
   try {
     const addresses = await prisma.address.findMany({
-      where: { customerId: session.customerId },
+      where: { customerId: session.id },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
     return NextResponse.json({ addresses });
@@ -53,14 +53,14 @@ export async function POST(request: NextRequest) {
     // If setting as default, unset all others
     if (isDefault) {
       await prisma.address.updateMany({
-        where: { customerId: session.customerId },
+        where: { customerId: session.id },
         data: { isDefault: false },
       });
     }
 
     const address = await prisma.address.create({
       data: {
-        customerId: session.customerId,
+        customerId: session.id,
         type: (type as AddressType) ?? AddressType.SHIPPING,
         firstName,
         lastName,

@@ -16,7 +16,7 @@ export async function PUT(
   try {
     // Verify the address belongs to this customer
     const existing = await prisma.address.findFirst({
-      where: { id, customerId: session.customerId },
+      where: { id, customerId: session.id },
     });
 
     if (!existing) {
@@ -43,7 +43,7 @@ export async function PUT(
     // If setting as default, unset all others for this customer
     if (isDefault) {
       await prisma.address.updateMany({
-        where: { customerId: session.customerId, id: { not: id } },
+        where: { customerId: session.id, id: { not: id } },
         data: { isDefault: false },
       });
     }
@@ -88,7 +88,7 @@ export async function DELETE(
   try {
     // Verify the address belongs to this customer
     const existing = await prisma.address.findFirst({
-      where: { id, customerId: session.customerId },
+      where: { id, customerId: session.id },
     });
 
     if (!existing) {

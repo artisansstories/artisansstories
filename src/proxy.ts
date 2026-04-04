@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
+
+const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET!);
 
 // Simple in-process cache for storeEnabled to avoid DB hit on every request
 let storeEnabledCache: { value: boolean; expiresAt: number } | null = null;
@@ -24,7 +27,6 @@ async function getStoreEnabled(): Promise<boolean> {
     storeEnabledCache = { value, expiresAt: now + CACHE_TTL_MS };
     return value;
   } catch {
-    // On error, default to false (store closed)
     return false;
   }
 }
@@ -32,9 +34,43 @@ async function getStoreEnabled(): Promise<boolean> {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow admin routes, API routes, static files, and public pages
+  // Public admin paths that don't need auth
+  const isAdminPublic =
+    pathname === "/admin/login" ||
+    pathname === "/admin/login/" ||
+    pathname.startsWith("/api/auth/admin/magic-link") ||
+    pathname.startsWith("/api/auth/admin/verify");
+
+  // Protect /admin/* UI routes
+  if (pathname.startsWith("/admin") && !isAdminPublic) {
+    const token = request.cookies.get("as-admin-session")?.value;
+    if (!token) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    try {
+      await jwtVerify(token, SECRET);
+    } catch {
+      const res = NextResponse.redirect(new URL("/admin/login", request.url));
+      res.cookies.delete("as-admin-session");
+      return res;
+    }
+  }
+
+  // Protect /api/admin/* routes
+  if (pathname.startsWith("/api/admin")) {
+    const token = request.cookies.get("as-admin-session")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      await jwtVerify(token, SECRET);
+    } catch {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
+  // Always allow API routes, static files, account routes, and public pages
   if (
-    pathname.startsWith("/admin") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/account") ||
@@ -63,9 +99,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except static assets
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

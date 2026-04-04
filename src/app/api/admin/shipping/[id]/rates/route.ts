@@ -1,28 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { RateCondition } from "@prisma/client";
-
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+    
+    
     const { id: zoneId } = await params;
     const body = await request.json();
     const { name, condition, minValue, maxValue, price, isActive } = body;
-
     if (!name?.trim()) {
       return NextResponse.json({ error: "Rate name is required" }, { status: 400 });
     }
-
     // Verify zone exists
     const zone = await prisma.shippingZone.findUnique({ where: { id: zoneId } });
     if (!zone) return NextResponse.json({ error: "Zone not found" }, { status: 404 });
-
     const rate = await prisma.shippingRate.create({
       data: {
         zoneId,
@@ -34,7 +28,6 @@ export async function POST(
         isActive: isActive ?? true,
       },
     });
-
     return NextResponse.json({ rate }, { status: 201 });
   } catch (err) {
     console.error("POST /api/admin/shipping/[id]/rates error:", err);

@@ -10,7 +10,7 @@ export async function GET() {
 
   try {
     const customer = await prisma.customer.findUnique({
-      where: { id: session.customerId },
+      where: { id: session.id },
       select: {
         id: true,
         email: true,
@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest) {
     const { firstName, lastName, phone, acceptsMarketing } = body;
 
     const customer = await prisma.customer.update({
-      where: { id: session.customerId },
+      where: { id: session.id },
       data: {
         ...(firstName !== undefined && { firstName }),
         ...(lastName !== undefined && { lastName }),

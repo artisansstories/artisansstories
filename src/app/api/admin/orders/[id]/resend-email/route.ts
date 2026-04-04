@@ -1,28 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
-
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+    
+    
     const { id } = await params;
-
     const order = await prisma.order.findUnique({
       where: { id },
       include: { items: true },
     });
-
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-
     const shippingAddress = order.shippingAddress as {
       firstName: string;
       lastName: string;
@@ -33,7 +26,6 @@ export async function POST(
       zip: string;
       country: string;
     };
-
     const emailItems = order.items.map((item) => {
       const snapshot = item.productSnapshot as Record<string, unknown>;
       return {
@@ -45,7 +37,6 @@ export async function POST(
         image: (snapshot?.image as string) ?? undefined,
       };
     });
-
     await resend.emails.send({
       from: process.env.RESEND_FROM ?? "hello@artisansstories.com",
       to: order.email,
@@ -62,7 +53,6 @@ export async function POST(
         shippingAddress,
       }),
     });
-
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/admin/orders/[id]/resend-email error:", err);

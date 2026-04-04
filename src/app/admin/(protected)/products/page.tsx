@@ -70,7 +70,7 @@ function SkeletonRow() {
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-export default function ProductsPage() {
+function ProductsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -572,5 +572,14 @@ export default function ProductsPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+import { Suspense } from "react";
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div style={{ display: "flex", justifyContent: "center", padding: 64 }}><div style={{ width: 32, height: 32, border: "3px solid #e8dcc8", borderTopColor: "#8B6914", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} /><style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style></div>}>
+      <ProductsPageInner />
+    </Suspense>
   );
 }

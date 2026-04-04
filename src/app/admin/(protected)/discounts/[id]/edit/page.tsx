@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth";
+import { requireAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import DiscountForm from "../../DiscountForm";
@@ -8,8 +8,7 @@ interface PageProps {
 }
 
 export default async function EditDiscountPage({ params }: PageProps) {
-  const session = await auth();
-  if (!session) redirect("/admin/login");
+  const session = await requireAdminSession();
 
   const { id } = await params;
 

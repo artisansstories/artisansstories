@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+    
+    
     const searchParams = request.nextUrl.searchParams;
     const now = new Date();
     const defaultEnd = new Date(now);
@@ -14,19 +11,16 @@ export async function GET(request: NextRequest) {
     const defaultStart = new Date(now);
     defaultStart.setDate(defaultStart.getDate() - 29);
     defaultStart.setHours(0, 0, 0, 0);
-
     const startDate = searchParams.get("startDate")
       ? new Date(searchParams.get("startDate")!)
       : defaultStart;
     const endDate = searchParams.get("endDate")
       ? (() => { const d = new Date(searchParams.get("endDate")!); d.setHours(23, 59, 59, 999); return d; })()
       : defaultEnd;
-
     // Calculate previous period of same length
     const periodMs = endDate.getTime() - startDate.getTime();
     const prevEnd = new Date(startDate.getTime() - 1);
     const prevStart = new Date(prevEnd.getTime() - periodMs);
-
     const [orders, prevOrders] = await Promise.all([
       prisma.order.findMany({
         where: {
@@ -43,7 +37,6 @@ export async function GET(request: NextRequest) {
         select: { total: true },
       }),
     ]);
-
     // Group by day
     const byDay: Record<string, { revenue: number; orders: number }> = {};
     for (const order of orders) {
@@ -52,7 +45,6 @@ export async function GET(request: NextRequest) {
       byDay[day].revenue += order.total;
       byDay[day].orders += 1;
     }
-
     // Fill all days in range
     const dailyRevenue: Array<{ date: string; revenue: number; orders: number }> = [];
     const cursor = new Date(startDate);
@@ -66,24 +58,19 @@ export async function GET(request: NextRequest) {
       });
       cursor.setDate(cursor.getDate() + 1);
     }
-
     const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
     const totalOrders = orders.length;
     const avgOrderValue = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
-
     const prevRevenue = prevOrders.reduce((s, o) => s + o.total, 0);
     const prevOrderCount = prevOrders.length;
-
     const revenueChange =
       prevRevenue === 0
         ? totalRevenue > 0 ? 100 : 0
         : Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100);
-
     const ordersChange =
       prevOrderCount === 0
         ? totalOrders > 0 ? 100 : 0
         : Math.round(((totalOrders - prevOrderCount) / prevOrderCount) * 100);
-
     return NextResponse.json({
       dailyRevenue,
       totalRevenue,

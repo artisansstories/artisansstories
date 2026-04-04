@@ -1,25 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { clearCustomerSession } from "@/lib/customer-auth";
 
-export async function GET(request: NextRequest) {
-  const response = NextResponse.redirect(new URL('/account/login', request.url));
-  response.cookies.set('customer_session', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-    path: '/',
-  });
-  return response;
+export async function GET() {
+  await clearCustomerSession();
+  return NextResponse.redirect(
+    new URL("/account/login", process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000")
+  );
 }
 
-export async function POST(request: NextRequest) {
-  const response = NextResponse.redirect(new URL('/account/login', request.url));
-  response.cookies.set('customer_session', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-    path: '/',
-  });
-  return response;
+export async function POST() {
+  await clearCustomerSession();
+  return NextResponse.json({ success: true });
 }

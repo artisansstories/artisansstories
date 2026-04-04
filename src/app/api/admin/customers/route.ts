@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+    
+    
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get("search") ?? "";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
-
     const where: Prisma.CustomerWhereInput = {};
-
     if (search) {
       where.OR = [
         { email: { contains: search, mode: "insensitive" } },
@@ -22,7 +17,6 @@ export async function GET(request: NextRequest) {
         { lastName: { contains: search, mode: "insensitive" } },
       ];
     }
-
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
@@ -42,7 +36,6 @@ export async function GET(request: NextRequest) {
       }),
       prisma.customer.count({ where }),
     ]);
-
     return NextResponse.json({
       customers,
       total,

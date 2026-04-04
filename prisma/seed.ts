@@ -28,8 +28,6 @@ loadEnvFile(path.join(root, ".env.local"));
 
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
-
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
 });
@@ -62,14 +60,12 @@ async function main() {
   console.log("✓ Store settings seeded");
 
   // ─── Admin User ───────────────────────────────────────────────────────────
-  const passwordHash = await bcrypt.hash("artisans2026!", 12);
   await prisma.adminUser.upsert({
     where: { email: "anna@artisansstories.com" },
     update: {},
     create: {
       email: "anna@artisansstories.com",
       name: "Anna Kool",
-      password: passwordHash,
       role: "SUPER_ADMIN",
       isActive: true,
     },

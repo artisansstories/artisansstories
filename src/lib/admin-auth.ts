@@ -2,18 +2,18 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET ?? "fallback-secret-change-me");
-const COOKIE_NAME = "as-customer-session";
+const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET!);
+const COOKIE_NAME = "as-admin-session";
 const SESSION_DURATION = 60 * 60 * 24 * 30; // 30 days
 
-export interface CustomerSession {
+export interface AdminSession {
   id: string;
   email: string;
-  firstName: string | null;
-  lastName: string | null;
+  name: string;
+  role: string;
 }
 
-export async function createCustomerSession(user: CustomerSession) {
+export async function createAdminSession(user: AdminSession) {
   const jwt = await new SignJWT({ ...user })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -30,25 +30,25 @@ export async function createCustomerSession(user: CustomerSession) {
   });
 }
 
-export async function getCustomerSession(): Promise<CustomerSession | null> {
+export async function getAdminSession(): Promise<AdminSession | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE_NAME)?.value;
     if (!token) return null;
     const { payload } = await jwtVerify(token, SECRET);
-    return payload as unknown as CustomerSession;
+    return payload as unknown as AdminSession;
   } catch {
     return null;
   }
 }
 
-export async function requireCustomerSession(): Promise<CustomerSession> {
-  const session = await getCustomerSession();
-  if (!session) redirect("/account/login");
+export async function requireAdminSession(): Promise<AdminSession> {
+  const session = await getAdminSession();
+  if (!session) redirect("/admin/login");
   return session;
 }
 
-export async function clearCustomerSession() {
+export async function clearAdminSession() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
 }
