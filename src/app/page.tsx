@@ -167,10 +167,16 @@ export default function Home() {
             }}>Coming Soon</span>
           </div>
 
-          {/* Logo — full width on mobile */}
+          {/* Logo — frosted glass card so it pops off the background */}
           <div className="a2" style={{
-            width:"100%",
             marginBottom:"clamp(28px,5vw,44px)",
+            padding:"clamp(18px,4vw,28px) clamp(24px,6vw,48px)",
+            background:"rgba(255,255,255,0.12)",
+            backdropFilter:"blur(20px)",
+            WebkitBackdropFilter:"blur(20px)",
+            borderRadius:"20px",
+            border:"1px solid rgba(255,255,255,0.18)",
+            boxShadow:"0 8px 40px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.2)",
           }}>
             <Image
               src="/logo-color.png"
@@ -178,10 +184,9 @@ export default function Home() {
               width={560}
               height={187}
               style={{
-                /* Mobile: 92% width. Desktop caps at 520px */
-                width:"min(92vw,520px)",
+                width:"min(88vw,480px)",
                 height:"auto",
-                filter:"drop-shadow(0 3px 20px rgba(0,0,0,0.6))",
+                display:"block",
               }}
               priority
               unoptimized
