@@ -121,10 +121,10 @@ export default function Home() {
             priority
             unoptimized
           />
-          {/* Dark overlay — heavier top/bottom, lighter in middle */}
+          {/* Dark overlay — heavier overall for better text contrast */}
           <div style={{
             position:"absolute", inset:0,
-            background:"linear-gradient(to bottom, rgba(10,6,3,0.82) 0%, rgba(10,6,3,0.52) 25%, rgba(10,6,3,0.48) 70%, rgba(10,6,3,0.85) 100%)",
+            background:"linear-gradient(to bottom, rgba(10,6,3,0.88) 0%, rgba(10,6,3,0.68) 25%, rgba(10,6,3,0.65) 70%, rgba(10,6,3,0.90) 100%)",
           }}/>
           {/* Warm center glow to complement the earthy image */}
           <div style={{
@@ -169,12 +169,15 @@ export default function Home() {
             }}>Coming Soon</span>
           </div>
 
-          {/* Logo */}
+          {/* Logo — frosted white card for contrast against busy background */}
           <div className="a2" style={{
             marginBottom:"clamp(28px,5vw,40px)",
-            width:"100%",
-            display:"flex",
-            justifyContent:"center",
+            padding:"clamp(16px,3vw,24px) clamp(24px,5vw,44px)",
+            background:"rgba(255,255,255,0.88)",
+            backdropFilter:"blur(20px)",
+            WebkitBackdropFilter:"blur(20px)",
+            borderRadius:"18px",
+            boxShadow:"0 4px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.6) inset",
           }}>
             <Image
               src="/logo-color.png"
@@ -182,10 +185,9 @@ export default function Home() {
               width={1748}
               height={470}
               style={{
-                width:"min(88vw,500px)",
+                width:"min(82vw,460px)",
                 height:"auto",
                 display:"block",
-                filter:"drop-shadow(0 2px 16px rgba(0,0,0,0.6))",
               }}
               priority
               unoptimized
