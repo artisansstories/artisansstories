@@ -153,7 +153,7 @@ function LoginForm() {
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <Image
           src="/logo-color.png"
-          alt="Artisans Stories"
+          alt="Artisans' Stories"
           width={280}
           height={75}
           style={{ width: "min(200px, 70%)", height: "auto", display: "inline-block" }}
@@ -177,7 +177,7 @@ function LoginForm() {
         Admin Sign In
       </h1>
       <p style={{ fontSize: 13, color: "#9a876e", textAlign: "center", fontFamily: "'Inter',sans-serif", marginBottom: 28 }}>
-        Artisans Stories management
+        Artisans' Stories management
       </p>
 
       {status === "error" && errorMessage && (

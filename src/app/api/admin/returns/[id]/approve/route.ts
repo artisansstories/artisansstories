@@ -33,7 +33,7 @@ export async function POST(
     await resend.emails.send({
       from: process.env.RESEND_FROM!,
       to: ret.order.email,
-      subject: "Your return has been approved — Artisans Stories",
+      subject: "Your return has been approved — Artisans' Stories",
       html: returnApprovedHtml({
         orderNumber: ret.order.orderNumber,
         email: ret.order.email,

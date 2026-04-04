@@ -7,10 +7,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 function adminMagicLinkEmail(magicLink: string, isInvite: boolean, inviterName?: string, role?: string): string {
   const heading = isInvite
-    ? `You've been invited to manage Artisans Stories`
+    ? `You've been invited to manage Artisans' Stories`
     : `Your admin access link`;
   const intro = isInvite
-    ? `${inviterName ?? "Someone"} has invited you to join the Artisans Stories admin team${role ? ` as ${role}` : ""}.`
+    ? `${inviterName ?? "Someone"} has invited you to join the Artisans' Stories admin team${role ? ` as ${role}` : ""}.`
     : `Click below to sign in to your admin panel. This link expires in 15 minutes and can only be used once.`;
   const buttonText = isInvite ? "Accept Invitation and Sign In" : "Sign In to Admin Panel";
 
@@ -28,7 +28,7 @@ function adminMagicLinkEmail(magicLink: string, isInvite: boolean, inviterName?:
         <tr>
           <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:32px 40px;text-align:center;">
             <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:2px;text-transform:uppercase;">
-              ARTISANS STORIES
+              ARTISANS' STORIES
             </h1>
             <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.8);letter-spacing:1px;">Admin Panel</p>
           </td>
@@ -55,7 +55,7 @@ function adminMagicLinkEmail(magicLink: string, isInvite: boolean, inviterName?:
         </tr>
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans Stories. All rights reserved.</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
           </td>
         </tr>
       </table>
@@ -133,11 +133,11 @@ export async function POST(request: NextRequest) {
     const fromEmail = process.env.RESEND_FROM ?? "hello@artisansstories.com";
 
     const subject = isInvite
-      ? "You have been invited to manage Artisans Stories"
-      : "Your Artisans Stories admin access link";
+      ? "You have been invited to manage Artisans' Stories"
+      : "Your Artisans' Stories admin access link";
 
     await resend.emails.send({
-      from: `Artisans Stories <${fromEmail}>`,
+      from: `Artisans' Stories <${fromEmail}>`,
       to: [normalizedEmail],
       subject,
       html: adminMagicLinkEmail(magicLink, isInvite, inviterName, role),

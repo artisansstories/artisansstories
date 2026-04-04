@@ -4,8 +4,8 @@ import { CartDrawerProvider } from "@/components/CartDrawerProvider";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata = {
-  title: "Privacy Policy — Artisans Stories",
-  description: "Learn how Artisans Stories collects, uses, and protects your personal information.",
+  title: "Privacy Policy — Artisans' Stories",
+  description: "Learn how Artisans' Stories collects, uses, and protects your personal information.",
 };
 
 export default function PrivacyPage() {

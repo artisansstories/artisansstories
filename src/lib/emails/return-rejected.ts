@@ -37,7 +37,7 @@ export function returnRejectedHtml(data: {
           <tr>
             <td style="background: linear-gradient(135deg, #8B6914 0%, #C9A84C 100%); padding: 32px 40px; text-align: center;">
               <h1 style="margin: 0 0 4px; font-size: 26px; font-weight: 700; color: #ffffff; letter-spacing: 2px; text-transform: uppercase;">
-                Artisans Stories
+                Artisans' Stories
               </h1>
               <p style="margin: 0; font-size: 13px; color: rgba(255,255,255,0.8); letter-spacing: 1px;">
                 Handcrafted with care
@@ -118,7 +118,7 @@ export function returnRejectedHtml(data: {
                 </a>
               </p>
               <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.4);">
-                &copy; ${new Date().getFullYear()} Artisans Stories. All rights reserved.
+                &copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.
               </p>
             </td>
           </tr>

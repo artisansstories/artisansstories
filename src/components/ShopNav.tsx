@@ -85,7 +85,7 @@ export default function ShopNav() {
         gap: 16,
       }}>
         <Link href="/shop" style={{ textDecoration: "none", flexShrink: 0 }}>
-          <Image src="/logo-color.png" alt="Artisans Stories" width={160} height={43} style={{ width: 140, height: "auto" }} priority unoptimized />
+          <Image src="/logo-color.png" alt="Artisans' Stories" width={160} height={43} style={{ width: 140, height: "auto" }} priority unoptimized />
         </Link>
 
         <nav style={{ display: "flex", gap: 4 }} className="shopnav-desktop">

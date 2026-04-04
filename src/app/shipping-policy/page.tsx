@@ -4,7 +4,7 @@ import { CartDrawerProvider } from "@/components/CartDrawerProvider";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata = {
-  title: "Shipping Policy — Artisans Stories",
+  title: "Shipping Policy — Artisans' Stories",
   description: "Learn about our shipping times, rates, and international delivery options.",
 };
 

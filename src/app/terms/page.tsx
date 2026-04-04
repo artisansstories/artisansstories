@@ -4,8 +4,8 @@ import { CartDrawerProvider } from "@/components/CartDrawerProvider";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata = {
-  title: "Terms of Service — Artisans Stories",
-  description: "Read the terms and conditions governing the use of Artisans Stories.",
+  title: "Terms of Service — Artisans' Stories",
+  description: "Read the terms and conditions governing the use of Artisans' Stories.",
 };
 
 export default function TermsPage() {
@@ -52,7 +52,7 @@ export default function TermsPage() {
               <Divider />
 
               <Section title="Intellectual Property">
-                <p>All content on this site — including text, images, logos, and designs — is the property of Artisans Stories or its content suppliers and is protected by copyright laws.</p>
+                <p>All content on this site — including text, images, logos, and designs — is the property of Artisans' Stories or its content suppliers and is protected by copyright laws.</p>
                 <p>You may not reproduce, distribute, or create derivative works from our content without prior written permission.</p>
               </Section>
 
@@ -66,7 +66,7 @@ export default function TermsPage() {
               <Divider />
 
               <Section title="Limitation of Liability">
-                <p>Artisans Stories shall not be liable for any indirect, incidental, or consequential damages arising from the use of our site or products, to the fullest extent permitted by law.</p>
+                <p>Artisans' Stories shall not be liable for any indirect, incidental, or consequential damages arising from the use of our site or products, to the fullest extent permitted by law.</p>
                 <p>Our total liability shall not exceed the amount you paid for the specific item giving rise to the claim.</p>
               </Section>
 

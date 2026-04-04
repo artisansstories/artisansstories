@@ -139,7 +139,7 @@ export default function KBPage() {
           </div>
           <div>
             <h1 style={{ fontSize: 28, fontWeight: 600, color: "#1c1917", fontFamily: "'Cormorant Garamond',serif", margin: 0, letterSpacing: "0.01em" }}>Knowledge Base</h1>
-            <p style={{ fontSize: 14, color: "#78716c", fontFamily: "'Inter',sans-serif", margin: 0, marginTop: 2 }}>Resources for the Artisans Stories team</p>
+            <p style={{ fontSize: 14, color: "#78716c", fontFamily: "'Inter',sans-serif", margin: 0, marginTop: 2 }}>Resources for the Artisans' Stories team</p>
           </div>
         </div>
       </div>

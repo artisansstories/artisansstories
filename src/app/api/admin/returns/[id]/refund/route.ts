@@ -91,7 +91,7 @@ export async function POST(
     await resend.emails.send({
       from: process.env.RESEND_FROM!,
       to: order.email,
-      subject: "Your refund has been issued — Artisans Stories",
+      subject: "Your refund has been issued — Artisans' Stories",
       html: refundIssuedHtml({
         orderNumber: order.orderNumber,
         email: order.email,

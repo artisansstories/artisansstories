@@ -307,7 +307,7 @@ function CheckoutForm({
     const pr = stripe.paymentRequest({
       country: "US",
       currency: "usd",
-      total: { label: "Artisans Stories", amount: total },
+      total: { label: "Artisans' Stories", amount: total },
       requestPayerName: true,
       requestPayerEmail: true,
     });

@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Secure Checkout — Artisans Stories",
+  title: "Secure Checkout — Artisans' Stories",
 };
 
 export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
@@ -73,7 +73,7 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
               letterSpacing: "0.5px",
             }}
           >
-            Artisans Stories
+            Artisans' Stories
           </a>
 
           <div

@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     await resend.emails.send({
-      from: "Artisans Stories <hello@artisansstories.com>",
+      from: "Artisans' Stories <hello@artisansstories.com>",
       to: "hello@artisansstories.com",
       replyTo: email,
       subject: `Contact Form: ${subject || "General Inquiry"} — from ${name}`,

@@ -41,7 +41,7 @@ export async function POST(
     await resend.emails.send({
       from: process.env.RESEND_FROM!,
       to: ret.order.email,
-      subject: "Update on your return request — Artisans Stories",
+      subject: "Update on your return request — Artisans' Stories",
       html: returnRejectedHtml({
         orderNumber: ret.order.orderNumber,
         email: ret.order.email,

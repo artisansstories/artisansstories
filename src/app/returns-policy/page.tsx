@@ -5,7 +5,7 @@ import CartDrawer from "@/components/CartDrawer";
 import { prisma } from "@/lib/prisma";
 
 export const metadata = {
-  title: "Returns Policy — Artisans Stories",
+  title: "Returns Policy — Artisans' Stories",
   description: "Learn about our return policy and how to start a return.",
 };
 

@@ -423,7 +423,7 @@ export default function SettingsPage() {
         <h2 style={SECTION_TITLE}>SEO</h2>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Default Meta Title</label>
-          <input style={INPUT_STYLE} value={settings.metaTitle ?? ""} onChange={(e) => update("metaTitle", e.target.value)} placeholder="Artisans Stories — Handcrafted in El Salvador" />
+          <input style={INPUT_STYLE} value={settings.metaTitle ?? ""} onChange={(e) => update("metaTitle", e.target.value)} placeholder="Artisans' Stories — Handcrafted in El Salvador" />
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Default Meta Description</label>

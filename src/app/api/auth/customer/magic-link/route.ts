@@ -11,7 +11,7 @@ function customerMagicLinkEmail(magicLink: string): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in to Artisans Stories</title>
+  <title>Sign in to Artisans' Stories</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f0e8;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f0e8;padding:32px 16px;">
@@ -19,7 +19,7 @@ function customerMagicLinkEmail(magicLink: string): string {
       <table cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
         <tr>
           <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:32px 40px;text-align:center;">
-            <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:2px;text-transform:uppercase;">ARTISANS STORIES</h1>
+            <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:2px;text-transform:uppercase;">ARTISANS' STORIES</h1>
             <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.8);letter-spacing:1px;">Handcrafted with care</p>
           </td>
         </tr>
@@ -30,7 +30,7 @@ function customerMagicLinkEmail(magicLink: string): string {
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px;">
               <tr>
                 <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);border-radius:10px;">
-                  <a href="${magicLink}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to Artisans Stories</a>
+                  <a href="${magicLink}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to Artisans' Stories</a>
                 </td>
               </tr>
             </table>
@@ -42,7 +42,7 @@ function customerMagicLinkEmail(magicLink: string): string {
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
             <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">Questions? <a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans Stories. All rights reserved.</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
           </td>
         </tr>
       </table>
@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
     const fromEmail = process.env.RESEND_FROM ?? "hello@artisansstories.com";
 
     await resend.emails.send({
-      from: `Artisans Stories <${fromEmail}>`,
+      from: `Artisans' Stories <${fromEmail}>`,
       to: [normalizedEmail],
-      subject: "Your Artisans Stories sign-in link",
+      subject: "Your Artisans' Stories sign-in link",
       html: customerMagicLinkEmail(magicLink),
     });
 

@@ -132,7 +132,7 @@ function LoginForm() {
         <a href="/">
           <Image
             src="/logo-color.png"
-            alt="Artisans Stories"
+            alt="Artisans' Stories"
             width={280}
             height={75}
             style={{ width: "min(200px, 70%)", height: "auto", display: "inline-block" }}

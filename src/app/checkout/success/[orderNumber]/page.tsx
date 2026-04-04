@@ -75,7 +75,7 @@ export default function CheckoutSuccessPage({ params }: PageProps) {
           lineHeight: 1.6,
         }}
       >
-        Thank you for shopping with Artisans Stories.
+        Thank you for shopping with Artisans' Stories.
         <br />
         Your handcrafted items are being prepared with care.
       </p>

@@ -44,14 +44,14 @@ const welcomeEmailHtml = `<!DOCTYPE html>
       <!-- Sign-off -->
       <p style="font-size:13px;color:#a89070;text-align:center;margin:0;font-family:system-ui,sans-serif;letter-spacing:0.04em;">
         With gratitude,<br/>
-        <span style="color:#6b4c30;font-family:Georgia,serif;font-size:16px;font-style:italic;">The Artisans Stories Team</span>
+        <span style="color:#6b4c30;font-family:Georgia,serif;font-size:16px;font-style:italic;">The Artisans' Stories Team</span>
       </p>
 
     </div>
 
     <!-- Footer -->
     <p style="text-align:center;font-size:11px;color:#b8967a;margin:24px 0 0;font-family:system-ui,sans-serif;letter-spacing:0.04em;line-height:1.8;">
-      &copy; 2026 Artisans Stories &nbsp;&middot;&nbsp; Handcrafted with care from El Salvador<br/>
+      &copy; 2026 Artisans' Stories &nbsp;&middot;&nbsp; Handcrafted with care from El Salvador<br/>
       <a href="https://artisansstories.com" style="color:#8b5e3c;text-decoration:none;">artisansstories.com</a>
     </p>
 
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: "Artisans Stories <hello@artisansstories.com>",
+        from: "Artisans' Stories <hello@artisansstories.com>",
         to: [email],
         subject: "You\u2019re on the list \u2728",
         html: welcomeEmailHtml,

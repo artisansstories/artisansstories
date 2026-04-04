@@ -40,7 +40,7 @@ export default function ShopFooter() {
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 24px 32px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 32, marginBottom: 40 }}>
           <div>
-            <Image src="/logo-color.png" alt="Artisans Stories" width={140} height={38}
+            <Image src="/logo-color.png" alt="Artisans' Stories" width={140} height={38}
               style={{ width: 130, height: "auto", filter: "brightness(0) invert(1) sepia(1) saturate(0.5) brightness(1.2)", marginBottom: 12 }}
               unoptimized
             />
@@ -78,7 +78,7 @@ export default function ShopFooter() {
 
         <div style={{ borderTop: "1px solid rgba(201,184,154,0.2)", paddingTop: 20 }}>
           <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#8a7060", margin: 0, textAlign: "center" }}>
-            © 2026 Artisans Stories. Handcrafted in El Salvador.
+            © 2026 Artisans' Stories. Handcrafted in El Salvador.
           </p>
         </div>
       </div>

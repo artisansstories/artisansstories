@@ -128,7 +128,7 @@ export function AdminLayoutClient({
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ padding: "20px 16px 12px", borderBottom: "1px solid #ede8df" }}>
-          <Image src="/logo-color.png" alt="Artisans Stories" width={160} height={43} style={{ width: 140, height: "auto" }} unoptimized />
+          <Image src="/logo-color.png" alt="Artisans' Stories" width={160} height={43} style={{ width: 140, height: "auto" }} unoptimized />
           <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 6 }}>Admin Panel</p>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
@@ -185,7 +185,7 @@ export function AdminLayoutClient({
             <button onClick={() => setSidebarOpen(true)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b5540", padding: 6, display: "flex", alignItems: "center" }} className="admin-hamburger">
               <IconMenu size={22} />
             </button>
-            <span style={{ fontSize: 16, fontWeight: 600, color: "#3a2e24", fontFamily: "'Cormorant Garamond',serif", letterSpacing: "0.02em" }} className="admin-storename">Artisans Stories</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: "#3a2e24", fontFamily: "'Cormorant Garamond',serif", letterSpacing: "0.02em" }} className="admin-storename">Artisans' Stories</span>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
               <div style={{ textAlign: "right", display: "none" }} className="admin-userinfo">
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>{user?.name}</p>

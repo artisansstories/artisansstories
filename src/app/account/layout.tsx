@@ -41,7 +41,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
             <a href="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <Image
                 src="/logo-color.png"
-                alt="Artisans Stories"
+                alt="Artisans' Stories"
                 width={160}
                 height={43}
                 style={{ width: 'clamp(120px, 30vw, 160px)', height: 'auto' }}
@@ -158,7 +158,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
           textAlign: 'center',
         }}>
           <p style={{ fontSize: 12, color: '#b09878', fontFamily: "'Inter', sans-serif" }}>
-            &copy; {new Date().getFullYear()} Artisans Stories &nbsp;&middot;&nbsp;
+            &copy; {new Date().getFullYear()} Artisans' Stories &nbsp;&middot;&nbsp;
             <a href="/" style={{ color: '#8B6914' }}>Shop</a>
             &nbsp;&middot;&nbsp;
             <a href="mailto:hello@artisansstories.com" style={{ color: '#8B6914' }}>Contact</a>

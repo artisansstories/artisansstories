@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       .join('');
 
     await resend.emails.send({
-      from: `Artisans Stories <${fromEmail}>`,
+      from: `Artisans' Stories <${fromEmail}>`,
       to: [notifyEmail],
       subject: `New Return Request — Order ${order.orderNumber}`,
       html: `

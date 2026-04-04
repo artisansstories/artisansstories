@@ -4,8 +4,8 @@ import { CartDrawerProvider } from "@/components/CartDrawerProvider";
 import CartDrawer from "@/components/CartDrawer";
 
 export const metadata = {
-  title: "Our Story — Artisans Stories",
-  description: "Learn about Artisans Stories and our mission to support skilled artisans from El Salvador.",
+  title: "Our Story — Artisans' Stories",
+  description: "Learn about Artisans' Stories and our mission to support skilled artisans from El Salvador.",
 };
 
 const PILLARS = [
@@ -44,7 +44,7 @@ export default function AboutPage() {
                 Our Story
               </h1>
               <p style={{ fontFamily: "'Inter',sans-serif", fontSize: "clamp(15px,2vw,18px)", color: "#c9b99a", lineHeight: 1.7, margin: 0 }}>
-                Artisans Stories was born from a belief that the hands that create should be celebrated and supported.
+                Artisans' Stories was born from a belief that the hands that create should be celebrated and supported.
               </p>
             </div>
           </section>
@@ -58,7 +58,7 @@ export default function AboutPage() {
               El Salvador has a rich tradition of handmade goods — from intricate textiles and ceramics to hand-carved wood and woven baskets. For generations, artisan families have perfected their crafts, pouring care and pride into every piece they create.
             </p>
             <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 16, color: "#5a4a38", lineHeight: 1.8, marginBottom: 20 }}>
-              We founded Artisans Stories because we believe these traditions deserve a global audience. Modern retail has made it harder for independent artisans to reach customers directly — so we built a bridge.
+              We founded Artisans' Stories because we believe these traditions deserve a global audience. Modern retail has made it harder for independent artisans to reach customers directly — so we built a bridge.
             </p>
             <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 16, color: "#5a4a38", lineHeight: 1.8 }}>
               When you shop with us, you&apos;re not just buying a beautiful object. You&apos;re investing in a family, a community, and a living tradition.
