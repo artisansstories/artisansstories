@@ -10,48 +10,49 @@ const welcomeEmailHtml = `<!DOCTYPE html>
     <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);margin-bottom:40px;border-radius:2px;"></div>
 
     <!-- Card -->
-    <div style="background:linear-gradient(160deg,#fdf8f3 0%,#faf4ec 100%);border-radius:16px;padding:48px 40px;border:1px solid rgba(139,94,60,0.15);box-shadow:0 8px 40px rgba(139,94,60,0.08);">
+    <div style="background:linear-gradient(160deg,#fdf8f3 0%,#faf4ec 100%);border-radius:16px;padding:48px 40px;border:1px solid rgba(139,94,60,0.15);">
 
-      <!-- Logo -->
-      <div style="text-align:center;margin-bottom:36px;">
-        <img
-          src="https://artisansstories.com/logo-web.webp"
-          alt="Artisans of Stories"
-          width="320"
-          style="width:min(320px,80%);height:auto;filter:invert(1) sepia(0.3) saturate(0.8) brightness(0.4);"
-        />
+      <!-- Brand name as text -->
+      <div style="text-align:center;margin-bottom:28px;">
+        <span style="font-size:11px;font-family:system-ui,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">Artisans</span>
+        <span style="font-size:22px;font-family:Georgia,serif;font-style:italic;color:#5a3e2b;margin:0 6px;">of</span>
+        <span style="font-size:11px;font-family:system-ui,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">Stories</span>
       </div>
 
       <!-- Divider -->
       <div style="width:60px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto 36px;"></div>
 
       <!-- Greeting -->
-      <p style="font-size:20px;color:#4a3728;line-height:1.6;margin:0 0 20px;font-style:italic;text-align:center;">
+      <p style="font-size:20px;color:#4a3728;line-height:1.6;margin:0 0 24px;font-style:italic;text-align:center;">
         You&rsquo;re on the list.
       </p>
 
       <!-- Body copy -->
       <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 16px;">
-        Thank you for joining us on this journey. We&rsquo;re putting the finishing touches on something truly special &mdash; handcrafted goods from El Salvador&rsquo;s most talented artisans.
+        Thank you for being among the first to join us on this journey. What we&rsquo;re building is something we&rsquo;ve put our hearts into &mdash; a home for handcrafted goods made by El Salvador&rsquo;s most talented artisans.
       </p>
 
-      <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 32px;">
-        Every product has a story, and we are so excited to share those products and stories with you&hellip; You&rsquo;ll be among the first to know when we launch.
+      <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 16px;">
+        Every product tells a story &mdash; of the hands that made it, the community it came from, and the tradition it carries forward. We can&rsquo;t wait to share those stories with you.
+      </p>
+
+      <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 36px;">
+        You&rsquo;ll be the first to know when we launch.
       </p>
 
       <!-- Divider -->
       <div style="width:40px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto 32px;"></div>
 
       <!-- Sign-off -->
-      <p style="font-size:13px;color:#a89070;text-align:center;margin:0;font-family:system-ui,sans-serif;letter-spacing:0.05em;">
+      <p style="font-size:13px;color:#a89070;text-align:center;margin:0;font-family:system-ui,sans-serif;letter-spacing:0.04em;">
         With gratitude,<br/>
-        <strong style="color:#8b5e3c;font-family:Georgia,serif;font-size:15px;">The Artisans Stories Team</strong>
+        <span style="color:#6b4c30;font-family:Georgia,serif;font-size:16px;font-style:italic;">The Artisans Stories Team</span>
       </p>
 
     </div>
 
     <!-- Footer -->
-    <p style="text-align:center;font-size:11px;color:#b8967a;margin:24px 0 0;font-family:system-ui,sans-serif;letter-spacing:0.05em;">
+    <p style="text-align:center;font-size:11px;color:#b8967a;margin:24px 0 0;font-family:system-ui,sans-serif;letter-spacing:0.04em;line-height:1.8;">
       &copy; 2026 Artisans Stories &nbsp;&middot;&nbsp; Handcrafted with care from El Salvador<br/>
       <a href="https://artisansstories.com" style="color:#8b5e3c;text-decoration:none;">artisansstories.com</a>
     </p>
