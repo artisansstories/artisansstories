@@ -95,7 +95,6 @@ export default function Home() {
       `}</style>
 
       <main style={{
-        minHeight:"100vh",
         minHeight:"100dvh",
         position:"relative",
         display:"flex",
