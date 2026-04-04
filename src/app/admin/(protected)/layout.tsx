@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { href: "/admin/returns", label: "Returns", icon: IconReturn, mobileShow: false },
   { href: "/admin/discounts", label: "Discounts", icon: IconPercent, mobileShow: false },
   { href: "/admin/shipping", label: "Shipping", icon: IconTruck, mobileShow: false },
+  { href: "/admin/tax", label: "Tax", icon: IconPercent, mobileShow: false },
   { href: "/admin/reports", label: "Reports", icon: IconChart, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
 ];
