@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 
 // Simple in-process cache for storeEnabled to avoid DB hit on every request
 let storeEnabledCache: { value: boolean; expiresAt: number } | null = null;
-const CACHE_TTL_MS = 30_000; // 30 seconds
+const CACHE_TTL_MS = 60_000; // 60 seconds
 
 async function getStoreEnabled(): Promise<boolean> {
   const now = Date.now();
@@ -32,13 +32,20 @@ async function getStoreEnabled(): Promise<boolean> {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Always allow admin routes, API routes, and static files
+  // Always allow admin routes, API routes, static files, and public pages
   if (
     pathname.startsWith("/admin") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/_next") ||
+    pathname.startsWith("/account") ||
     pathname.startsWith("/favicon") ||
-    pathname === "/"
+    pathname === "/" ||
+    pathname === "/about" ||
+    pathname === "/contact" ||
+    pathname === "/shipping-policy" ||
+    pathname === "/returns-policy" ||
+    pathname === "/privacy" ||
+    pathname === "/terms"
   ) {
     return NextResponse.next();
   }
