@@ -84,10 +84,10 @@ export default function Home() {
         {/* Full-bleed background image */}
         <div className="animate-bg" style={{ position: "absolute", inset: 0, zIndex: 0 }}>
           <Image
-            src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1920&q=85&auto=format&fit=crop"
-            alt="Artisan hands weaving"
+            src="/hero.jpg"
+            alt="Artisan at work"
             fill
-            style={{ objectFit: "cover", objectPosition: "center 40%" }}
+            style={{ objectFit: "cover", objectPosition: "center 20%" }}
             priority
             unoptimized
           />
