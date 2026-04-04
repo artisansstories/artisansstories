@@ -59,24 +59,25 @@ export default function Home() {
         .a3 { animation: fadeUp .8s ease-out .38s both; }
         .a4 { animation: fadeUp .8s ease-out .54s both; }
         .a5 { animation: fadeUp .8s ease-out .7s both; }
-        .abg{ animation: fadeIn 1.2s ease-out both; }
 
         input[type="email"] { -webkit-appearance:none; appearance:none; }
-        input::placeholder { color:rgba(100,70,45,0.4); }
+        input::placeholder { color:rgba(255,255,255,0.38); }
         input:focus { outline:none; }
 
         .cta-btn {
           width:100%; min-height:56px;
           border-radius:14px;
-          border:1px solid rgba(139,94,60,0.35);
-          background:linear-gradient(135deg,#8b5e3c,#a57248);
+          border:1px solid rgba(210,165,90,0.4);
+          background:linear-gradient(135deg,rgba(139,94,60,0.9),rgba(180,125,65,0.9));
+          backdrop-filter:blur(12px);
+          -webkit-backdrop-filter:blur(12px);
           color:#fff;
           font-size:13px; font-weight:500;
           letter-spacing:0.18em; text-transform:uppercase;
           font-family:'Inter',sans-serif;
           cursor:pointer;
           transition:opacity .2s, transform .15s;
-          box-shadow:0 6px 28px rgba(139,94,60,0.28);
+          box-shadow:0 6px 28px rgba(0,0,0,0.3);
           -webkit-tap-highlight-color:transparent;
         }
         .cta-btn:active { transform:scale(0.98); opacity:.9; }
@@ -85,16 +86,18 @@ export default function Home() {
         .social-icon {
           display:flex; align-items:center; justify-content:center;
           width:48px; height:48px; border-radius:50%;
-          background:rgba(139,94,60,0.08);
-          border:1px solid rgba(139,94,60,0.2);
-          color:rgba(100,65,35,0.7);
+          background:rgba(255,255,255,0.1);
+          border:1px solid rgba(255,255,255,0.2);
+          color:rgba(255,255,255,0.75);
           transition:background .2s, color .2s;
           text-decoration:none;
           -webkit-tap-highlight-color:transparent;
+          backdrop-filter:blur(8px);
+          -webkit-backdrop-filter:blur(8px);
         }
         .social-icon:hover {
-          background:rgba(139,94,60,0.15);
-          color:rgba(80,45,15,1);
+          background:rgba(255,255,255,0.18);
+          color:#fff;
         }
       `}</style>
 
@@ -106,18 +109,29 @@ export default function Home() {
         alignItems:"center",
         justifyContent:"center",
         overflow:"hidden",
-        background:"linear-gradient(160deg,#fdf8f3 0%,#f5ede0 50%,#faf5ee 100%)",
       }}>
 
-        {/* Texture overlay */}
-        <div style={{
-          position:"absolute", inset:0, zIndex:0, pointerEvents:"none",
-          backgroundImage:"url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a0745a' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E\")",
-        }}/>
-
-        {/* Top accent line */}
-        <div style={{ position:"absolute", top:0, left:0, right:0, height:"3px", zIndex:1,
-          background:"linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent)" }}/>
+        {/* Background image */}
+        <div style={{ position:"absolute", inset:0, zIndex:0 }}>
+          <Image
+            src="/hero.png"
+            alt="Artisans at work"
+            fill
+            style={{ objectFit:"cover", objectPosition:"center center" }}
+            priority
+            unoptimized
+          />
+          {/* Dark overlay — heavier top/bottom, lighter in middle */}
+          <div style={{
+            position:"absolute", inset:0,
+            background:"linear-gradient(to bottom, rgba(10,6,3,0.82) 0%, rgba(10,6,3,0.52) 25%, rgba(10,6,3,0.48) 70%, rgba(10,6,3,0.85) 100%)",
+          }}/>
+          {/* Warm center glow to complement the earthy image */}
+          <div style={{
+            position:"absolute", inset:0,
+            background:"radial-gradient(ellipse 70% 55% at 50% 48%, rgba(160,100,40,0.18) 0%, transparent 65%)",
+          }}/>
+        </div>
 
         {/* Content */}
         <div style={{
@@ -133,21 +147,24 @@ export default function Home() {
           {/* Coming Soon badge */}
           <div className="a1" style={{
             display:"inline-flex", alignItems:"center", gap:"8px",
-            background:"rgba(139,94,60,0.08)",
-            border:"1px solid rgba(139,94,60,0.2)",
+            background:"rgba(255,255,255,0.08)",
+            border:"1px solid rgba(255,255,255,0.16)",
+            backdropFilter:"blur(12px)",
+            WebkitBackdropFilter:"blur(12px)",
             borderRadius:"100px",
             padding:"10px 22px",
             marginBottom:"clamp(36px,6vw,48px)",
           }}>
             <div style={{
               width:"7px", height:"7px", borderRadius:"50%",
-              background:"#8b5e3c", flexShrink:0,
+              background:"#d4956a", flexShrink:0,
               animation:"glow 2.5s ease-in-out infinite",
             }}/>
             <span style={{
               fontSize:"11px", fontWeight:"500",
               letterSpacing:"0.2em", textTransform:"uppercase",
-              color:"#8b5e3c", fontFamily:"'Inter',sans-serif",
+              color:"rgba(255,255,255,0.82)",
+              fontFamily:"'Inter',sans-serif",
               whiteSpace:"nowrap",
             }}>Coming Soon</span>
           </div>
@@ -168,6 +185,7 @@ export default function Home() {
                 width:"min(88vw,500px)",
                 height:"auto",
                 display:"block",
+                filter:"drop-shadow(0 2px 16px rgba(0,0,0,0.6))",
               }}
               priority
               unoptimized
@@ -177,7 +195,7 @@ export default function Home() {
           {/* Divider */}
           <div className="a2" style={{
             width:"56px", height:"1px",
-            background:"linear-gradient(90deg,transparent,#c8956c,transparent)",
+            background:"linear-gradient(90deg,transparent,rgba(210,170,100,0.8),transparent)",
             marginBottom:"clamp(28px,5vw,40px)",
           }}/>
 
@@ -186,7 +204,7 @@ export default function Home() {
             fontFamily:"'Cormorant Garamond',Georgia,serif",
             fontSize:"clamp(21px,4vw,26px)",
             fontWeight:300, fontStyle:"italic",
-            color:"#4a3728", lineHeight:1.7,
+            color:"rgba(255,255,255,0.93)", lineHeight:1.7,
             marginBottom:"clamp(14px,3vw,20px)",
             maxWidth:"520px",
           }}>
@@ -196,7 +214,7 @@ export default function Home() {
           <p className="a3" style={{
             fontFamily:"'Cormorant Garamond',Georgia,serif",
             fontSize:"clamp(17px,3vw,20px)",
-            fontWeight:300, color:"#7a5c44", lineHeight:1.9,
+            fontWeight:300, color:"rgba(255,255,255,0.68)", lineHeight:1.9,
             marginBottom:"clamp(10px,2vw,14px)",
             maxWidth:"500px",
           }}>
@@ -206,7 +224,7 @@ export default function Home() {
           <p className="a3" style={{
             fontFamily:"'Cormorant Garamond',Georgia,serif",
             fontSize:"clamp(17px,3vw,20px)",
-            fontWeight:300, color:"rgba(122,92,68,0.65)", lineHeight:1.9,
+            fontWeight:300, color:"rgba(255,255,255,0.5)", lineHeight:1.9,
             marginBottom:"clamp(36px,6vw,48px)",
             maxWidth:"460px",
           }}>
@@ -237,8 +255,10 @@ export default function Home() {
           <div className="a5" style={{ width:"100%", maxWidth:"460px" }}>
             {status === "success" ? (
               <div style={{
-                background:"rgba(139,94,60,0.06)",
-                border:"1px solid rgba(139,94,60,0.2)",
+                background:"rgba(255,255,255,0.08)",
+                border:"1px solid rgba(255,255,255,0.15)",
+                backdropFilter:"blur(16px)",
+                WebkitBackdropFilter:"blur(16px)",
                 borderRadius:"16px",
                 padding:"clamp(24px,5vw,36px)",
                 textAlign:"center",
@@ -247,11 +267,11 @@ export default function Home() {
                 <p style={{
                   fontFamily:"'Cormorant Garamond',serif",
                   fontSize:"clamp(18px,4vw,21px)", fontStyle:"italic",
-                  color:"#4a3728", lineHeight:1.65, margin:0,
+                  color:"rgba(255,255,255,0.9)", lineHeight:1.65, margin:0,
                 }}>{message}</p>
                 <p style={{
                   fontFamily:"'Inter',sans-serif", fontSize:"13px",
-                  color:"#a89070", marginTop:"10px", letterSpacing:"0.04em",
+                  color:"rgba(255,255,255,0.4)", marginTop:"10px", letterSpacing:"0.04em",
                 }}>We&apos;ll be in touch when we launch.</p>
               </div>
             ) : (
@@ -268,22 +288,22 @@ export default function Home() {
                       width:"100%", minHeight:"56px",
                       padding:"0 22px",
                       borderRadius:"14px",
-                      border:"1px solid rgba(139,94,60,0.22)",
-                      background:"rgba(255,255,255,0.75)",
-                      color:"#3a2616",
+                      border:"1px solid rgba(255,255,255,0.18)",
+                      background:"rgba(255,255,255,0.09)",
+                      backdropFilter:"blur(16px)",
+                      WebkitBackdropFilter:"blur(16px)",
+                      color:"#fff",
                       fontSize:"16px",
                       fontFamily:"'Inter',sans-serif",
                       transition:"border-color .2s, background .2s",
                     }}
                     onFocus={e => {
-                      e.target.style.borderColor = "rgba(139,94,60,0.55)";
-                      e.target.style.background = "#fff";
-                      e.target.style.boxShadow = "0 0 0 3px rgba(139,94,60,0.1)";
+                      e.target.style.borderColor = "rgba(212,149,106,0.65)";
+                      e.target.style.background = "rgba(255,255,255,0.13)";
                     }}
                     onBlur={e => {
-                      e.target.style.borderColor = "rgba(139,94,60,0.22)";
-                      e.target.style.background = "rgba(255,255,255,0.75)";
-                      e.target.style.boxShadow = "none";
+                      e.target.style.borderColor = "rgba(255,255,255,0.18)";
+                      e.target.style.background = "rgba(255,255,255,0.09)";
                     }}
                   />
                   <button type="submit" disabled={status === "loading"} className="cta-btn"
@@ -292,13 +312,13 @@ export default function Home() {
                   </button>
                 </form>
                 {status === "error" && (
-                  <p style={{ color:"#c0392b", fontSize:"13px", fontFamily:"'Inter',sans-serif", textAlign:"center" }}>
+                  <p style={{ color:"#ffb09c", fontSize:"13px", fontFamily:"'Inter',sans-serif", textAlign:"center" }}>
                     {message}
                   </p>
                 )}
                 <p style={{
                   marginTop:"4px", fontSize:"11px",
-                  color:"rgba(139,94,60,0.45)",
+                  color:"rgba(255,255,255,0.28)",
                   fontFamily:"'Inter',sans-serif",
                   letterSpacing:"0.07em", textTransform:"uppercase",
                 }}>
@@ -310,17 +330,20 @@ export default function Home() {
 
         </div>
 
-        {/* Bottom accent line */}
-        <div style={{ position:"absolute", bottom:0, left:0, right:0, zIndex:1 }}>
+        {/* Footer */}
+        <div style={{
+          position:"absolute", bottom:0, left:0, right:0,
+          padding:"16px 24px",
+          paddingBottom:"max(16px, env(safe-area-inset-bottom))",
+          textAlign:"center", zIndex:1,
+        }}>
           <p style={{
-            textAlign:"center", padding:"14px",
-            fontSize:"10px", color:"rgba(139,94,60,0.3)",
+            fontSize:"10px", color:"rgba(255,255,255,0.18)",
             fontFamily:"'Inter',sans-serif",
             letterSpacing:"0.08em", textTransform:"uppercase",
           }}>
             © {new Date().getFullYear()} Artisans&apos; Stories · El Salvador
           </p>
-          <div style={{ height:"3px", background:"linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent)" }}/>
         </div>
 
       </main>
