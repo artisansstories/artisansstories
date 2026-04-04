@@ -142,15 +142,14 @@ export default function Home() {
           {/* Logo */}
           <div className="animate-2" style={{ marginBottom: "36px" }}>
             <Image
-              src="/logo-web.webp"
-              alt="Artisans of Stories"
+              src="/logo-color.png"
+              alt="Artisans' Stories"
               width={440}
-              height={110}
+              height={147}
               style={{
                 width: "min(440px, 85vw)",
                 height: "auto",
-                filter: "brightness(0) invert(1)",
-                opacity: 0.92,
+                filter: "drop-shadow(0 2px 12px rgba(0,0,0,0.4))",
               }}
               priority
               unoptimized
