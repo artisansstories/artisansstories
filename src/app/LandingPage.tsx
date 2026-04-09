@@ -234,7 +234,7 @@ export default function LandingPage() {
           {/* Meet Anna text */}
           <div className="a3" style={{
             textAlign:"center",
-            maxWidth:"540px",
+            maxWidth:"580px",
             marginBottom:"clamp(32px,6vw,44px)",
           }}>
             <p style={{
@@ -255,7 +255,7 @@ export default function LandingPage() {
               lineHeight:1.75,
               marginBottom:"14px",
             }}>
-              I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the US.
+              I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States.
             </p>
             
             <p style={{
