@@ -156,7 +156,7 @@ export default function LandingPage() {
             marginBottom:"clamp(36px,6vw,48px)",
           }}>
             <div style={{
-              width:"7px", height:"7px", borderRadius:"50%",
+              borderRadius:"12px",
               background:"#d4956a", flexShrink:0,
               animation:"glow 2.5s ease-in-out infinite",
             }}/>
@@ -200,9 +200,9 @@ export default function LandingPage() {
             marginBottom:"clamp(24px,5vw,36px)",
           }}>
             <div style={{
-              width:"clamp(110px,18vw,140px)",
-              height:"clamp(110px,18vw,140px)",
-              borderRadius:"50%",
+              width:"clamp(280px,45vw,420px)",
+              height:"clamp(280px,45vw,420px)",
+              borderRadius:"12px",
               padding:"5px",
               background:"linear-gradient(135deg, #d4956a 0%, #b87d41 50%, #d4956a 100%)",
               boxShadow:"0 8px 32px rgba(212,149,106,0.4), 0 0 60px rgba(212,149,106,0.2)",
@@ -211,9 +211,9 @@ export default function LandingPage() {
               <div style={{
                 width:"100%",
                 height:"100%",
-                borderRadius:"50%",
                 overflow:"hidden",
-                border:"3px solid rgba(255,255,255,0.95)",
+                border:"4px solid rgba(255,255,255,0.95)",
+                borderRadius:"8px",
               }}>
                 <Image
                   src="/anna-profile.png"
