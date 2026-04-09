@@ -132,13 +132,15 @@ const welcomeEmailHtml = `<!DOCTYPE html>
                       <tr>
                         <!-- Instagram Button -->
                         <td style="padding:0 8px;">
-                          <a href="https://www.instagram.com/artisansstories?igsh=NTc4MTIwNjQ2YQ==" style="display:inline-block;padding:14px 24px;background:#E4405F;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                          <a href="https://www.instagram.com/artisansstories?igsh=NTc4MTIwNjQ2YQ==" style="display:inline-block;padding:12px 20px;background:#E4405F;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/instagram-icon.svg" alt="" width="20" height="20" style="vertical-align:middle;margin-right:8px;display:inline-block;"/>
                             Follow on Instagram
                           </a>
                         </td>
                         <!-- TikTok Button -->
                         <td style="padding:0 8px;">
-                          <a href="https://www.tiktok.com/@artisansstories" style="display:inline-block;padding:14px 24px;background:#000000;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                          <a href="https://www.tiktok.com/@artisansstories" style="display:inline-block;padding:12px 20px;background:#000000;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/tiktok-icon.svg" alt="" width="20" height="20" style="vertical-align:middle;margin-right:8px;display:inline-block;"/>
                             Follow on TikTok
                           </a>
                         </td>
