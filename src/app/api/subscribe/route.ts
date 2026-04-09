@@ -29,11 +29,11 @@ const welcomeEmailHtml = `<!DOCTYPE html>
           <tr>
             <td style="background:#ffffff;border-radius:12px;padding:40px 32px;border:1px solid rgba(139,94,60,0.12);">
               
-              <!-- Brand name -->
+              <!-- Logo -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
-                  <td style="text-align:center;padding-bottom:24px;">
-                    <span style="font-size:11px;font-family:Arial,Helvetica,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">ARTISANS' STORIES</span>
+                  <td style="text-align:center;padding-bottom:28px;">
+                    <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="320" height="107" style="display:block;margin:0 auto;max-width:320px;height:auto;"/>
                   </td>
                 </tr>
               </table>
