@@ -277,58 +277,6 @@ export default function LandingPage() {
           }}/>
 
 
-          {/* Headline */}
-          <p className="a3" style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:"clamp(21px,4vw,26px)",
-            fontWeight:300, fontStyle:"italic",
-            color:"rgba(255,255,255,0.93)", lineHeight:1.7,
-            marginBottom:"clamp(14px,3vw,20px)",
-            maxWidth:"520px",
-          }}>
-            Be among the first to join and be part of the journey.
-          </p>
-
-          <p className="a3" style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:"clamp(17px,3vw,20px)",
-            fontWeight:300, color:"rgba(255,255,255,0.68)", lineHeight:1.9,
-            marginBottom:"clamp(10px,2vw,14px)",
-            maxWidth:"500px",
-          }}>
-            We&apos;re putting the finishing touches on something special&nbsp;&mdash;&nbsp;handcrafted goods from El Salvador&apos;s most talented artisans.
-          </p>
-
-          <p className="a3" style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:"clamp(17px,3vw,20px)",
-            fontWeight:300, color:"rgba(255,255,255,0.5)", lineHeight:1.9,
-            marginBottom:"clamp(36px,6vw,48px)",
-            maxWidth:"460px",
-          }}>
-            Every product has a story, and we are so excited to share those products and stories with you&hellip;
-          </p>
-
-          {/* Social icons */}
-          <div className="a4" style={{
-            display:"flex", alignItems:"center", justifyContent:"center",
-            gap:"clamp(18px,4vw,28px)",
-            marginBottom:"clamp(36px,6vw,48px)",
-          }}>
-            <a href="https://www.instagram.com/artisansstories?igsh=NTc4MTIwNjQ2YQ==" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="social-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-                <circle cx="12" cy="12" r="4.5"/>
-                <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-              </svg>
-            </a>
-            <a href="https://www.tiktok.com/@artisansstories" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="social-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
-              </svg>
-            </a>
-          </div>
-
           {/* Email form */}
           <div className="a5" style={{ width:"100%", maxWidth:"460px" }}>
             {status === "success" ? (
@@ -407,6 +355,59 @@ export default function LandingPage() {
           </div>
 
         </div>
+
+
+          {/* Headline */}
+          <p className="a3" style={{
+            fontFamily:"'Cormorant Garamond',Georgia,serif",
+            fontSize:"clamp(21px,4vw,26px)",
+            fontWeight:300, fontStyle:"italic",
+            color:"rgba(255,255,255,0.93)", lineHeight:1.7,
+            marginBottom:"clamp(14px,3vw,20px)",
+            maxWidth:"520px",
+          }}>
+            Be among the first to join and be part of the journey.
+          </p>
+
+          <p className="a3" style={{
+            fontFamily:"'Cormorant Garamond',Georgia,serif",
+            fontSize:"clamp(17px,3vw,20px)",
+            fontWeight:300, color:"rgba(255,255,255,0.68)", lineHeight:1.9,
+            marginBottom:"clamp(10px,2vw,14px)",
+            maxWidth:"500px",
+          }}>
+            We&apos;re putting the finishing touches on something special&nbsp;&mdash;&nbsp;handcrafted goods from El Salvador&apos;s most talented artisans.
+          </p>
+
+          <p className="a3" style={{
+            fontFamily:"'Cormorant Garamond',Georgia,serif",
+            fontSize:"clamp(17px,3vw,20px)",
+            fontWeight:300, color:"rgba(255,255,255,0.5)", lineHeight:1.9,
+            marginBottom:"clamp(36px,6vw,48px)",
+            maxWidth:"460px",
+          }}>
+            Every product has a story, and we are so excited to share those products and stories with you&hellip;
+          </p>
+
+          {/* Social icons */}
+          <div className="a4" style={{
+            display:"flex", alignItems:"center", justifyContent:"center",
+            gap:"clamp(18px,4vw,28px)",
+            marginBottom:"clamp(36px,6vw,48px)",
+          }}>
+            <a href="https://www.instagram.com/artisansstories?igsh=NTc4MTIwNjQ2YQ==" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="social-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                <circle cx="12" cy="12" r="4.5"/>
+                <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </a>
+            <a href="https://www.tiktok.com/@artisansstories" target="_blank" rel="noopener noreferrer" aria-label="TikTok" className="social-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/>
+              </svg>
+            </a>
+          </div>
 
         {/* Footer */}
         <div style={{
