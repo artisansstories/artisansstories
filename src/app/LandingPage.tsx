@@ -420,7 +420,7 @@ export default function LandingPage() {
             fontFamily:"'Inter',sans-serif",
             letterSpacing:"0.08em", textTransform:"uppercase",
           }}>
-            © {new Date().getFullYear()} Artisans&apos; Stories · El Salvador
+            © {new Date().getFullYear()}&nbsp; Artisans&apos; Stories · El Salvador
           </p>
         </div>
 
