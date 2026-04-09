@@ -194,12 +194,88 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Divider */}
+          {/* Anna's portrait with intro */}
           <div className="a2" style={{
+            position:"relative",
+            marginBottom:"clamp(24px,5vw,36px)",
+          }}>
+            <div style={{
+              width:"clamp(110px,18vw,140px)",
+              height:"clamp(110px,18vw,140px)",
+              borderRadius:"50%",
+              padding:"5px",
+              background:"linear-gradient(135deg, #d4956a 0%, #b87d41 50%, #d4956a 100%)",
+              boxShadow:"0 8px 32px rgba(212,149,106,0.4), 0 0 60px rgba(212,149,106,0.2)",
+              margin:"0 auto",
+            }}>
+              <div style={{
+                width:"100%",
+                height:"100%",
+                borderRadius:"50%",
+                overflow:"hidden",
+                border:"3px solid rgba(255,255,255,0.95)",
+              }}>
+                <Image
+                  src="/anna-profile.png"
+                  alt="Anna Kool"
+                  width={1729}
+                  height={1729}
+                  style={{
+                    width:"100%",
+                    height:"100%",
+                    objectFit:"cover",
+                  }}
+                  unoptimized
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Meet Anna text */}
+          <div className="a3" style={{
+            textAlign:"center",
+            maxWidth:"540px",
+            marginBottom:"clamp(32px,6vw,44px)",
+          }}>
+            <p style={{
+              fontFamily:"'Inter',sans-serif",
+              fontSize:"clamp(10px,2vw,11px)",
+              fontWeight:600,
+              letterSpacing:"0.2em",
+              textTransform:"uppercase",
+              color:"rgba(212,149,106,0.9)",
+              marginBottom:"10px",
+            }}>Meet Anna</p>
+            
+            <p style={{
+              fontFamily:"'Cormorant Garamond',Georgia,serif",
+              fontSize:"clamp(16px,3vw,19px)",
+              fontWeight:300,
+              color:"rgba(255,255,255,0.88)",
+              lineHeight:1.75,
+              marginBottom:"14px",
+            }}>
+              I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the US.
+            </p>
+            
+            <p style={{
+              fontFamily:"'Cormorant Garamond',Georgia,serif",
+              fontSize:"clamp(15px,2.8vw,17px)",
+              fontWeight:300,
+              color:"rgba(255,255,255,0.68)",
+              lineHeight:1.75,
+            }}>
+              Every artisan has a story. Every craft holds generations of tradition. I'm here to bring those stories—and those beautiful handmade pieces—directly to you.
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="a3" style={{
             width:"56px", height:"1px",
             background:"linear-gradient(90deg,transparent,rgba(210,170,100,0.8),transparent)",
             marginBottom:"clamp(28px,5vw,40px)",
           }}/>
+
 
           {/* Headline */}
           <p className="a3" style={{
