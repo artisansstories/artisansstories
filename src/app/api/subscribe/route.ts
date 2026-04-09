@@ -169,9 +169,20 @@ const welcomeEmailHtml = `<!DOCTYPE html>
               <!-- Signature -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
-                  <td style="font-size:13px;color:#a89070;text-align:left;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
-                    With gratitude,<br/>
-                    <span style="color:#6b4c30;font-family:Georgia,serif;font-size:18px;font-style:italic;">Anna</span>
+                  <td>
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding-right:12px;vertical-align:top;">
+                          <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/anna-avatar.png" alt="Anna" width="48" height="48" style="border-radius:50%;display:block;border:2px solid #c8956c;"/>
+                        </td>
+                        <td style="vertical-align:top;padding-top:4px;">
+                          <div style="font-size:13px;color:#a89070;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
+                            With gratitude,<br/>
+                            <span style="color:#6b4c30;font-family:Georgia,serif;font-size:18px;font-style:italic;">Anna</span>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
