@@ -2,63 +2,202 @@ export const runtime = "edge";
 
 const welcomeEmailHtml = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/></head>
-<body style="margin:0;padding:0;background:#f5ede0;font-family:Georgia,Garamond,serif;">
-  <div style="max-width:560px;margin:0 auto;padding:40px 20px;">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
+  </style>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background:#f5ede0;font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f5ede0;">
+    <tr>
+      <td style="padding:40px 20px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px;margin:0 auto;">
+          
+          <!-- Top border -->
+          <tr>
+            <td style="padding-bottom:32px;">
+              <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);border-radius:2px;"></div>
+            </td>
+          </tr>
 
-    <!-- Top border -->
-    <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);margin-bottom:40px;border-radius:2px;"></div>
+          <!-- Main card -->
+          <tr>
+            <td style="background:#ffffff;border-radius:12px;padding:40px 32px;border:1px solid rgba(139,94,60,0.12);">
+              
+              <!-- Brand name -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:center;padding-bottom:24px;">
+                    <span style="font-size:11px;font-family:Arial,Helvetica,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">ARTISANS' STORIES</span>
+                  </td>
+                </tr>
+              </table>
 
-    <!-- Card -->
-    <div style="background:linear-gradient(160deg,#fdf8f3 0%,#faf4ec 100%);border-radius:16px;padding:48px 40px;border:1px solid rgba(139,94,60,0.15);">
+              <!-- Divider -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:center;padding-bottom:28px;">
+                    <div style="width:60px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto;"></div>
+                  </td>
+                </tr>
+              </table>
 
-      <!-- Brand name as text -->
-      <div style="text-align:center;margin-bottom:28px;">
-        <span style="font-size:11px;font-family:system-ui,sans-serif;font-weight:700;letter-spacing:0.25em;text-transform:uppercase;color:#8b5e3c;">Artisans&rsquo; Stories</span>
-      </div>
+              <!-- Greeting -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:17px;color:#4a3728;line-height:1.6;padding-bottom:20px;text-align:left;">
+                    Hi!
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:17px;color:#4a3728;line-height:1.6;padding-bottom:24px;font-style:italic;text-align:left;">
+                    I am so happy you're here.
+                  </td>
+                </tr>
+              </table>
 
-      <!-- Divider -->
-      <div style="width:60px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto 36px;"></div>
+              <!-- Body -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
+                    I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
+                    Artisans' Stories is a collaboration. On one side of the bridge, you'll find master makers like Lilian, who hand-sews our cotton totes, and Gerardo, a third-generation leather artisan. On the other side, you'll find me in my studio in the US.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
+                    I don't just curate these pieces—I'm a maker, too. While I hand-select and "finish" many of our imported goods with custom laser engraving and sublimation, I also create my own original designs right here in the States.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:24px;text-align:left;">
+                    These "Studio Originals" are the glue of our shop. They allow me to keep the creative energy flowing and the doors open while I travel back to El Salvador to find the next hidden story to share with you.
+                  </td>
+                </tr>
+              </table>
 
-      <!-- Greeting -->
-      <p style="font-size:20px;color:#4a3728;line-height:1.6;margin:0 0 24px;font-style:italic;text-align:center;">
-        You&rsquo;re on the list.
-      </p>
+              <!-- What you'll get section -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:16px;color:#4a3728;line-height:1.6;padding-bottom:16px;text-align:left;font-weight:600;">
+                    By joining this list, you'll get:
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left:20px;padding-bottom:12px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Stories:</strong> Meet the makers behind the heritage crafts.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left:20px;padding-bottom:12px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Studio Drops:</strong> Be the first to shop my original US-made designs.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left:20px;padding-bottom:28px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Journey:</strong> I'm heading back to El Salvador in just a few days to visit Gerardo's workshop and I will be sharing that experience with you soon.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-      <!-- Body copy -->
-      <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 16px;">
-        Thank you for being among the first to join us on this journey. What we&rsquo;re building is something we&rsquo;ve put our hearts into &mdash; a home for handcrafted goods made by El Salvador&rsquo;s most talented artisans.
-      </p>
+              <!-- CTA Buttons -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="padding-bottom:28px;">
+                <tr>
+                  <td style="text-align:center;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+                      <tr>
+                        <!-- Instagram Button -->
+                        <td style="padding:0 8px;">
+                          <a href="https://www.instagram.com/artisansstories?igsh=NTc4MTIwNjQ2YQ==" style="display:inline-block;padding:14px 24px;background:#E4405F;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                            Follow on Instagram
+                          </a>
+                        </td>
+                        <!-- TikTok Button -->
+                        <td style="padding:0 8px;">
+                          <a href="https://www.tiktok.com/@artisansstories" style="display:inline-block;padding:14px 24px;background:#000000;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                            Follow on TikTok
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
 
-      <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 16px;">
-        Every product tells a story &mdash; of the hands that made it, the community it came from, and the tradition it carries forward. We can&rsquo;t wait to share those stories with you.
-      </p>
+              <!-- Closing -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:28px;text-align:left;">
+                    Thank you for believing that every product has a soul—whether it was born in a garage in a countryside town in El Salvador, or in my studio here at home in the US.
+                  </td>
+                </tr>
+              </table>
 
-      <p style="font-size:15px;color:#7a5c44;line-height:1.85;margin:0 0 36px;">
-        You&rsquo;ll be the first to know when we launch.
-      </p>
+              <!-- Divider -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:center;padding-bottom:24px;">
+                    <div style="width:40px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto;"></div>
+                  </td>
+                </tr>
+              </table>
 
-      <!-- Divider -->
-      <div style="width:40px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto 32px;"></div>
+              <!-- Signature -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:13px;color:#a89070;text-align:left;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
+                    With gratitude,<br/>
+                    <span style="color:#6b4c30;font-family:Georgia,serif;font-size:18px;font-style:italic;">Anna</span>
+                  </td>
+                </tr>
+              </table>
 
-      <!-- Sign-off -->
-      <p style="font-size:13px;color:#a89070;text-align:center;margin:0;font-family:system-ui,sans-serif;letter-spacing:0.04em;">
-        With gratitude,<br/>
-        <span style="color:#6b4c30;font-family:Georgia,serif;font-size:16px;font-style:italic;">The Artisans' Stories Team</span>
-      </p>
+            </td>
+          </tr>
 
-    </div>
+          <!-- Footer -->
+          <tr>
+            <td style="text-align:center;font-size:11px;color:#b8967a;padding-top:28px;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
+              &copy; 2026 Artisans' Stories &nbsp;&middot;&nbsp; El Salvador to the United States<br/>
+              <a href="https://artisansstories.com" style="color:#8b5e3c;text-decoration:none;">artisansstories.com</a>
+            </td>
+          </tr>
 
-    <!-- Footer -->
-    <p style="text-align:center;font-size:11px;color:#b8967a;margin:24px 0 0;font-family:system-ui,sans-serif;letter-spacing:0.04em;line-height:1.8;">
-      &copy; 2026 Artisans' Stories &nbsp;&middot;&nbsp; Handcrafted with care from El Salvador<br/>
-      <a href="https://artisansstories.com" style="color:#8b5e3c;text-decoration:none;">artisansstories.com</a>
-    </p>
+          <!-- Bottom border -->
+          <tr>
+            <td style="padding-top:24px;">
+              <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);border-radius:2px;"></div>
+            </td>
+          </tr>
 
-    <!-- Bottom border -->
-    <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);margin-top:24px;border-radius:2px;"></div>
-
-  </div>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 
@@ -98,9 +237,9 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: "Artisans' Stories <hello@artisansstories.com>",
+        from: "Anna at Artisans' Stories <hello@artisansstories.com>",
         to: [email],
-        subject: "You\u2019re on the list \u2728",
+        subject: "Welcome to the story 🇸🇻 | A bridge between heritage and home",
         html: welcomeEmailHtml,
       }),
     });
