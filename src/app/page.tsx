@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import LandingPage from "./LandingPage";
+import LandingPageWrapper from "./LandingPageWrapper";
 
 export default async function HomePage() {
   let storeEnabled = false;
@@ -18,5 +18,5 @@ export default async function HomePage() {
     redirect("/shop");
   }
 
-  return <LandingPage />;
+  return <LandingPageWrapper />;
 }

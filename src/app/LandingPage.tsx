@@ -3,7 +3,19 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 
-export default function LandingPage() {
+interface Settings {
+  heroTitle: string;
+  heroSubtitle?: string;
+  heroCTA: string;
+  heroImageUrl?: string;
+  backgroundImageUrl?: string;
+  aboutTitle: string;
+  aboutContent?: string;
+  aboutImageUrl?: string;
+  footerText: string;
+}
+
+export default function LandingPage({ settings }: { settings: Settings }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -114,8 +126,8 @@ export default function LandingPage() {
         {/* Background image */}
         <div style={{ position:"absolute", inset:0, zIndex:0 }}>
           <Image
-            src="/hero.png"
-            alt="Artisans at work"
+            src={settings.backgroundImageUrl || "/hero.png"}
+            alt="Background"
             fill
             style={{ objectFit:"cover", objectPosition:"center center" }}
             priority
@@ -216,7 +228,7 @@ export default function LandingPage() {
                 borderRadius:"8px",
               }}>
                 <Image
-                  src="/anna-profile.png"
+                  src={settings.aboutImageUrl || "/anna-profile.png"}
                   alt="Anna Kool"
                   width={1729}
                   height={1729}
@@ -245,7 +257,7 @@ export default function LandingPage() {
               textTransform:"uppercase",
               color:"rgba(212,149,106,0.9)",
               marginBottom:"10px",
-            }}>Meet Anna</p>
+            }}>{settings.aboutTitle}</p>
             
             <p style={{
               fontFamily:"'Cormorant Garamond',Georgia,serif",
@@ -334,7 +346,7 @@ export default function LandingPage() {
                   />
                   <button type="submit" disabled={status === "loading"} className="cta-btn"
                     style={{ opacity: status === "loading" ? .6 : 1 }}>
-                    {status === "loading" ? "Joining…" : "Notify Me When We Launch"}
+                    {status === "loading" ? "Joining…" : settings.heroCTA}
                   </button>
                 </form>
                 {status === "error" && (
@@ -366,7 +378,7 @@ export default function LandingPage() {
             marginBottom:"clamp(14px,3vw,20px)",
             maxWidth:"520px",
           }}>
-            Be among the first to join and be part of the journey.
+            {settings.heroSubtitle || "Be among the first to join and be part of the journey."}
           </p>
 
           <p className="a3" style={{
