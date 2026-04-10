@@ -50,11 +50,6 @@ const welcomeEmailHtml = `<!DOCTYPE html>
               <!-- Greeting -->
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
-                  <td style="font-size:17px;color:#4a3728;line-height:1.6;padding-bottom:20px;text-align:left;">
-                    Hi!
-                  </td>
-                </tr>
-                <tr>
                   <td style="font-size:17px;color:#4a3728;line-height:1.6;padding-bottom:24px;font-style:italic;text-align:left;">
                     I am so happy you're here.
                   </td>
@@ -65,22 +60,12 @@ const welcomeEmailHtml = `<!DOCTYPE html>
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
-                    I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States.
-                  </td>
-                </tr>
-                <tr>
-                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
-                    Artisans' Stories is a collaboration. On one side of the bridge, you'll find master makers like Lilian, who hand-sews our cotton totes, and Gerardo, a third-generation leather artisan. On the other side, you'll find me in my studio in the US.
-                  </td>
-                </tr>
-                <tr>
-                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
-                    I don't just curate these pieces—I'm a maker, too. While I hand-select and "finish" many of our imported goods with custom laser engraving and sublimation, I also create my own original designs right here in the States.
+                    I'm Anna, and Artisans' Stories is my mission to share the incredible talent of my home country, El Salvador, alongside the custom work I do here in the U.S.
                   </td>
                 </tr>
                 <tr>
                   <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:24px;text-align:left;">
-                    These "Studio Originals" are the glue of our shop. They allow me to keep the creative energy flowing and the doors open while I travel back to El Salvador to find the next hidden story to share with you.
+                    This is a collaboration where you play a part, too. In addition to the heritage goods hand-sewn by Lilian in coordination with other artisans, I offer personalized creations from my own studio. My role is to be the maker who brings high-quality designs to life. I use a mix of curated professional design elements, my own creative work, and custom designs provided by you. Want your own logo on a tote? A specific memory engraved on leather? I'm here to make that happen.
                   </td>
                 </tr>
               </table>
@@ -107,7 +92,7 @@ const welcomeEmailHtml = `<!DOCTYPE html>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                       <tr>
                         <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
-                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Studio Drops:</strong> Be the first to shop my original US-made designs.</td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>Custom Opportunities:</strong> Learn how you can send me your own designs for sublimation and engraving.</td>
                       </tr>
                     </table>
                   </td>
@@ -117,7 +102,7 @@ const welcomeEmailHtml = `<!DOCTYPE html>
                     <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                       <tr>
                         <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
-                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Journey:</strong> I'm heading back to El Salvador in just a few days to visit Gerardo's workshop and I will be sharing that experience with you soon.</td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Journey:</strong> Follow along as I head back to El Salvador in just a few days to visit our next artisan!</td>
                       </tr>
                     </table>
                   </td>
@@ -154,7 +139,7 @@ const welcomeEmailHtml = `<!DOCTYPE html>
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:28px;text-align:left;">
-                    Thank you for believing that every product has a soul—whether it was born in a garage in a countryside town in El Salvador, or in my studio here at home in the US.
+                    Thank you for believing that every product—and every custom request—has a soul.
                   </td>
                 </tr>
               </table>
@@ -180,7 +165,8 @@ const welcomeEmailHtml = `<!DOCTYPE html>
                         <td style="vertical-align:top;padding-top:4px;">
                           <div style="font-size:13px;color:#a89070;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
                             With gratitude,<br/>
-                            <span style="color:#6b4c30;font-family:Georgia,serif;font-size:18px;font-style:italic;">Anna</span>
+                            <span style="color:#6b4c30;font-family:Georgia,serif;font-size:18px;font-style:italic;">Anna</span><br/>
+                            <span style="color:#8a7a66;font-size:11px;">Founder &amp; Maker, Artisans' Stories</span>
                           </div>
                         </td>
                       </tr>
