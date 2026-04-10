@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { Client } from "pg";
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
-    const result = await client.query(`SELECT * FROM "EmailTemplate" WHERE id = $1`, [params.id]);
+    const result = await client.query(`SELECT * FROM "EmailTemplate" WHERE id = $1`, [id]);
     return NextResponse.json({ template: result.rows[0] || null });
   } catch (error) {
     console.error("Failed to fetch email template:", error);
@@ -15,7 +16,8 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const body = await req.json();
@@ -52,7 +54,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         "updatedAt" = NOW()
       RETURNING *`,
       [
-        params.id,
+        id,
         body.templateName,
         body.subject,
         body.preheader || null,
