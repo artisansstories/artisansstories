@@ -2,8 +2,6 @@ import { Client } from "pg";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 
-const client = new Client({ connectionString: process.env.DATABASE_URL });
-
 interface Settings {
   isEnabled: boolean;
   profileName: string;
@@ -25,13 +23,12 @@ interface Link {
 }
 
 async function getLinktreeData() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
     
     const settingsResult = await client.query(`SELECT * FROM "LinkTreeSettings" WHERE id = 'singleton'`);
     const linksResult = await client.query(`SELECT * FROM "LinkTreeLink" WHERE "isEnabled" = true ORDER BY "sortOrder" ASC`);
-    
-    await client.end();
     
     const settings = settingsResult.rows[0] as Settings | undefined;
     const links = linksResult.rows as Link[];
@@ -44,16 +41,20 @@ async function getLinktreeData() {
   } catch (error) {
     console.error("Failed to fetch LinkTree data:", error);
     return null;
+  } finally {
+    await client.end();
   }
 }
 
 async function trackClick(linkId: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
     await client.query(`UPDATE "LinkTreeLink" SET clicks = clicks + 1 WHERE id = $1`, [linkId]);
-    await client.end();
   } catch (error) {
     console.error("Failed to track click:", error);
+  } finally {
+    await client.end();
   }
 }
 
