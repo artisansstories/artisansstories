@@ -49,17 +49,7 @@ async function getLinktreeData() {
   }
 }
 
-async function trackClick(linkId: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  try {
-    await client.connect();
-    await client.query(`UPDATE "LinkTreeLink" SET clicks = clicks + 1 WHERE id = $1`, [linkId]);
-  } catch (error) {
-    console.error("Failed to track click:", error);
-  } finally {
-    await client.end();
-  }
-}
+// Click tracking removed - requires API endpoint for client-side tracking
 
 export default async function LinktreePage() {
   const data = await getLinktreeData();
@@ -114,7 +104,7 @@ export default async function LinktreePage() {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => trackClick(link.id)}
+
               className="block w-full p-4 rounded-lg text-center font-medium transition-transform hover:scale-105 shadow-md"
               style={{
                 backgroundColor: settings.buttonColor,
