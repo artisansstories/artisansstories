@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import { Client } from "pg";
 
-const client = new Client({ connectionString: process.env.DATABASE_URL });
-
 export async function GET() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
     const result = await client.query(`SELECT * FROM "LinkTreeSettings" WHERE id = 'singleton'`);
-    await client.end();
-    
     return NextResponse.json({ settings: result.rows[0] || null });
   } catch (error) {
     console.error("Failed to fetch LinkTree settings:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
+  } finally {
+    await client.end();
   }
 }
 
 export async function POST(req: Request) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const body = await req.json();
     await client.connect();
@@ -47,10 +47,11 @@ export async function POST(req: Request) {
       ]
     );
     
-    await client.end();
     return NextResponse.json({ settings: result.rows[0] });
   } catch (error) {
     console.error("Failed to save LinkTree settings:", error);
     return NextResponse.json({ error: "Failed to save settings" }, { status: 500 });
+  } finally {
+    await client.end();
   }
 }

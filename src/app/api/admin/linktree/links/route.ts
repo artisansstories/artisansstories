@@ -2,22 +2,22 @@ import { NextResponse } from "next/server";
 import { Client } from "pg";
 import { randomUUID } from "crypto";
 
-const client = new Client({ connectionString: process.env.DATABASE_URL });
-
 export async function GET() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
     const result = await client.query(`SELECT * FROM "LinkTreeLink" ORDER BY "sortOrder" ASC`);
-    await client.end();
-    
     return NextResponse.json({ links: result.rows });
   } catch (error) {
     console.error("Failed to fetch links:", error);
     return NextResponse.json({ error: "Failed to fetch links" }, { status: 500 });
+  } finally {
+    await client.end();
   }
 }
 
 export async function POST(req: Request) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const body = await req.json();
     await client.connect();
@@ -32,15 +32,17 @@ export async function POST(req: Request) {
       [randomUUID(), body.title, body.url, body.description || null, body.icon || null, true, nextOrder]
     );
     
-    await client.end();
     return NextResponse.json({ link: result.rows[0] });
   } catch (error) {
     console.error("Failed to create link:", error);
     return NextResponse.json({ error: "Failed to create link" }, { status: 500 });
+  } finally {
+    await client.end();
   }
 }
 
 export async function PUT(req: Request) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const body = await req.json();
     await client.connect();
@@ -57,26 +59,29 @@ export async function PUT(req: Request) {
       [body.id, body.title, body.url, body.description || null, body.isEnabled]
     );
     
-    await client.end();
     return NextResponse.json({ link: result.rows[0] });
   } catch (error) {
     console.error("Failed to update link:", error);
     return NextResponse.json({ error: "Failed to update link" }, { status: 500 });
+  } finally {
+    await client.end();
   }
 }
 
 export async function DELETE(req: Request) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     
     await client.connect();
     await client.query(`DELETE FROM "LinkTreeLink" WHERE id = $1`, [id]);
-    await client.end();
     
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete link:", error);
     return NextResponse.json({ error: "Failed to delete link" }, { status: 500 });
+  } finally {
+    await client.end();
   }
 }
