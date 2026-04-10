@@ -24,9 +24,13 @@ export async function POST(req: Request) {
     const result = await client.query(
       `INSERT INTO "LandingPageSettings" (
         id, "heroTitle", "heroSubtitle", "heroCTA", "heroImageUrl", "backgroundImageUrl",
-        "aboutTitle", "aboutContent", "aboutImageUrl", "footerText", "updatedAt"
+        "aboutTitle", "aboutContent", "aboutImageUrl", "footerText",
+        "midSectionContent", "showComingSoonBadge", "comingSoonText",
+        "showLogo", "showHeroImage", "showAboutSection", "showMidSection",
+        "showEmailForm", "showSocialIcons", "socialLinks",
+        "emailButtonText", "emailButtonColor", "emailSubText", "updatedAt"
       )
-      VALUES ('singleton', $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      VALUES ('singleton', $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, NOW())
       ON CONFLICT (id) DO UPDATE SET
         "heroTitle" = $1,
         "heroSubtitle" = $2,
@@ -37,6 +41,19 @@ export async function POST(req: Request) {
         "aboutContent" = $7,
         "aboutImageUrl" = $8,
         "footerText" = $9,
+        "midSectionContent" = $10,
+        "showComingSoonBadge" = $11,
+        "comingSoonText" = $12,
+        "showLogo" = $13,
+        "showHeroImage" = $14,
+        "showAboutSection" = $15,
+        "showMidSection" = $16,
+        "showEmailForm" = $17,
+        "showSocialIcons" = $18,
+        "socialLinks" = $19,
+        "emailButtonText" = $20,
+        "emailButtonColor" = $21,
+        "emailSubText" = $22,
         "updatedAt" = NOW()
       RETURNING *`,
       [
@@ -49,6 +66,19 @@ export async function POST(req: Request) {
         body.aboutContent || null,
         body.aboutImageUrl || null,
         body.footerText,
+        body.midSectionContent || null,
+        body.showComingSoonBadge ?? true,
+        body.comingSoonText || 'Coming Soon',
+        body.showLogo ?? true,
+        body.showHeroImage ?? true,
+        body.showAboutSection ?? true,
+        body.showMidSection ?? true,
+        body.showEmailForm ?? true,
+        body.showSocialIcons ?? true,
+        JSON.stringify(body.socialLinks || []),
+        body.emailButtonText || 'Notify Me When We Launch',
+        body.emailButtonColor || '#8B6914',
+        body.emailSubText || 'No spam, ever · Just our launch announcement',
       ]
     );
     

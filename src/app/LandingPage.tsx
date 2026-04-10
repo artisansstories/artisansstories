@@ -3,6 +3,12 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 
+interface SocialLink {
+  platform: "facebook" | "instagram" | "x" | "tiktok" | "pinterest" | "email";
+  url?: string;
+  value?: string;
+}
+
 interface Settings {
   heroTitle: string;
   heroSubtitle?: string;
@@ -13,6 +19,19 @@ interface Settings {
   aboutContent?: string;
   aboutImageUrl?: string;
   footerText: string;
+  midSectionContent?: string;
+  showComingSoonBadge: boolean;
+  comingSoonText: string;
+  showLogo: boolean;
+  showHeroImage: boolean;
+  showAboutSection: boolean;
+  showMidSection: boolean;
+  showEmailForm: boolean;
+  showSocialIcons: boolean;
+  socialLinks: SocialLink[];
+  emailButtonText: string;
+  emailButtonColor: string;
+  emailSubText: string;
 }
 
 export default function LandingPage({ settings }: { settings: Settings }) {
@@ -157,119 +176,127 @@ export default function LandingPage({ settings }: { settings: Settings }) {
         }}>
 
           {/* Coming Soon badge */}
-          <div className="a1" style={{
-            display:"inline-flex", alignItems:"center", gap:"8px",
-            background:"rgba(255,255,255,0.08)",
-            border:"1px solid rgba(255,255,255,0.16)",
-            backdropFilter:"blur(12px)",
-            WebkitBackdropFilter:"blur(12px)",
-            borderRadius:"100px",
-            padding:"10px 22px",
-            marginBottom:"clamp(36px,6vw,48px)",
-          }}>
-            <div style={{
-              borderRadius:"12px",
-              background:"#d4956a", flexShrink:0,
-              animation:"glow 2.5s ease-in-out infinite",
-            }}/>
-            <span style={{
-              fontSize:"11px", fontWeight:"500",
-              letterSpacing:"0.2em", textTransform:"uppercase",
-              color:"rgba(255,255,255,0.82)",
-              fontFamily:"'Inter',sans-serif",
-              whiteSpace:"nowrap",
-            }}>Coming Soon</span>
-          </div>
-
-          {/* Logo — frosted white card for contrast against busy background */}
-          <div className="a2" style={{
-            marginBottom:"clamp(28px,5vw,40px)",
-            padding:"clamp(16px,3vw,24px) clamp(24px,5vw,44px)",
-            background:"rgba(255,255,255,0.88)",
-            backdropFilter:"blur(20px)",
-            WebkitBackdropFilter:"blur(20px)",
-            borderRadius:"18px",
-            boxShadow:"0 4px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.6) inset",
-          }}>
-            <Image
-              src="/logo-color.png"
-              alt="Artisans' Stories"
-              width={1748}
-              height={470}
-              style={{
-                width:"min(82vw,460px)",
-                height:"auto",
-                display:"block",
-              }}
-              priority
-              unoptimized
-            />
-          </div>
-
-          {/* Anna's portrait with intro */}
-          <div className="a2" style={{
-            position:"relative",
-            marginBottom:"clamp(24px,5vw,36px)",
-          }}>
-            <div style={{
-              width:"clamp(280px,45vw,420px)",
-              height:"clamp(280px,45vw,420px)",
-              borderRadius:"12px",
-              padding:"5px",
-              background:"linear-gradient(135deg, #d4956a 0%, #b87d41 50%, #d4956a 100%)",
-              boxShadow:"0 8px 32px rgba(212,149,106,0.4), 0 0 60px rgba(212,149,106,0.2)",
-              margin:"0 auto",
+          {settings.showComingSoonBadge && (
+            <div className="a1" style={{
+              display:"inline-flex", alignItems:"center", gap:"8px",
+              background:"rgba(255,255,255,0.08)",
+              border:"1px solid rgba(255,255,255,0.16)",
+              backdropFilter:"blur(12px)",
+              WebkitBackdropFilter:"blur(12px)",
+              borderRadius:"100px",
+              padding:"10px 22px",
+              marginBottom:"clamp(36px,6vw,48px)",
             }}>
               <div style={{
-                width:"100%",
-                height:"100%",
-                overflow:"hidden",
-                border:"4px solid rgba(255,255,255,0.95)",
-                borderRadius:"8px",
+                borderRadius:"12px",
+                background:"#d4956a", flexShrink:0,
+                animation:"glow 2.5s ease-in-out infinite",
+              }}/>
+              <span style={{
+                fontSize:"11px", fontWeight:"500",
+                letterSpacing:"0.2em", textTransform:"uppercase",
+                color:"rgba(255,255,255,0.82)",
+                fontFamily:"'Inter',sans-serif",
+                whiteSpace:"nowrap",
+              }}>{settings.comingSoonText}</span>
+            </div>
+          )}
+
+          {/* Logo — frosted white card for contrast against busy background */}
+          {settings.showLogo && (
+            <div className="a2" style={{
+              marginBottom:"clamp(28px,5vw,40px)",
+              padding:"clamp(16px,3vw,24px) clamp(24px,5vw,44px)",
+              background:"rgba(255,255,255,0.88)",
+              backdropFilter:"blur(20px)",
+              WebkitBackdropFilter:"blur(20px)",
+              borderRadius:"18px",
+              boxShadow:"0 4px 32px rgba(0,0,0,0.2), 0 1px 0 rgba(255,255,255,0.6) inset",
+            }}>
+              <Image
+                src="/logo-color.png"
+                alt="Artisans' Stories"
+                width={1748}
+                height={470}
+                style={{
+                  width:"min(82vw,460px)",
+                  height:"auto",
+                  display:"block",
+                }}
+                priority
+                unoptimized
+              />
+            </div>
+          )}
+
+          {/* Anna's portrait with intro */}
+          {settings.showHeroImage && (
+            <div className="a2" style={{
+              position:"relative",
+              marginBottom:"clamp(24px,5vw,36px)",
+            }}>
+              <div style={{
+                width:"clamp(280px,45vw,420px)",
+                height:"clamp(280px,45vw,420px)",
+                borderRadius:"12px",
+                padding:"5px",
+                background:"linear-gradient(135deg, #d4956a 0%, #b87d41 50%, #d4956a 100%)",
+                boxShadow:"0 8px 32px rgba(212,149,106,0.4), 0 0 60px rgba(212,149,106,0.2)",
+                margin:"0 auto",
               }}>
-                <Image
-                  src={settings.aboutImageUrl || "/anna-profile.png"}
-                  alt="Anna Kool"
-                  width={1729}
-                  height={1729}
-                  style={{
-                    width:"100%",
-                    height:"100%",
-                    objectFit:"cover",
-                  }}
-                  unoptimized
-                />
+                <div style={{
+                  width:"100%",
+                  height:"100%",
+                  overflow:"hidden",
+                  border:"4px solid rgba(255,255,255,0.95)",
+                  borderRadius:"8px",
+                }}>
+                  <Image
+                    src={settings.aboutImageUrl || "/anna-profile.png"}
+                    alt="Anna Kool"
+                    width={1729}
+                    height={1729}
+                    style={{
+                      width:"100%",
+                      height:"100%",
+                      objectFit:"cover",
+                    }}
+                    unoptimized
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Meet Anna text */}
-          <div className="a3" style={{
-            textAlign:"center",
-            maxWidth:"580px",
-            marginBottom:"clamp(32px,6vw,44px)",
-          }}>
-            <p style={{
-              fontFamily:"'Inter',sans-serif",
-              fontSize:"clamp(10px,2vw,11px)",
-              fontWeight:600,
-              letterSpacing:"0.2em",
-              textTransform:"uppercase",
-              color:"rgba(212,149,106,0.9)",
-              marginBottom:"10px",
-            }}>{settings.aboutTitle}</p>
-            
-            <div
-              style={{
-                fontFamily:"'Cormorant Garamond',Georgia,serif",
-                fontSize:"clamp(16px,3vw,19px)",
-                fontWeight:300,
-                color:"rgba(255,255,255,0.88)",
-                lineHeight:1.75,
-              }}
-              dangerouslySetInnerHTML={{ __html: settings.aboutContent || "I'm Anna, the founder of Artisans' Stories. I started this business with a 'random spark' and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States." }}
-            />
-          </div>
+          {settings.showAboutSection && (
+            <div className="a3" style={{
+              textAlign:"center",
+              maxWidth:"580px",
+              marginBottom:"clamp(32px,6vw,44px)",
+            }}>
+              <p style={{
+                fontFamily:"'Inter',sans-serif",
+                fontSize:"clamp(10px,2vw,11px)",
+                fontWeight:600,
+                letterSpacing:"0.2em",
+                textTransform:"uppercase",
+                color:"rgba(212,149,106,0.9)",
+                marginBottom:"10px",
+              }}>{settings.aboutTitle}</p>
+              
+              <div
+                style={{
+                  fontFamily:"'Cormorant Garamond',Georgia,serif",
+                  fontSize:"clamp(16px,3vw,19px)",
+                  fontWeight:300,
+                  color:"rgba(255,255,255,0.88)",
+                  lineHeight:1.75,
+                }}
+                dangerouslySetInnerHTML={{ __html: settings.aboutContent || "I'm Anna, the founder of Artisans' Stories. I started this business with a 'random spark' and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States." }}
+              />
+            </div>
+          )}
 
           {/* Divider */}
           <div className="a3" style={{
@@ -293,7 +320,8 @@ export default function LandingPage({ settings }: { settings: Settings }) {
           </h1>
 
           {/* Email form */}
-          <div className="a5" style={{ width:"100%", maxWidth:"460px" }}>
+          {settings.showEmailForm && (
+            <div className="a5" style={{ width:"100%", maxWidth:"460px" }}>
             {status === "success" ? (
               <div style={{
                 background:"rgba(255,255,255,0.08)",
@@ -347,9 +375,17 @@ export default function LandingPage({ settings }: { settings: Settings }) {
                       e.target.style.background = "rgba(255,255,255,0.09)";
                     }}
                   />
-                  <button type="submit" disabled={status === "loading"} className="cta-btn"
-                    style={{ opacity: status === "loading" ? .6 : 1 }}>
-                    {status === "loading" ? "Joining…" : settings.heroCTA}
+                  <button
+                    type="submit"
+                    disabled={status === "loading"}
+                    className="cta-btn"
+                    style={{
+                      opacity: status === "loading" ? .6 : 1,
+                      background: `linear-gradient(135deg, ${settings.emailButtonColor}dd, ${settings.emailButtonColor}cc)`,
+                      borderColor: `${settings.emailButtonColor}66`,
+                    }}
+                  >
+                    {status === "loading" ? "Joining…" : settings.emailButtonText}
                   </button>
                 </form>
                 {status === "error" && (
@@ -357,14 +393,16 @@ export default function LandingPage({ settings }: { settings: Settings }) {
                     {message}
                   </p>
                 )}
-                <p style={{
-                  marginTop:"4px", fontSize:"11px",
-                  color:"rgba(255,255,255,0.28)",
-                  fontFamily:"'Inter',sans-serif",
-                  letterSpacing:"0.07em", textTransform:"uppercase",
-                }}>
-                  No spam, ever &nbsp;·&nbsp; Just our launch announcement
-                </p>
+                {settings.emailSubText && (
+                  <p style={{
+                    marginTop:"4px", fontSize:"11px",
+                    color:"rgba(255,255,255,0.28)",
+                    fontFamily:"'Inter',sans-serif",
+                    letterSpacing:"0.07em", textTransform:"uppercase",
+                  }}>
+                    {settings.emailSubText}
+                  </p>
+                )}
               </div>
             )}
           </div>
