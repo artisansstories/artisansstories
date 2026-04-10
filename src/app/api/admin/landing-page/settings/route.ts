@@ -19,6 +19,11 @@ export async function POST(req: Request) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const body = await req.json();
+    console.log('[Landing Page Settings] Saving:', {
+      aboutTitle: body.aboutTitle,
+      aboutContentLength: (body.aboutContent || '').length,
+      heroTitle: body.heroTitle,
+    });
     await client.connect();
     
     const result = await client.query(
@@ -82,9 +87,10 @@ export async function POST(req: Request) {
       ]
     );
     
+    console.log('[Landing Page Settings] Saved successfully');
     return NextResponse.json({ settings: result.rows[0] });
   } catch (error) {
-    console.error("Failed to save landing page settings:", error);
+    console.error("[Landing Page Settings] Failed to save:", error);
     return NextResponse.json({ error: "Failed to save settings" }, { status: 500 });
   } finally {
     await client.end();

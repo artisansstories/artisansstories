@@ -85,12 +85,18 @@ export default function LandingPageEditor() {
   async function saveSettings() {
     setSaving(true);
     try {
+      console.log('[Landing Page Editor] Saving settings:', {
+        aboutTitle: settings.aboutTitle,
+        aboutContentLength: (settings.aboutContent || '').length,
+        heroTitle: settings.heroTitle,
+      });
       const res = await fetch("/api/admin/landing-page/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
       if (res.ok) {
+        console.log('[Landing Page Editor] Save successful');
         alert("Settings saved! Refresh the preview to see changes.");
         // Force iframe refresh
         const iframe = document.querySelector('iframe[title="Landing Page Preview"]') as HTMLIFrameElement;
@@ -98,10 +104,13 @@ export default function LandingPageEditor() {
           iframe.src = iframe.src;
         }
       } else {
-        alert("Failed to save settings");
+        const errorData = await res.json();
+        console.error('[Landing Page Editor] Save failed:', errorData);
+        alert(`Failed to save settings: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
-      alert("Failed to save settings");
+      console.error('[Landing Page Editor] Exception:', error);
+      alert(`Failed to save settings: ${error}`);
     } finally {
       setSaving(false);
     }
