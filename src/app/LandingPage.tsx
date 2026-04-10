@@ -411,37 +411,23 @@ export default function LandingPage({ settings }: { settings: Settings }) {
         </div>
 
 
-          {/* Headline */}
-          <p className="a3" style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:"clamp(21px,4vw,26px)",
-            fontWeight:300, fontStyle:"italic",
-            color:"rgba(255,255,255,0.93)", lineHeight:1.7,
-            marginBottom:"clamp(14px,3vw,20px)",
-            maxWidth:"520px",
-          }}>
-            {settings.heroSubtitle || "Be among the first to join and be part of the journey."}
-          </p>
-
-          <p className="a3" style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:"clamp(17px,3vw,20px)",
-            fontWeight:300, color:"rgba(255,255,255,0.68)", lineHeight:1.9,
-            marginBottom:"clamp(10px,2vw,14px)",
-            maxWidth:"500px",
-          }}>
-            We&apos;re putting the finishing touches on something special&nbsp;&mdash;&nbsp;handcrafted goods from El Salvador&apos;s most talented artisans.
-          </p>
-
-          <p className="a3" style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:"clamp(17px,3vw,20px)",
-            fontWeight:300, color:"rgba(255,255,255,0.5)", lineHeight:1.9,
-            marginBottom:"clamp(36px,6vw,48px)",
-            maxWidth:"460px",
-          }}>
-            Every product has a story, and we are so excited to share those products and stories with you&hellip;
-          </p>
+          {/* Mid-Page Content */}
+          {settings.showMidSection && settings.midSectionContent && (
+            <div
+              className="a3"
+              style={{
+                fontFamily:"'Cormorant Garamond',Georgia,serif",
+                fontSize:"clamp(17px,3vw,20px)",
+                fontWeight:300,
+                color:"rgba(255,255,255,0.85)",
+                lineHeight:1.9,
+                marginBottom:"clamp(36px,6vw,48px)",
+                maxWidth:"520px",
+                textAlign:"center",
+              }}
+              dangerouslySetInnerHTML={{ __html: settings.midSectionContent }}
+            />
+          )}
 
           {/* Social icons */}
           <div className="a4" style={{
