@@ -405,7 +405,8 @@ export default function LandingPage({ settings }: { settings: Settings }) {
                 )}
               </div>
             )}
-          </div>
+            </div>
+          )}
 
         </div>
 
