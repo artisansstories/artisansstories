@@ -97,11 +97,13 @@ export default function LandingPageEditor() {
       });
       if (res.ok) {
         console.log('[Landing Page Editor] Save successful');
-        // Force iframe refresh BEFORE alert
+        // Force iframe refresh BEFORE alert with cache-busting timestamp
         const iframe = document.querySelector('iframe[title="Landing Page Preview"]') as HTMLIFrameElement;
         if (iframe) {
           console.log('[Landing Page Editor] Refreshing iframe');
-          iframe.src = iframe.src;
+          const baseUrl = new URL(iframe.src);
+          baseUrl.searchParams.set('_t', Date.now().toString());
+          iframe.src = baseUrl.toString();
           // Wait a moment for refresh to start
           await new Promise(resolve => setTimeout(resolve, 500));
         } else {
@@ -424,7 +426,11 @@ export default function LandingPageEditor() {
                 <button
                   onClick={() => {
                     const iframe = document.querySelector('iframe[title="Landing Page Preview"]') as HTMLIFrameElement;
-                    if (iframe) iframe.src = iframe.src;
+                    if (iframe) {
+                      const baseUrl = new URL(iframe.src);
+                      baseUrl.searchParams.set('_t', Date.now().toString());
+                      iframe.src = baseUrl.toString();
+                    }
                   }}
                   style={{
                     padding: "6px 12px",
