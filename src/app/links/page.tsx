@@ -77,24 +77,38 @@ export default async function LinktreePage() {
       }}
     >
       <div className="w-full max-w-md">
-        {/* Profile */}
+        {/* Logo + Link Hub Title */}
         <div className="text-center mb-8">
-          {settings.profileImageUrl && (
-            <div className="mb-4">
-              <Image
-                src={settings.profileImageUrl}
-                alt={settings.profileName}
-                width={96}
-                height={96}
-                className="rounded-full mx-auto border-4 border-white shadow-lg"
-              />
-            </div>
-          )}
-          <h1 className="text-2xl font-bold mb-2">{settings.profileName}</h1>
-          {settings.profileBio && (
-            <p className="text-sm opacity-80">{settings.profileBio}</p>
-          )}
+          <div className="mb-4">
+            <Image
+              src="/logo-color.png"
+              alt="Artisans Stories"
+              width={200}
+              height={54}
+              className="mx-auto"
+              unoptimized
+            />
+          </div>
+          <h2 className="text-lg font-medium opacity-70 mb-6">Link Hub</h2>
         </div>
+
+        {/* Profile (Optional - if profile image is set) */}
+        {settings.profileImageUrl && (
+          <div className="text-center mb-6">
+            <Image
+              src={settings.profileImageUrl}
+              alt={settings.profileName}
+              width={80}
+              height={80}
+              className="rounded-full mx-auto border-3 border-white shadow-md"
+            />
+          </div>
+        )}
+
+        {/* Bio (if set) */}
+        {settings.profileBio && (
+          <p className="text-center text-sm opacity-80 mb-8">{settings.profileBio}</p>
+        )}
 
         {/* Links */}
         <div className="space-y-4">
