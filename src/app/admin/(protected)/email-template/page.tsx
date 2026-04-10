@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
 
 const GOLD = "#8B6914";
 const R2_PUBLIC = "https://pub-0225431098954524b5abd8a1b398b466.r2.dev";
@@ -113,14 +117,59 @@ const PLATFORM_ICON_MAP: Record<string, React.ReactNode> = {
   email:     <EmailIcon size={20} />,
 };
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// ─── Email HTML conversion ────────────────────────────────────────────────────
+
+function convertToEmailHtml(html: string): string {
+  return html
+    .replace(/<p>/g, '<p style="font-size:15px;color:#5a4a3a;line-height:1.75;margin-bottom:16px;">')
+    .replace(/<h1>/g, '<p style="font-size:18px;color:#4a3728;font-weight:600;margin-bottom:12px;">')
+    .replace(/<\/h1>/g, "</p>")
+    .replace(/<h2>/g, '<p style="font-size:18px;color:#4a3728;font-weight:600;margin-bottom:12px;">')
+    .replace(/<\/h2>/g, "</p>")
+    .replace(/<h3>/g, '<p style="font-size:18px;color:#4a3728;font-weight:600;margin-bottom:12px;">')
+    .replace(/<\/h3>/g, "</p>")
+    .replace(/<ul>/g, '<ul style="margin:0 0 20px 0;padding-left:20px;">')
+    .replace(/<ol>/g, '<ol style="margin:0 0 20px 0;padding-left:20px;">')
+    .replace(/<li>/g, '<li style="font-size:15px;color:#5a4a3a;line-height:1.75;margin-bottom:8px;">')
+    .replace(/<a /g, '<a style="color:#8B6914;text-decoration:underline;" ');
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function EmailTemplateEditor() {
   const [template, setTemplate] = useState<EmailTemplate | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewHtml, setPreviewHtml] = useState("");
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved">("idle");
+
+  const editorInitialized = useRef(false);
+  const editorReady = useRef(false);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link.configure({ openOnClick: false }),
+      Placeholder.configure({ placeholder: "Write your email body here..." }),
+    ],
+    content: "",
+    onUpdate({ editor }) {
+      const emailHtml = convertToEmailHtml(editor.getHTML());
+      setTemplate((t) => (t ? { ...t, bodyHtml: emailHtml } : t));
+      if (editorReady.current) setIsDirty(true);
+    },
+  });
+
+  // Responsive detection
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     loadTemplate();
@@ -130,13 +179,36 @@ export default function EmailTemplateEditor() {
     if (template) generatePreview();
   }, [template]);
 
+  // Load initial content into editor once both are ready
+  useEffect(() => {
+    if (template && editor && !editorInitialized.current) {
+      editorInitialized.current = true;
+      editor.commands.setContent(template.bodyHtml || "");
+      const timer = setTimeout(() => {
+        editorReady.current = true;
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [template, editor]);
+
+  // ── updateTemplate: use for all user-initiated changes ──────────────────────
+  function updateTemplate(patch: Partial<EmailTemplate> | ((t: EmailTemplate) => EmailTemplate)) {
+    if (typeof patch === "function") {
+      setTemplate((t) => (t ? patch(t) : t));
+    } else {
+      setTemplate((t) => (t ? { ...t, ...patch } : t));
+    }
+    setIsDirty(true);
+  }
+
+  // ─── Load ─────────────────────────────────────────────────────────────────
+
   async function loadTemplate() {
     try {
       const res = await fetch("/api/admin/email-template", { cache: "no-store" });
       const data = await res.json();
       if (data.template) {
         const t = data.template;
-        // Normalize bodyHtml from legacy fields if absent
         if (!t.bodyHtml) {
           t.bodyHtml = [
             t.bodyParagraph1 ? `<p style="font-size:15px;color:#5a4a3a;line-height:1.75;margin-bottom:16px;">${t.bodyParagraph1}</p>` : "",
@@ -152,11 +224,9 @@ export default function EmailTemplateEditor() {
             t.closingText ? `<p style="font-size:15px;color:#5a4a3a;line-height:1.75;margin-bottom:16px;">${t.closingText}</p>` : "",
           ].join("");
         }
-        // Normalize socialLinks
         if (!t.socialLinks || !Array.isArray(t.socialLinks)) {
           t.socialLinks = DEFAULT_SOCIAL_LINKS;
         }
-        // Normalize signatureData
         if (!t.signatureData) {
           t.signatureData = {
             avatarUrl: t.avatarUrl || "",
@@ -174,6 +244,8 @@ export default function EmailTemplateEditor() {
     }
   }
 
+  // ─── Save ─────────────────────────────────────────────────────────────────
+
   async function saveTemplate() {
     if (!template) return;
     setSaving(true);
@@ -183,14 +255,19 @@ export default function EmailTemplateEditor() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...template,
-          // keep legacy fields in sync from signatureData
           avatarUrl: template.signatureData.avatarUrl,
           signatureName: template.signatureData.name,
           signatureSubtitle: template.signatureData.subtitle,
           signatureText: template.signatureData.closing,
         }),
       });
-      if (!res.ok) alert("Failed to save template");
+      if (!res.ok) {
+        alert("Failed to save template");
+      } else {
+        setIsDirty(false);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 3000);
+      }
     } catch (error) {
       console.error("Save error:", error);
       alert("Failed to save template");
@@ -199,12 +276,14 @@ export default function EmailTemplateEditor() {
     }
   }
 
+  // ─── Uploads ──────────────────────────────────────────────────────────────
+
   async function uploadLogo(file: File) {
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/admin/email-template/upload-logo", { method: "POST", body: fd });
     const data = await res.json();
-    if (data.url) setTemplate((t) => t ? { ...t, logoUrl: data.url } : t);
+    if (data.url) updateTemplate({ logoUrl: data.url });
   }
 
   async function uploadAvatar(file: File) {
@@ -213,41 +292,11 @@ export default function EmailTemplateEditor() {
     const res = await fetch("/api/admin/email-template/upload-avatar", { method: "POST", body: fd });
     const data = await res.json();
     if (data.url && template) {
-      setTemplate({ ...template, signatureData: { ...template.signatureData, avatarUrl: data.url } });
+      updateTemplate({ signatureData: { ...template.signatureData, avatarUrl: data.url } });
     }
   }
 
-  // ─── Toolbar helpers ───────────────────────────────────────────────────────
-
-  function wrapSelection(before: string, after: string) {
-    const el = bodyRef.current;
-    if (!el || !template) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    const selected = el.value.slice(start, end);
-    const newVal = el.value.slice(0, start) + before + selected + after + el.value.slice(end);
-    setTemplate({ ...template, bodyHtml: newVal });
-    setTimeout(() => {
-      el.selectionStart = start + before.length;
-      el.selectionEnd = end + before.length;
-      el.focus();
-    }, 0);
-  }
-
-  function insertAtCursor(snippet: string) {
-    const el = bodyRef.current;
-    if (!el || !template) return;
-    const start = el.selectionStart;
-    const newVal = el.value.slice(0, start) + snippet + el.value.slice(start);
-    setTemplate({ ...template, bodyHtml: newVal });
-    setTimeout(() => {
-      el.selectionStart = start + snippet.length;
-      el.selectionEnd = start + snippet.length;
-      el.focus();
-    }, 0);
-  }
-
-  // ─── Preview generation ────────────────────────────────────────────────────
+  // ─── Preview generation ───────────────────────────────────────────────────
 
   function generatePreview() {
     if (!template) return;
@@ -370,346 +419,496 @@ export default function EmailTemplateEditor() {
 
   const logoFilename = template.logoUrl ? template.logoUrl.split("/").pop() || "" : "";
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#faf9f6", padding: "32px" }}>
-      <div style={{ maxWidth: 1600, margin: "0 auto" }}>
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 700, color: "#3a2e24", marginBottom: 8 }}>
-            Welcome Email Template Editor
-          </h1>
-          <p style={{ fontSize: 14, color: "#6b7280" }}>
-            Edit every part of the welcome email sent to new subscribers
-          </p>
-        </div>
+  // ─── Editor Panel ─────────────────────────────────────────────────────────
 
-        <div style={{ display: "flex", gap: 32 }}>
-          {/* ── Editor ── */}
-          <div style={{ flex: 1, maxWidth: 700 }}>
-            <div style={{ background: "#fff", border: "1px solid #e0d5c5", borderRadius: 12, padding: 24 }}>
+  const editorPanel = (
+    <div style={{ background: "#fff", border: "1px solid #e0d5c5", borderRadius: 12, padding: isMobile ? 16 : 24 }}>
 
-              {/* ── Logo Section ── */}
-              <Section title="Logo">
-                <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                  {template.logoUrl ? (
-                    <img
-                      src={template.logoUrl}
-                      alt="Logo"
-                      style={{ width: 80, height: 80, objectFit: "contain", border: "1px solid #e0d5c5", borderRadius: 8 }}
-                    />
-                  ) : (
-                    <div style={{ width: 80, height: 80, border: "1px dashed #e0d5c5", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#a89070" }}>
-                      No logo
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {logoFilename && (
-                      <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {logoFilename}
-                      </p>
-                    )}
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <label style={{ cursor: "pointer" }}>
-                        <span style={{ display: "inline-block", padding: "7px 14px", background: GOLD, color: "#fff", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                          Upload New
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: "none" }}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }}
-                        />
-                      </label>
-                      {template.logoUrl && (
-                        <button
-                          onClick={() => setTemplate({ ...template, logoUrl: "" })}
-                          style={{ padding: "7px 14px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ marginTop: 16, display: "flex", gap: 16 }}>
-                  <ColorPicker label="Header Background" value={template.headerBgColor} onChange={(v) => setTemplate({ ...template, headerBgColor: v })} />
-                  <ColorPicker label="Card Background" value={template.cardBgColor} onChange={(v) => setTemplate({ ...template, cardBgColor: v })} />
-                </div>
-              </Section>
-
-              {/* ── Greeting ── */}
-              <Section title="Greeting">
-                <Textarea label="Greeting Text" value={template.greetingText} onChange={(v) => setTemplate({ ...template, greetingText: v })} rows={2} />
-                <Checkbox label="Italic" checked={template.greetingItalic} onChange={(v) => setTemplate({ ...template, greetingItalic: v })} />
-              </Section>
-
-              {/* ── Email Body ── */}
-              <Section title="Email Body">
-                <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 10 }}>
-                  Raw HTML — includes paragraphs, bullet lists, and closing text.
-                </p>
-                {/* Toolbar */}
-                <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
-                  {[
-                    { label: "B", title: "Bold", action: () => wrapSelection("<strong>", "</strong>"), style: { fontWeight: 700 } },
-                    { label: "I", title: "Italic", action: () => wrapSelection("<em>", "</em>"), style: { fontStyle: "italic" } },
-                    { label: "P", title: "Insert Paragraph", action: () => insertAtCursor('<p style="font-size:15px;color:#5a4a3a;line-height:1.75;margin-bottom:16px;">Paragraph text here</p>') },
-                    { label: "H", title: "Insert Heading", action: () => insertAtCursor('<p style="font-size:16px;color:#4a3728;font-weight:600;margin-bottom:12px;">Heading here</p>') },
-                    { label: "• List", title: "Insert List", action: () => insertAtCursor('<ul style="margin:0 0 20px 0;padding-left:20px;"><li style="font-size:15px;color:#5a4a3a;line-height:1.75;margin-bottom:8px;">List item</li></ul>') },
-                  ].map((btn) => (
-                    <button
-                      key={btn.label}
-                      title={btn.title}
-                      onClick={btn.action}
-                      style={{
-                        padding: "4px 12px",
-                        background: "#f5f0e8",
-                        border: "1px solid #e0d5c5",
-                        borderRadius: 20,
-                        fontSize: 13,
-                        cursor: "pointer",
-                        color: "#4a3728",
-                        ...btn.style,
-                      }}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  ref={bodyRef}
-                  value={template.bodyHtml}
-                  onChange={(e) => setTemplate({ ...template, bodyHtml: e.target.value })}
-                  style={{
-                    width: "100%",
-                    height: 380,
-                    padding: "10px 12px",
-                    border: "1px solid #e0d5c5",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontFamily: "monospace",
-                    lineHeight: 1.6,
-                    resize: "vertical",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </Section>
-
-              {/* ── Social Links ── */}
-              <Section title="Social Links">
-                <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
-                  Toggle which platforms appear in the email. Only enabled links are sent.
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {template.socialLinks.map((link, idx) => (
-                    <div
-                      key={link.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 12px",
-                        border: "1px solid #e0d5c5",
-                        borderRadius: 8,
-                        opacity: link.enabled ? 1 : 0.45,
-                        transition: "opacity 0.15s",
-                        background: "#faf9f6",
-                      }}
-                    >
-                      {/* Toggle */}
-                      <label style={{ position: "relative", display: "inline-block", width: 36, height: 20, flexShrink: 0, cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={link.enabled}
-                          onChange={(e) => {
-                            const updated = [...template.socialLinks];
-                            updated[idx] = { ...link, enabled: e.target.checked };
-                            setTemplate({ ...template, socialLinks: updated });
-                          }}
-                          style={{ opacity: 0, width: 0, height: 0 }}
-                        />
-                        <span style={{
-                          position: "absolute", inset: 0,
-                          background: link.enabled ? GOLD : "#d1d5db",
-                          borderRadius: 20,
-                          transition: "background 0.2s",
-                        }} />
-                        <span style={{
-                          position: "absolute",
-                          top: 3, left: link.enabled ? 18 : 3,
-                          width: 14, height: 14,
-                          background: "#fff",
-                          borderRadius: "50%",
-                          transition: "left 0.2s",
-                        }} />
-                      </label>
-
-                      {/* Platform icon */}
-                      <span style={{ color: link.color, flexShrink: 0, width: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {PLATFORM_ICON_MAP[link.platform]}
-                      </span>
-
-                      {/* Platform name */}
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", width: 72, flexShrink: 0 }}>{link.label}</span>
-
-                      {/* URL */}
-                      <input
-                        type="text"
-                        value={link.url}
-                        onChange={(e) => {
-                          const updated = [...template.socialLinks];
-                          updated[idx] = { ...link, url: e.target.value };
-                          setTemplate({ ...template, socialLinks: updated });
-                        }}
-                        style={{ flex: 1, padding: "6px 10px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 13 }}
-                      />
-
-                      {/* Color picker */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                        <input
-                          type="color"
-                          value={link.color}
-                          onChange={(e) => {
-                            const updated = [...template.socialLinks];
-                            updated[idx] = { ...link, color: e.target.value };
-                            setTemplate({ ...template, socialLinks: updated });
-                          }}
-                          style={{ width: 32, height: 32, border: "1px solid #e0d5c5", borderRadius: 4, cursor: "pointer", padding: 2 }}
-                        />
-                        <input
-                          type="text"
-                          value={link.color}
-                          onChange={(e) => {
-                            const updated = [...template.socialLinks];
-                            updated[idx] = { ...link, color: e.target.value };
-                            setTemplate({ ...template, socialLinks: updated });
-                          }}
-                          style={{ width: 72, padding: "6px 8px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 12, fontFamily: "monospace" }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-
-              {/* ── Signature ── */}
-              <Section title="Signature">
-                <div style={{ border: "1px solid #e0d5c5", borderRadius: 10, padding: 20, background: "#faf9f6" }}>
-                  {/* Avatar row */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
-                    {template.signatureData.avatarUrl ? (
-                      <img
-                        src={template.signatureData.avatarUrl}
-                        alt="Avatar"
-                        style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${template.accentColor}` }}
-                      />
-                    ) : (
-                      <div style={{ width: 64, height: 64, borderRadius: "50%", border: "1px dashed #e0d5c5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#a89070" }}>
-                        Avatar
-                      </div>
-                    )}
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <label style={{ cursor: "pointer" }}>
-                        <span style={{ display: "inline-block", padding: "6px 12px", background: GOLD, color: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                          Upload
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ display: "none" }}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ""; }}
-                        />
-                      </label>
-                      {template.signatureData.avatarUrl && (
-                        <button
-                          onClick={() => setTemplate({ ...template, signatureData: { ...template.signatureData, avatarUrl: "" } })}
-                          style={{ padding: "6px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {/* Fields */}
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {(["name", "subtitle", "closing"] as const).map((field) => (
-                      <label key={field} style={{ display: "block" }}>
-                        <span style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4, textTransform: "capitalize", color: "#4a3728" }}>{field}:</span>
-                        <input
-                          type="text"
-                          value={template.signatureData[field]}
-                          onChange={(e) => setTemplate({ ...template, signatureData: { ...template.signatureData, [field]: e.target.value } })}
-                          style={{ width: "100%", padding: "8px 12px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 14 }}
-                        />
-                      </label>
-                    ))}
-                  </div>
-                  {/* Mini preview */}
-                  <div style={{ marginTop: 16, padding: "12px 16px", background: "#fff", borderRadius: 8, border: "1px solid #e0d5c5" }}>
-                    <p style={{ fontSize: 11, color: "#a89070", marginBottom: 8, fontWeight: 600 }}>Preview</p>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      {template.signatureData.avatarUrl ? (
-                        <img src={template.signatureData.avatarUrl} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: `2px solid ${template.accentColor}` }} />
-                      ) : (
-                        <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e0d5c5" }} />
-                      )}
-                      <div style={{ fontSize: 12, color: template.textColorLight, fontFamily: "sans-serif", lineHeight: 1.7 }}>
-                        {template.signatureData.closing}<br />
-                        <span style={{ color: template.textColorDark, fontFamily: "Georgia, serif", fontSize: 16, fontStyle: "italic" }}>{template.signatureData.name}</span><br />
-                        <span style={{ color: "#8a7a66", fontSize: 11 }}>{template.signatureData.subtitle}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Section>
-
-              {/* ── Colors ── */}
-              <Section title="Colors">
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                  <ColorPicker label="Text Dark" value={template.textColorDark} onChange={(v) => setTemplate({ ...template, textColorDark: v })} />
-                  <ColorPicker label="Text Medium" value={template.textColorMedium} onChange={(v) => setTemplate({ ...template, textColorMedium: v })} />
-                  <ColorPicker label="Text Light" value={template.textColorLight} onChange={(v) => setTemplate({ ...template, textColorLight: v })} />
-                  <ColorPicker label="Accent Color" value={template.accentColor} onChange={(v) => setTemplate({ ...template, accentColor: v })} />
-                </div>
-              </Section>
-
-              <button
-                onClick={saveTemplate}
-                disabled={saving}
-                style={{
-                  width: "100%",
-                  padding: "14px 24px",
-                  background: GOLD,
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  fontSize: 15,
-                  fontWeight: 600,
-                  cursor: saving ? "not-allowed" : "pointer",
-                  marginTop: 8,
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                {saving ? "Saving..." : "Save Template"}
-              </button>
+      {/* Logo */}
+      <Section title="Logo">
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          {template.logoUrl ? (
+            <img src={template.logoUrl} alt="Logo" style={{ width: 80, height: 80, objectFit: "contain", border: "1px solid #e0d5c5", borderRadius: 8 }} />
+          ) : (
+            <div style={{ width: 80, height: 80, border: "1px dashed #e0d5c5", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#a89070" }}>
+              No logo
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {logoFilename && (
+              <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {logoFilename}
+              </p>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <label style={{ cursor: "pointer" }}>
+                <span style={{ display: "inline-block", padding: "7px 14px", background: GOLD, color: "#fff", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Upload New
+                </span>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
+              </label>
+              {template.logoUrl && (
+                <button onClick={() => updateTemplate({ logoUrl: "" })} style={{ padding: "7px 14px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Remove
+                </button>
+              )}
             </div>
           </div>
+        </div>
+        <div style={{ marginTop: 16, display: "flex", gap: 16 }}>
+          <ColorPicker label="Header Background" value={template.headerBgColor} onChange={(v) => updateTemplate({ headerBgColor: v })} />
+          <ColorPicker label="Card Background" value={template.cardBgColor} onChange={(v) => updateTemplate({ cardBgColor: v })} />
+        </div>
+      </Section>
 
-          {/* ── Preview ── */}
-          <div style={{ width: 650, flexShrink: 0 }}>
-            <div style={{ position: "sticky", top: 32 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: "#3a2e24" }}>Live Preview</h3>
-              <div style={{ background: "#fff", border: "1px solid #e0d5c5", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
-                <iframe
-                  srcDoc={previewHtml}
-                  style={{ width: "100%", height: "860px", border: "none" }}
-                  title="Email Preview"
+      {/* Greeting */}
+      <Section title="Greeting">
+        <Textarea label="Greeting Text" value={template.greetingText} onChange={(v) => updateTemplate({ greetingText: v })} rows={2} />
+        <Checkbox label="Italic" checked={template.greetingItalic} onChange={(v) => updateTemplate({ greetingItalic: v })} />
+      </Section>
+
+      {/* Email Body — TipTap */}
+      <Section title="Email Body">
+        {/* Toolbar */}
+        <div style={{ display: "flex", gap: 5, marginBottom: 8, flexWrap: "wrap", padding: "8px 10px", background: "#faf9f6", border: "1px solid #e0d5c5", borderRadius: "8px 8px 0 0", borderBottom: "none" }}>
+          <TipTapButton
+            active={editor?.isActive("bold") ?? false}
+            title="Bold"
+            onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }}
+          >
+            <strong>B</strong>
+          </TipTapButton>
+          <TipTapButton
+            active={editor?.isActive("italic") ?? false}
+            title="Italic"
+            onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }}
+          >
+            <em>I</em>
+          </TipTapButton>
+          <TipTapButton
+            active={editor?.isActive("heading", { level: 2 }) ?? false}
+            title="Heading"
+            onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: 2 }).run(); }}
+          >
+            H
+          </TipTapButton>
+          <TipTapButton
+            active={editor?.isActive("bulletList") ?? false}
+            title="Bullet List"
+            onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleBulletList().run(); }}
+          >
+            • List
+          </TipTapButton>
+          <TipTapButton
+            active={editor?.isActive("orderedList") ?? false}
+            title="Ordered List"
+            onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleOrderedList().run(); }}
+          >
+            1. List
+          </TipTapButton>
+          <TipTapButton
+            active={editor?.isActive("link") ?? false}
+            title="Link"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (!editor) return;
+              if (editor.isActive("link")) {
+                editor.chain().focus().unsetLink().run();
+              } else {
+                const url = window.prompt("Enter URL:");
+                if (url) editor.chain().focus().setLink({ href: url }).run();
+              }
+            }}
+          >
+            🔗
+          </TipTapButton>
+          <TipTapButton
+            active={false}
+            title="Clear Formatting"
+            onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().clearNodes().unsetAllMarks().run(); }}
+          >
+            ✕ Clear
+          </TipTapButton>
+        </div>
+        <div
+          className="tiptap-body-editor"
+          style={{ border: "1px solid #e0d5c5", borderRadius: "0 0 8px 8px", background: "#fff", minHeight: 320 }}
+        >
+          <EditorContent editor={editor} />
+        </div>
+      </Section>
+
+      {/* Social Links */}
+      <Section title="Social Links">
+        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+          Toggle which platforms appear in the email. Only enabled links are sent.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {template.socialLinks.map((link, idx) => (
+            <div
+              key={link.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+                border: "1px solid #e0d5c5",
+                borderRadius: 8,
+                opacity: link.enabled ? 1 : 0.45,
+                transition: "opacity 0.15s",
+                background: "#faf9f6",
+                flexWrap: isMobile ? "wrap" : "nowrap",
+              }}
+            >
+              {/* Toggle */}
+              <label style={{ position: "relative", display: "inline-block", width: 36, height: 20, flexShrink: 0, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={link.enabled}
+                  onChange={(e) => {
+                    const updated = [...template.socialLinks];
+                    updated[idx] = { ...link, enabled: e.target.checked };
+                    updateTemplate({ socialLinks: updated });
+                  }}
+                  style={{ opacity: 0, width: 0, height: 0 }}
                 />
+                <span style={{ position: "absolute", inset: 0, background: link.enabled ? GOLD : "#d1d5db", borderRadius: 20, transition: "background 0.2s" }} />
+                <span style={{ position: "absolute", top: 3, left: link.enabled ? 18 : 3, width: 14, height: 14, background: "#fff", borderRadius: "50%", transition: "left 0.2s" }} />
+              </label>
+
+              <span style={{ color: link.color, flexShrink: 0, width: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {PLATFORM_ICON_MAP[link.platform]}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", width: 72, flexShrink: 0 }}>{link.label}</span>
+
+              <input
+                type="text"
+                value={link.url}
+                onChange={(e) => {
+                  const updated = [...template.socialLinks];
+                  updated[idx] = { ...link, url: e.target.value };
+                  updateTemplate({ socialLinks: updated });
+                }}
+                style={{ flex: 1, minWidth: 120, padding: "6px 10px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 13 }}
+              />
+
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                <input
+                  type="color"
+                  value={link.color}
+                  onChange={(e) => {
+                    const updated = [...template.socialLinks];
+                    updated[idx] = { ...link, color: e.target.value };
+                    updateTemplate({ socialLinks: updated });
+                  }}
+                  style={{ width: 32, height: 32, border: "1px solid #e0d5c5", borderRadius: 4, cursor: "pointer", padding: 2 }}
+                />
+                <input
+                  type="text"
+                  value={link.color}
+                  onChange={(e) => {
+                    const updated = [...template.socialLinks];
+                    updated[idx] = { ...link, color: e.target.value };
+                    updateTemplate({ socialLinks: updated });
+                  }}
+                  style={{ width: 72, padding: "6px 8px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 12, fontFamily: "monospace" }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Signature */}
+      <Section title="Signature">
+        <div style={{ border: "1px solid #e0d5c5", borderRadius: 10, padding: 20, background: "#faf9f6" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
+            {template.signatureData.avatarUrl ? (
+              <img src={template.signatureData.avatarUrl} alt="Avatar" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${template.accentColor}` }} />
+            ) : (
+              <div style={{ width: 64, height: 64, borderRadius: "50%", border: "1px dashed #e0d5c5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#a89070" }}>
+                Avatar
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8 }}>
+              <label style={{ cursor: "pointer" }}>
+                <span style={{ display: "inline-block", padding: "6px 12px", background: GOLD, color: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Upload</span>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ""; }} />
+              </label>
+              {template.signatureData.avatarUrl && (
+                <button
+                  onClick={() => updateTemplate({ signatureData: { ...template.signatureData, avatarUrl: "" } })}
+                  style={{ padding: "6px 12px", background: "#fee2e2", color: "#dc2626", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 12 }}>
+            {(["name", "subtitle", "closing"] as const).map((field) => (
+              <label key={field} style={{ display: "block" }}>
+                <span style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4, textTransform: "capitalize", color: "#4a3728" }}>{field}:</span>
+                <input
+                  type="text"
+                  value={template.signatureData[field]}
+                  onChange={(e) => updateTemplate({ signatureData: { ...template.signatureData, [field]: e.target.value } })}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 14, boxSizing: "border-box" }}
+                />
+              </label>
+            ))}
+          </div>
+          <div style={{ marginTop: 16, padding: "12px 16px", background: "#fff", borderRadius: 8, border: "1px solid #e0d5c5" }}>
+            <p style={{ fontSize: 11, color: "#a89070", marginBottom: 8, fontWeight: 600 }}>Preview</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {template.signatureData.avatarUrl ? (
+                <img src={template.signatureData.avatarUrl} alt="" style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: `2px solid ${template.accentColor}` }} />
+              ) : (
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e0d5c5" }} />
+              )}
+              <div style={{ fontSize: 12, color: template.textColorLight, fontFamily: "sans-serif", lineHeight: 1.7 }}>
+                {template.signatureData.closing}<br />
+                <span style={{ color: template.textColorDark, fontFamily: "Georgia, serif", fontSize: 16, fontStyle: "italic" }}>{template.signatureData.name}</span><br />
+                <span style={{ color: "#8a7a66", fontSize: 11 }}>{template.signatureData.subtitle}</span>
               </div>
             </div>
           </div>
         </div>
+      </Section>
+
+      {/* Colors */}
+      <Section title="Colors">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <ColorPicker label="Text Dark" value={template.textColorDark} onChange={(v) => updateTemplate({ textColorDark: v })} />
+          <ColorPicker label="Text Medium" value={template.textColorMedium} onChange={(v) => updateTemplate({ textColorMedium: v })} />
+          <ColorPicker label="Text Light" value={template.textColorLight} onChange={(v) => updateTemplate({ textColorLight: v })} />
+          <ColorPicker label="Accent Color" value={template.accentColor} onChange={(v) => updateTemplate({ accentColor: v })} />
+        </div>
+      </Section>
+
+      {/* Desktop save button (inside editor panel) */}
+      {!isMobile && (
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button
+            onClick={saveTemplate}
+            disabled={saving}
+            style={{
+              flex: 1,
+              padding: "14px 24px",
+              background: GOLD,
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "Saving..." : "Save Template"}
+          </button>
+          {isDirty && (
+            <span style={{ fontSize: 13, color: "#f59e0b", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              <span style={{ width: 8, height: 8, background: "#f59e0b", borderRadius: "50%", display: "inline-block", flexShrink: 0 }} />
+              Unsaved changes
+            </span>
+          )}
+          {saveStatus === "saved" && !isDirty && (
+            <span style={{ fontSize: 13, color: "#10b981", whiteSpace: "nowrap" }}>Saved ✓</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  // ─── Preview Panel ────────────────────────────────────────────────────────
+
+  const desktopPreview = (
+    <div style={{ position: "sticky", top: 32 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: "#3a2e24", textAlign: "center", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        Live Preview
+      </h3>
+      {/* Phone frame */}
+      <div style={{
+        width: 390,
+        borderRadius: 40,
+        border: "8px solid #2d2420",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        overflow: "hidden",
+        background: "#2d2420",
+        margin: "0 auto",
+      }}>
+        {/* Notch */}
+        <div style={{ display: "flex", justifyContent: "center", background: "#1a1210", paddingTop: 8, paddingBottom: 0 }}>
+          <div style={{ width: 120, height: 24, background: "#2d2420", borderRadius: "0 0 16px 16px" }} />
+        </div>
+        {/* URL bar */}
+        <div style={{ background: "#f5f0e8", padding: "6px 16px", display: "flex", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: "3px 14px", fontSize: 11, color: "#6b7280", border: "1px solid #e0d5c5" }}>
+            artisansstories.com
+          </div>
+        </div>
+        {/* Email iframe */}
+        <iframe
+          srcDoc={previewHtml}
+          style={{ width: "100%", height: 640, border: "none", display: "block", borderRadius: "0 0 32px 32px" }}
+          title="Email Preview"
+        />
       </div>
     </div>
+  );
+
+  const mobilePreview = (
+    <div style={{ padding: "0 0 16px" }}>
+      <iframe
+        srcDoc={previewHtml}
+        style={{ width: "100%", height: 500, border: "1px solid #e0d5c5", borderRadius: 8 }}
+        title="Email Preview"
+      />
+    </div>
+  );
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+
+  return (
+    <>
+      <style>{`
+        .tiptap-body-editor .ProseMirror {
+          min-height: 320px;
+          padding: 16px;
+          outline: none;
+          font-size: 15px;
+          line-height: 1.75;
+          color: #3a2e24;
+          font-family: Georgia, 'Times New Roman', serif;
+        }
+        .tiptap-body-editor .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          color: #a89070;
+          pointer-events: none;
+          float: left;
+          height: 0;
+        }
+        .tiptap-body-editor .ProseMirror a {
+          color: #8B6914;
+          text-decoration: underline;
+        }
+        .tiptap-body-editor .ProseMirror ul,
+        .tiptap-body-editor .ProseMirror ol {
+          padding-left: 20px;
+          margin-bottom: 12px;
+        }
+        .tiptap-body-editor .ProseMirror h1,
+        .tiptap-body-editor .ProseMirror h2 {
+          font-size: 18px;
+          color: #4a3728;
+          font-weight: 600;
+          margin-bottom: 12px;
+        }
+      `}</style>
+
+      <div style={{ minHeight: "100vh", background: "#faf9f6", padding: isMobile ? "0 0 80px 0" : "32px" }}>
+        <div style={{ maxWidth: 1600, margin: "0 auto" }}>
+
+          {/* Page header */}
+          <div style={{ padding: isMobile ? "20px 16px 16px" : "0 0 32px" }}>
+            <h1 style={{ fontSize: isMobile ? 22 : 28, fontWeight: 700, color: "#3a2e24", marginBottom: 4 }}>
+              Email Template
+            </h1>
+            <p style={{ fontSize: 13, color: "#6b7280" }}>
+              Edit every part of the welcome email sent to new subscribers
+            </p>
+          </div>
+
+          {isMobile ? (
+            /* ── Mobile layout ── */
+            <div style={{ padding: "0 12px" }}>
+              {/* Tab bar */}
+              <div style={{ display: "flex", borderBottom: "2px solid #e0d5c5", marginBottom: 16 }}>
+                {(["edit", "preview"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 0",
+                      background: "none",
+                      border: "none",
+                      borderBottom: activeTab === tab ? `2px solid ${GOLD}` : "2px solid transparent",
+                      marginBottom: -2,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: activeTab === tab ? GOLD : "#6b7280",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {tab === "edit" ? "✏️ Edit" : "👁 Preview"}
+                  </button>
+                ))}
+              </div>
+
+              {activeTab === "edit" ? editorPanel : mobilePreview}
+            </div>
+          ) : (
+            /* ── Desktop layout ── */
+            <div style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
+              <div style={{ flex: 1, maxWidth: 560 }}>
+                {editorPanel}
+              </div>
+              <div style={{ width: 430, flexShrink: 0 }}>
+                {desktopPreview}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile sticky save bar */}
+      {isMobile && (
+        <div style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "#fff",
+          borderTop: "1px solid #e0d5c5",
+          padding: "12px 16px",
+          zIndex: 100,
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}>
+          {isDirty && saveStatus !== "saved" && (
+            <span style={{ fontSize: 12, color: "#f59e0b", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+              <span style={{ width: 7, height: 7, background: "#f59e0b", borderRadius: "50%", display: "inline-block", flexShrink: 0 }} />
+              Unsaved
+            </span>
+          )}
+          {saveStatus === "saved" && (
+            <span style={{ fontSize: 12, color: "#10b981", whiteSpace: "nowrap" }}>Saved ✓</span>
+          )}
+          <button
+            onClick={saveTemplate}
+            disabled={saving}
+            style={{
+              flex: 1,
+              padding: "13px",
+              background: GOLD,
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: saving ? "not-allowed" : "pointer",
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            {saving ? "Saving..." : "Save Template"}
+          </button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -718,7 +917,7 @@ export default function EmailTemplateEditor() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 32, paddingBottom: 32, borderBottom: "1px solid #e0d5c5" }}>
-      <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: "#3a2e24" }}>{title}</h3>
+      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: "#3a2e24" }}>{title}</h3>
       {children}
     </div>
   );
@@ -743,18 +942,8 @@ function ColorPicker({ label, value, onChange }: { label: string; value: string;
     <label style={{ display: "block", marginBottom: 16 }}>
       <span style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{label}</span>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <input
-          type="color"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ width: 48, height: 36, border: "1px solid #e0d5c5", borderRadius: 6, cursor: "pointer", padding: 2 }}
-        />
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ flex: 1, padding: "6px 10px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 13, fontFamily: "monospace" }}
-        />
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 48, height: 36, border: "1px solid #e0d5c5", borderRadius: 6, cursor: "pointer", padding: 2 }} />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} style={{ flex: 1, padding: "6px 10px", border: "1px solid #e0d5c5", borderRadius: 6, fontSize: 13, fontFamily: "monospace" }} />
       </div>
     </label>
   );
@@ -763,13 +952,42 @@ function ColorPicker({ label, value, onChange }: { label: string; value: string;
 function Checkbox({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 16 }}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ width: 18, height: 18, cursor: "pointer" }}
-      />
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
       <span style={{ fontSize: 13, fontWeight: 500 }}>{label}</span>
     </label>
+  );
+}
+
+function TipTapButton({
+  children,
+  active,
+  title,
+  onMouseDown,
+}: {
+  children: React.ReactNode;
+  active: boolean;
+  title?: string;
+  onMouseDown: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <button
+      onMouseDown={onMouseDown}
+      title={title}
+      style={{
+        padding: "5px 11px",
+        background: active ? GOLD : "#fff",
+        color: active ? "#fff" : "#4a3728",
+        border: `1px solid ${active ? GOLD : "#e0d5c5"}`,
+        borderRadius: 20,
+        fontSize: 13,
+        fontWeight: 500,
+        cursor: "pointer",
+        transition: "all 0.12s",
+        whiteSpace: "nowrap",
+        lineHeight: 1.4,
+      }}
+    >
+      {children}
+    </button>
   );
 }
