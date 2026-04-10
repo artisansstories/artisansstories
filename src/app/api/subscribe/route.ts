@@ -139,7 +139,7 @@ const welcomeEmailHtml = `<!DOCTYPE html>
               <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                 <tr>
                   <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:28px;text-align:left;">
-                    Thank you for believing that every product—and every custom request—has a soul.
+                    Thank you for believing that every product—and every custom request—has a story.
                   </td>
                 </tr>
               </table>
