@@ -515,3 +515,43 @@ enum ReviewStatus {
   APPROVED
   REJECTED
 }
+
+// ─── EMAIL TEMPLATE ───────────────────────────────────────────────────────────
+// NOTE: Table is created/managed via raw SQL migrations, not prisma db push.
+// This model declaration exists only for prisma generate type safety.
+
+model WelcomeEmailTemplate {
+  id                  String   @id @default("welcome")
+  logoUrl             String?
+  headerBgColor       String?
+  cardBgColor         String?
+  greetingText        String?
+  greetingItalic      Boolean  @default(true)
+  bodyParagraph1      String?
+  bodyParagraph2      String?
+  bulletSectionTitle  String?
+  bullet1Label        String?
+  bullet1Text         String?
+  bullet2Label        String?
+  bullet2Text         String?
+  bullet3Label        String?
+  bullet3Text         String?
+  closingText         String?
+  signatureText       String?
+  signatureName       String?
+  signatureSubtitle   String?
+  avatarUrl           String?
+  instagramUrl        String?
+  tiktokUrl           String?
+  instagramButtonColor String?
+  tiktokButtonColor   String?
+  textColorDark       String?
+  textColorMedium     String?
+  textColorLight      String?
+  accentColor         String?
+  bodyHtml            String?
+  socialLinks         Json?
+  signatureData       Json?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

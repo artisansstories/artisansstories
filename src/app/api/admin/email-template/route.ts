@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     const result = await client.query(
       `UPDATE "WelcomeEmailTemplate"
-       SET 
+       SET
          "logoUrl" = $1,
          "headerBgColor" = $2,
          "cardBgColor" = $3,
@@ -54,6 +54,9 @@ export async function POST(req: Request) {
          "textColorMedium" = $25,
          "textColorLight" = $26,
          "accentColor" = $27,
+         "bodyHtml" = $28,
+         "socialLinks" = $29::jsonb,
+         "signatureData" = $30::jsonb,
          "updatedAt" = NOW()
        WHERE id = 'welcome'
        RETURNING *`,
@@ -85,6 +88,9 @@ export async function POST(req: Request) {
         body.textColorMedium || '#5a4a3a',
         body.textColorLight || '#a89070',
         body.accentColor || '#c8956c',
+        body.bodyHtml,
+        body.socialLinks ? JSON.stringify(body.socialLinks) : null,
+        body.signatureData ? JSON.stringify(body.signatureData) : null,
       ]
     );
 
