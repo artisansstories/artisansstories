@@ -748,12 +748,21 @@ export default function EmailTemplateEditor() {
             artisansstories.com
           </div>
         </div>
-        {/* Email iframe */}
-        <iframe
-          srcDoc={previewHtml}
-          style={{ width: "100%", height: 640, border: "none", display: "block", borderRadius: "0 0 32px 32px" }}
-          title="Email Preview"
-        />
+        {/* Email iframe — scaled to fit phone frame */}
+        <div style={{ width: "100%", height: 640, overflow: "hidden", borderRadius: "0 0 32px 32px", background: "#f5ede0" }}>
+          <iframe
+            srcDoc={previewHtml}
+            style={{
+              width: 600,
+              height: 1028,
+              border: "none",
+              display: "block",
+              transformOrigin: "0 0",
+              transform: "scale(0.623)",
+            }}
+            title="Email Preview"
+          />
+        </div>
       </div>
     </div>
   );
