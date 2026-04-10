@@ -2,6 +2,9 @@ import { Client } from "pg";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 
+// Force dynamic rendering - links can change anytime
+export const dynamic = 'force-dynamic';
+
 interface Settings {
   isEnabled: boolean;
   profileName: string;
