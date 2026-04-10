@@ -2,7 +2,7 @@ import { buildWelcomeEmail } from './build-email';
 
 export const runtime = "nodejs";
 
-const welcomeEmailHtml = `<!DOCTYPE html>
+export const welcomeEmailHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>

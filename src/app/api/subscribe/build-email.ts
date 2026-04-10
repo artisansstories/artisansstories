@@ -50,7 +50,7 @@ export async function buildWelcomeEmail(): Promise<string> {
   
   if (!template) {
     // Fallback to hardcoded (current working email)
-    const { welcomeEmailHtml } = await import('./route.ts.backup');
+    const { welcomeEmailHtml } = await import('./route');
     return welcomeEmailHtml;
   }
 
