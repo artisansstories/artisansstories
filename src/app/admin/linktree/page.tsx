@@ -152,7 +152,7 @@ export default function LinkTreeAdmin() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">LinkTree Manager</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Link Hub</h1>
             <p className="text-gray-600 mt-1">Manage your link-in-bio page</p>
           </div>
           {settings.isEnabled && (
@@ -179,7 +179,7 @@ export default function LinkTreeAdmin() {
                 onChange={(e) => setSettings({ ...settings, isEnabled: e.target.checked })}
                 className="w-5 h-5"
               />
-              <span className="font-medium">Enable public LinkTree page</span>
+              <span className="font-medium">Enable public Link Hub page</span>
             </label>
 
             <div>
