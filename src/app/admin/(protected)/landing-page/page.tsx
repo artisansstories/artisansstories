@@ -140,31 +140,51 @@ export default function LandingPageEditor() {
               <label style={{ display: "block", marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Hero Image</span>
                 {settings.heroImageUrl && (
-                  <img src={settings.heroImageUrl} alt="Hero" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
+                  <div style={{ marginBottom: 8 }}>
+                    <img src={settings.heroImageUrl} alt="Hero" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginBottom: 6 }} />
+                    <div style={{ fontSize: 12, color: "#6b7280", wordBreak: "break-all" }}>
+                      Current: {settings.heroImageUrl.split('/').pop()}
+                    </div>
+                  </div>
                 )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange(e, "heroImageUrl")}
-                  disabled={uploading === "heroImageUrl"}
-                  style={{ fontSize: 14 }}
-                />
-                {uploading === "heroImageUrl" && <span style={{ fontSize: 12, color: GOLD }}>Uploading...</span>}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ padding: "8px 16px", background: GOLD, color: "#fff", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+                    {settings.heroImageUrl ? "Change Image" : "Upload Image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, "heroImageUrl")}
+                      disabled={uploading === "heroImageUrl"}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {uploading === "heroImageUrl" && <span style={{ fontSize: 12, color: GOLD }}>Uploading...</span>}
+                </div>
               </label>
 
               <label style={{ display: "block" }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Background Image</span>
                 {settings.backgroundImageUrl && (
-                  <img src={settings.backgroundImageUrl} alt="Background" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
+                  <div style={{ marginBottom: 8 }}>
+                    <img src={settings.backgroundImageUrl} alt="Background" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginBottom: 6 }} />
+                    <div style={{ fontSize: 12, color: "#6b7280", wordBreak: "break-all" }}>
+                      Current: {settings.backgroundImageUrl.split('/').pop()}
+                    </div>
+                  </div>
                 )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange(e, "backgroundImageUrl")}
-                  disabled={uploading === "backgroundImageUrl"}
-                  style={{ fontSize: 14 }}
-                />
-                {uploading === "backgroundImageUrl" && <span style={{ fontSize: 12, color: GOLD }}>Uploading...</span>}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ padding: "8px 16px", background: GOLD, color: "#fff", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+                    {settings.backgroundImageUrl ? "Change Image" : "Upload Image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, "backgroundImageUrl")}
+                      disabled={uploading === "backgroundImageUrl"}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {uploading === "backgroundImageUrl" && <span style={{ fontSize: 12, color: GOLD }}>Uploading...</span>}
+                </div>
               </label>
             </div>
 
@@ -194,16 +214,26 @@ export default function LandingPageEditor() {
               <label style={{ display: "block" }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Image</span>
                 {settings.aboutImageUrl && (
-                  <img src={settings.aboutImageUrl} alt="About" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginBottom: 8 }} />
+                  <div style={{ marginBottom: 8 }}>
+                    <img src={settings.aboutImageUrl} alt="About" style={{ width: "100%", maxHeight: 200, objectFit: "cover", borderRadius: 8, marginBottom: 6 }} />
+                    <div style={{ fontSize: 12, color: "#6b7280", wordBreak: "break-all" }}>
+                      Current: {settings.aboutImageUrl.split('/').pop()}
+                    </div>
+                  </div>
                 )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => handleFileChange(e, "aboutImageUrl")}
-                  disabled={uploading === "aboutImageUrl"}
-                  style={{ fontSize: 14 }}
-                />
-                {uploading === "aboutImageUrl" && <span style={{ fontSize: 12, color: GOLD }}>Uploading...</span>}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ padding: "8px 16px", background: GOLD, color: "#fff", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 500 }}>
+                    {settings.aboutImageUrl ? "Change Image" : "Upload Image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, "aboutImageUrl")}
+                      disabled={uploading === "aboutImageUrl"}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                  {uploading === "aboutImageUrl" && <span style={{ fontSize: 12, color: GOLD }}>Uploading...</span>}
+                </div>
               </label>
             </div>
 
