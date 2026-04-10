@@ -85,12 +85,21 @@ export default function LandingPageEditor() {
   async function saveSettings() {
     setSaving(true);
     try {
-      await fetch("/api/admin/landing-page/settings", {
+      const res = await fetch("/api/admin/landing-page/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
-      alert("Settings saved!");
+      if (res.ok) {
+        alert("Settings saved! Refresh the preview to see changes.");
+        // Force iframe refresh
+        const iframe = document.querySelector('iframe[title="Landing Page Preview"]') as HTMLIFrameElement;
+        if (iframe) {
+          iframe.src = iframe.src;
+        }
+      } else {
+        alert("Failed to save settings");
+      }
     } catch (error) {
       alert("Failed to save settings");
     } finally {
@@ -396,7 +405,27 @@ export default function LandingPageEditor() {
           {/* Live Preview */}
           <div style={{ width: 480, flexShrink: 0 }}>
             <div style={{ position: "sticky", top: 32 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: "#3a2e24" }}>Live Preview</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 600, color: "#3a2e24", margin: 0 }}>Live Preview</h3>
+                <button
+                  onClick={() => {
+                    const iframe = document.querySelector('iframe[title="Landing Page Preview"]') as HTMLIFrameElement;
+                    if (iframe) iframe.src = iframe.src;
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    background: "#fff",
+                    border: `1px solid ${GOLD}`,
+                    borderRadius: 6,
+                    color: GOLD,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  ↻ Refresh
+                </button>
+              </div>
               <div style={{ background: "#fff", border: "1px solid #e0d5c5", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
                 <div style={{ padding: "20px", background: "#fff" }}>
                   <iframe
