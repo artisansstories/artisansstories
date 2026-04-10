@@ -57,19 +57,6 @@ enum AdminRole {
   EDITOR
 }
 
-// ─── OTP TOKENS ──────────────────────────────────────────────────────────────
-
-model AdminOtpToken {
-  id        String    @id @default(cuid())
-  phone     String
-  code      String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  @@index([phone])
-}
-
 // ─── MAGIC LINK TOKENS ───────────────────────────────────────────────────────
 
 model MagicLinkToken {
