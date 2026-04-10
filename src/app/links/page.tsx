@@ -61,8 +61,16 @@ async function trackClick(linkId: string) {
 export default async function LinktreePage() {
   const data = await getLinktreeData();
   
+  // If disabled or no settings, show a simple message instead of 404
   if (!data) {
-    notFound();
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: "#FFFBF0" }}>
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-gray-800 mb-4">Artisans Stories</h1>
+          <p className="text-gray-600">Link hub coming soon</p>
+        </div>
+      </div>
+    );
   }
   
   const { settings, links } = data;
