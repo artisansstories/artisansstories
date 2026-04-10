@@ -46,6 +46,7 @@ model AdminUser {
   name      String
   role      AdminRole @default(EDITOR)
   isActive  Boolean   @default(true)
+  phone     String?   @unique
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
@@ -54,6 +55,19 @@ enum AdminRole {
   SUPER_ADMIN
   ADMIN
   EDITOR
+}
+
+// ─── OTP TOKENS ──────────────────────────────────────────────────────────────
+
+model AdminOtpToken {
+  id        String    @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([phone])
 }
 
 // ─── MAGIC LINK TOKENS ───────────────────────────────────────────────────────
