@@ -1,117 +1,218 @@
-import { Client } from "pg";
+export const runtime = "edge";
 
-export const runtime = "nodejs";
-
-async function getEmailTemplate() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  try {
-    await client.connect();
-    const result = await client.query(`SELECT * FROM "EmailTemplate" WHERE id = 'welcome'`);
-    return result.rows[0];
-  } catch (error) {
-    console.error("Failed to fetch email template:", error);
-    return null;
-  } finally {
-    await client.end();
-  }
-}
-
-function getIconEmoji(iconType: string): string {
-  const icons: Record<string, string> = {
-    "flag-el-salvador": "🇸🇻",
-    envelope: "✉️",
-    heart: "❤️",
-    star: "⭐",
-    sparkles: "✨",
-    gift: "🎁",
-  };
-  return icons[iconType] || "✉️";
-}
-
-async function buildWelcomeEmail() {
-  const template = await getEmailTemplate();
-  
-  if (!template) {
-    // Fallback to basic template if DB query fails
-    return {
-      subject: "Welcome to Artisans' Stories! 🎉",
-      html: `<p>Thank you for joining our journey!</p><p>We'll be in touch soon with updates from El Salvador.</p>`,
-    };
-  }
-
-  const iconEmoji = template.showIcon
-    ? template.iconType === "custom" && template.iconUrl
-      ? `<img src="${template.iconUrl}" alt="Icon" style="width: 48px; height: 48px; margin-bottom: 16px;" />`
-      : getIconEmoji(template.iconType)
-    : "";
-
-  const html = `
-<!DOCTYPE html>
+const welcomeEmailHtml = `<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  ${template.preheader ? `<meta name="description" content="${template.preheader}">` : ""}
-  <title>${template.subject}</title>
-  <style>
-    /* Reset styles */
-    body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
-    table { border-collapse: collapse; }
-    img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
-    p { margin: 0; padding: 0; }
-    /* Email-specific styles */
-    a { color: ${template.accentColor}; text-decoration: underline; }
-    a:hover { text-decoration: none; }
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <!--[if mso]>
+  <style type="text/css">
+    body, table, td {font-family: Arial, Helvetica, sans-serif !important;}
   </style>
+  <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: ${template.bodyBgColor};">
-  <table role="presentation" style="width: 100%; border-collapse: collapse; background: ${template.bodyBgColor};">
+<body style="margin:0;padding:0;background:#f5ede0;font-family:Georgia,'Times New Roman',serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#f5ede0;">
     <tr>
-      <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" style="max-width: 600px; width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-          <!-- Header -->
+      <td style="padding:40px 20px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px;margin:0 auto;">
+          
+          <!-- Top border -->
           <tr>
-            <td style="background: ${template.headerBgColor}; padding: 32px 24px; text-align: center;">
-              ${template.logoUrl ? `<img src="${template.logoUrl}" alt="Logo" style="max-width: 200px; height: auto; margin-bottom: 16px; display: block; margin-left: auto; margin-right: auto;" />` : ""}
-              ${template.showIcon ? `<div style="font-size: 48px; margin-bottom: 8px;">${iconEmoji}</div>` : ""}
-              ${template.headlineText ? `<h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; line-height: 1.3;">${template.headlineText}</h1>` : ""}
+            <td style="padding-bottom:32px;">
+              <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);border-radius:2px;"></div>
             </td>
           </tr>
-          <!-- Body -->
+
+          <!-- Main card -->
           <tr>
-            <td style="padding: 32px 24px; color: #374151; font-size: 16px; line-height: 1.6;">
-              ${template.bodyContent || ""}
+            <td style="background:#ffffff;border-radius:12px;padding:40px 32px;border:1px solid rgba(139,94,60,0.12);">
+              
+              <!-- Logo -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:center;padding-bottom:28px;">
+                    <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="320" height="107" style="display:block;margin:0 auto;max-width:320px;height:auto;"/>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:center;padding-bottom:28px;">
+                    <div style="width:60px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Greeting -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:17px;color:#4a3728;line-height:1.6;padding-bottom:20px;text-align:left;">
+                    Hi!
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:17px;color:#4a3728;line-height:1.6;padding-bottom:24px;font-style:italic;text-align:left;">
+                    I am so happy you're here.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Body -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
+                    I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
+                    Artisans' Stories is a collaboration. On one side of the bridge, you'll find master makers like Lilian, who hand-sews our cotton totes, and Gerardo, a third-generation leather artisan. On the other side, you'll find me in my studio in the US.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:16px;text-align:left;">
+                    I don't just curate these pieces—I'm a maker, too. While I hand-select and "finish" many of our imported goods with custom laser engraving and sublimation, I also create my own original designs right here in the States.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:24px;text-align:left;">
+                    These "Studio Originals" are the glue of our shop. They allow me to keep the creative energy flowing and the doors open while I travel back to El Salvador to find the next hidden story to share with you.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- What you'll get section -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:16px;color:#4a3728;line-height:1.6;padding-bottom:16px;text-align:left;font-weight:600;">
+                    By joining this list, you'll get:
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left:20px;padding-bottom:12px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Stories:</strong> Meet the makers behind the heritage crafts.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left:20px;padding-bottom:12px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Studio Drops:</strong> Be the first to shop my original US-made designs.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-left:20px;padding-bottom:28px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="width:20px;vertical-align:top;padding-top:2px;"><span style="color:#c8956c;font-size:16px;">•</span></td>
+                        <td style="font-size:15px;color:#5a4a3a;line-height:1.75;"><strong>The Journey:</strong> I'm heading back to El Salvador in just a few days to visit Gerardo's workshop and I will be sharing that experience with you soon.</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Buttons -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="padding-bottom:28px;">
+                <tr>
+                  <td style="text-align:center;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto;">
+                      <tr>
+                        <!-- Instagram Button -->
+                        <td style="padding:0 8px;">
+                          <a href="https://www.instagram.com/artisansstories?igsh=NTc4MTIwNjQ2YQ==" style="display:inline-block;padding:12px 20px;background:#E4405F;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/instagram-icon.svg" alt="" width="20" height="20" style="vertical-align:middle;margin-right:8px;display:inline-block;"/>
+                            Follow on Instagram
+                          </a>
+                        </td>
+                        <!-- TikTok Button -->
+                        <td style="padding:0 8px;">
+                          <a href="https://www.tiktok.com/@artisansstories" style="display:inline-block;padding:12px 20px;background:#000000;color:#ffffff;text-decoration:none;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:600;text-align:center;line-height:1.4;">
+                            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/tiktok-icon.svg" alt="" width="20" height="20" style="vertical-align:middle;margin-right:8px;display:inline-block;"/>
+                            Follow on TikTok
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Closing -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="font-size:15px;color:#5a4a3a;line-height:1.75;padding-bottom:28px;text-align:left;">
+                    Thank you for believing that every product has a soul—whether it was born in a garage in a countryside town in El Salvador, or in my studio here at home in the US.
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align:center;padding-bottom:24px;">
+                    <div style="width:40px;height:1px;background:linear-gradient(90deg,transparent,#c8956c,transparent);margin:0 auto;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Signature -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td>
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="padding-right:12px;vertical-align:top;">
+                          <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/anna-avatar.png" alt="Anna" width="48" height="48" style="border-radius:50%;display:block;border:2px solid #c8956c;"/>
+                        </td>
+                        <td style="vertical-align:top;padding-top:4px;">
+                          <div style="font-size:13px;color:#a89070;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
+                            With gratitude,<br/>
+                            <span style="color:#6b4c30;font-family:Georgia,serif;font-size:18px;font-style:italic;">Anna</span>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
             </td>
           </tr>
-          <!-- CTA -->
-          ${
-            template.showCTA && template.ctaText
-              ? `<tr>
-            <td style="padding: 0 24px 32px 24px; text-align: center;">
-              <a href="${template.ctaUrl || "#"}" style="display: inline-block; padding: 14px 32px; background: ${template.ctaBgColor}; color: ${template.ctaTextColor}; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; line-height: 1.4;">${template.ctaText}</a>
-            </td>
-          </tr>`
-              : ""
-          }
+
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center; font-size: 13px; color: #6b7280; line-height: 1.6;">
-              ${template.footerContent || ""}
+            <td style="text-align:center;font-size:11px;color:#b8967a;padding-top:28px;font-family:Arial,Helvetica,sans-serif;letter-spacing:0.04em;line-height:1.8;">
+              &copy; 2026 Artisans' Stories &nbsp;&middot;&nbsp; El Salvador to the United States<br/>
+              <a href="https://artisansstories.com" style="color:#8b5e3c;text-decoration:none;">artisansstories.com</a>
             </td>
           </tr>
+
+          <!-- Bottom border -->
+          <tr>
+            <td style="padding-top:24px;">
+              <div style="height:3px;background:linear-gradient(90deg,transparent,#8b5e3c,#c8956c,#8b5e3c,transparent);border-radius:2px;"></div>
+            </td>
+          </tr>
+
         </table>
       </td>
     </tr>
   </table>
 </body>
-</html>
-  `;
-
-  return {
-    subject: template.subject,
-    html,
-  };
-}
+</html>`;
 
 export async function POST(req: Request) {
   try {
@@ -128,13 +229,12 @@ export async function POST(req: Request) {
 
     const audienceId = process.env.RESEND_AUDIENCE_ID;
 
-    // Add to Resend audience if configured
     if (audienceId) {
       const contactRes = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          "Authorization": `Bearer ${apiKey}`,
         },
         body: JSON.stringify({ email, unsubscribed: false }),
       });
@@ -143,20 +243,17 @@ export async function POST(req: Request) {
       }
     }
 
-    // Build and send welcome email
-    const { subject, html } = await buildWelcomeEmail();
-
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         from: "Anna at Artisans' Stories <hello@artisansstories.com>",
         to: [email],
-        subject,
-        html,
+        subject: "Welcome to the story 🇸🇻 | A bridge between heritage and home",
+        html: welcomeEmailHtml,
       }),
     });
 
