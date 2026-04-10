@@ -277,11 +277,13 @@ export default function LandingPageEditor() {
             <div style={{ position: "sticky", top: 32 }}>
               <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: "#3a2e24" }}>Live Preview</h3>
               <div style={{ background: "#fff", border: "1px solid #e0d5c5", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
-                <iframe
-                  src="/"
-                  style={{ width: "100%", height: 600, border: "none" }}
-                  title="Landing Page Preview"
-                />
+                <div style={{ padding: "20px", background: "#fff" }}>
+                  <iframe
+                    src="/"
+                    style={{ width: "100%", height: 600, border: "1px solid #e0e0e0", borderRadius: 8 }}
+                    title="Landing Page Preview"
+                  />
+                </div>
               </div>
               <p style={{ fontSize: 12, color: "#9a876e", marginTop: 8 }}>
                 Preview updates after saving. Refresh preview to see changes.

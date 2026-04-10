@@ -278,6 +278,19 @@ export default function LandingPage({ settings }: { settings: Settings }) {
             marginBottom:"clamp(28px,5vw,40px)",
           }}/>
 
+          {/* Hero Title */}
+          <h1 className="a3" style={{
+            fontFamily:"'Cormorant Garamond',Georgia,serif",
+            fontSize:"clamp(32px,6vw,48px)",
+            fontWeight:400,
+            color:"rgba(255,255,255,0.95)",
+            lineHeight:1.3,
+            marginBottom:"clamp(20px,4vw,28px)",
+            maxWidth:"600px",
+            textAlign:"center",
+          }}>
+            {settings.heroTitle}
+          </h1>
 
           {/* Email form */}
           <div className="a5" style={{ width:"100%", maxWidth:"460px" }}>
