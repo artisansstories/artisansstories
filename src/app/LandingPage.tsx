@@ -259,26 +259,16 @@ export default function LandingPage({ settings }: { settings: Settings }) {
               marginBottom:"10px",
             }}>{settings.aboutTitle}</p>
             
-            <p style={{
-              fontFamily:"'Cormorant Garamond',Georgia,serif",
-              fontSize:"clamp(16px,3vw,19px)",
-              fontWeight:300,
-              color:"rgba(255,255,255,0.88)",
-              lineHeight:1.75,
-              marginBottom:"14px",
-            }}>
-              I'm Anna, the founder of Artisans' Stories. I started this business with a "random spark" and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States.
-            </p>
-            
-            <p style={{
-              fontFamily:"'Cormorant Garamond',Georgia,serif",
-              fontSize:"clamp(15px,2.8vw,17px)",
-              fontWeight:300,
-              color:"rgba(255,255,255,0.68)",
-              lineHeight:1.75,
-            }}>
-              Every artisan has a story. Every craft holds generations of tradition. I'm here to bring those stories—and those beautiful handmade pieces—directly to you.
-            </p>
+            <div
+              style={{
+                fontFamily:"'Cormorant Garamond',Georgia,serif",
+                fontSize:"clamp(16px,3vw,19px)",
+                fontWeight:300,
+                color:"rgba(255,255,255,0.88)",
+                lineHeight:1.75,
+              }}
+              dangerouslySetInnerHTML={{ __html: settings.aboutContent || "I'm Anna, the founder of Artisans' Stories. I started this business with a 'random spark' and a big mission: to build a bridge between the deep roots of my home in El Salvador and the modern craft I create here in the United States." }}
+            />
           </div>
 
           {/* Divider */}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import RichTextEditor from "@/components/RichTextEditor";
 
 const GOLD = "#8B6914";
 
@@ -117,15 +118,15 @@ export default function LandingPageEditor() {
                 />
               </label>
 
-              <label style={{ display: "block", marginBottom: 16 }}>
+              <div style={{ marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Hero Subtitle</span>
-                <textarea
-                  value={settings.heroSubtitle || ""}
-                  onChange={(e) => setSettings({ ...settings, heroSubtitle: e.target.value })}
-                  rows={3}
-                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #e0d5c5", borderRadius: 8, fontSize: 14 }}
+                <RichTextEditor
+                  content={settings.heroSubtitle || ""}
+                  onChange={(html) => setSettings({ ...settings, heroSubtitle: html })}
+                  placeholder="Enter subtitle text..."
+                  minHeight={100}
                 />
-              </label>
+              </div>
 
               <label style={{ display: "block", marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>CTA Button Text</span>
@@ -201,15 +202,15 @@ export default function LandingPageEditor() {
                 />
               </label>
 
-              <label style={{ display: "block", marginBottom: 16 }}>
+              <div style={{ marginBottom: 16 }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Content</span>
-                <textarea
-                  value={settings.aboutContent || ""}
-                  onChange={(e) => setSettings({ ...settings, aboutContent: e.target.value })}
-                  rows={6}
-                  style={{ width: "100%", padding: "10px 12px", border: "1px solid #e0d5c5", borderRadius: 8, fontSize: 14 }}
+                <RichTextEditor
+                  content={settings.aboutContent || ""}
+                  onChange={(html) => setSettings({ ...settings, aboutContent: html })}
+                  placeholder="Enter about content..."
+                  minHeight={200}
                 />
-              </label>
+              </div>
 
               <label style={{ display: "block" }}>
                 <span style={{ display: "block", fontSize: 14, fontWeight: 500, marginBottom: 6 }}>Image</span>
