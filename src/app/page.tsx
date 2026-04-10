@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import LandingPageWrapper from "./LandingPageWrapper";
 
+export const dynamic = 'force-dynamic';
+
 export default async function HomePage() {
   let storeEnabled = false;
   try {

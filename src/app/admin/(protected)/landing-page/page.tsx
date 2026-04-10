@@ -97,12 +97,17 @@ export default function LandingPageEditor() {
       });
       if (res.ok) {
         console.log('[Landing Page Editor] Save successful');
-        alert("Settings saved! Refresh the preview to see changes.");
-        // Force iframe refresh
+        // Force iframe refresh BEFORE alert
         const iframe = document.querySelector('iframe[title="Landing Page Preview"]') as HTMLIFrameElement;
         if (iframe) {
+          console.log('[Landing Page Editor] Refreshing iframe');
           iframe.src = iframe.src;
+          // Wait a moment for refresh to start
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          console.log('[Landing Page Editor] No iframe found');
         }
+        alert("Settings saved! Preview refreshed.");
       } else {
         const errorData = await res.json();
         console.error('[Landing Page Editor] Save failed:', errorData);
