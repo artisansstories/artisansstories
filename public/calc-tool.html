@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home Purchase Calculator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+.hdr{background:#1e293b;padding:18px 30px;border-bottom:1px solid #334155}
+.hdr h1{font-size:20px;color:#f8fafc;font-weight:600}
+.hdr p{color:#94a3b8;font-size:12px;margin-top:3px}
+.tabs{display:flex;background:#1e293b;border-bottom:1px solid #334155;padding:0 30px}
+.tab{padding:13px 18px;cursor:pointer;color:#94a3b8;border-bottom:2px solid transparent;font-size:13px;font-weight:500}
+.tab.on{color:#3b82f6;border-bottom-color:#3b82f6}
+.pane{display:none;padding:24px 30px;max-width:1200px;margin:0 auto}
+.pane.on{display:block}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:16px}
+.ct{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+.f{margin-bottom:12px}
+.f label{display:block;font-size:11px;color:#94a3b8;margin-bottom:4px;font-weight:500}
+.f input,.f select{width:100%;background:#0f172a;border:1px solid #334155;border-radius:7px;padding:8px 10px;color:#f1f5f9;font-size:13px;outline:none}
+.f input:focus,.f select:focus{border-color:#3b82f6}
+.px{position:relative}
+.px span{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:#64748b;font-size:13px;pointer-events:none}
+.px input{padding-left:20px}
+.row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #0f172a}
+.row:last-child{border:none}
+.rl{font-size:12px;color:#94a3b8}
+.rv{font-size:13px;color:#f1f5f9;font-weight:500;font-family:'SF Mono',Menlo,monospace}
+.bigbox{text-align:center;padding:16px;background:#0f172a;border-radius:9px;margin-bottom:14px}
+.bigbox .amt{font-size:34px;font-weight:700;color:#3b82f6;font-family:'SF Mono',Menlo,monospace}
+.bigbox .lbl{font-size:10px;color:#64748b;margin-top:3px;text-transform:uppercase;letter-spacing:.05em}
+.trow{display:flex;justify-content:space-between;padding:10px 0}
+.tlbl{font-size:14px;color:#94a3b8;font-weight:600}
+.tval{font-size:20px;color:#3b82f6;font-weight:700;font-family:'SF Mono',Menlo,monospace}
+.bblue{background:linear-gradient(135deg,#1e3a5f,#1e293b);border:1px solid #3b82f6;border-radius:10px;padding:20px;text-align:center;margin-bottom:14px}
+.bblue .amt{font-size:36px;font-weight:700;color:#60a5fa;font-family:'SF Mono',Menlo,monospace}
+.bblue .lbl{font-size:12px;color:#94a3b8;margin-top:4px}
+.bblue .sub{font-size:10px;color:#64748b;margin-top:2px}
+.bgreen{background:#064e3b;border:1px solid #065f46;border-radius:10px;padding:16px;text-align:center;margin-bottom:14px}
+.bgreen .ttl{font-size:10px;color:#34d399;text-transform:uppercase;letter-spacing:.06em;font-weight:700;margin-bottom:6px}
+.bgreen .amt{font-size:28px;font-weight:700;color:#34d399;font-family:'SF Mono',Menlo,monospace}
+.bgreen .sub{font-size:11px;color:#10b981;margin-top:3px}
+.highlight{background:#1e3652;border:1px solid #3b82f6;border-radius:8px;padding:12px;margin-bottom:10px}
+.highlight label{color:#60a5fa!important;font-weight:700!important;font-size:12px!important}
+.highlight input{border-color:#3b82f6!important;background:#0f172a}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{background:#0f172a;color:#94a3b8;padding:9px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+td{padding:8px 10px;border-bottom:1px solid #1e293b;color:#e2e8f0;font-family:'SF Mono',Menlo,monospace}
+tr:hover td{background:#1a2744}
+.hlr td{background:#1e3a5f;color:#60a5fa;font-weight:600}
+tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
+.badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700}
+.bg{background:#064e3b;color:#34d399}
+.bb{background:#1e3a5f;color:#60a5fa}
+.div{height:1px;background:#334155;margin:14px 0}
+.pbtn{background:#3b82f6;color:#fff;border:none;border-radius:7px;padding:8px 16px;font-size:12px;font-weight:600;cursor:pointer;float:right}
+.pbtn:hover{background:#2563eb}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.sh h2{font-size:17px;font-weight:600;color:#f8fafc}
+.tp{background:#0f172a;border-left:3px solid #3b82f6;border-radius:0 7px 7px 0;padding:12px 14px;margin-bottom:10px;font-size:12px;color:#cbd5e1;line-height:1.7}
+.tp strong{color:#f1f5f9}
+</style>
+</head>
+<body>
+<div class="hdr"><h1>🏠 Home Purchase Calculator</h1><p>Payment analysis &amp; builder negotiation tool — new construction</p></div>
+<div class="tabs">
+  <div class="tab on" onclick="showTab('p',this)">Payment Calculator</div>
+  <div class="tab" onclick="showTab('b',this)">Buydown Calculator</div>
+  <div class="tab" onclick="showTab('n',this)">Negotiation Summary</div>
+</div>
+
+<!-- PAYMENT TAB -->
+<div class="pane on" id="p">
+<div class="sh"><h2>Loan &amp; Property Info</h2><button class="pbtn" onclick="print()">🖨 Print</button></div>
+<div class="g2">
+  <div>
+    <div class="card">
+      <div class="ct">Property Details</div>
+      <div class="f"><label>Purchase Price</label><div class="px"><span>$</span><input id="pp" value="1,300,000" oninput="calc()"></div></div>
+      <div class="f"><label>Down Payment %</label><div class="px"><span>%</span><input id="dpct" type="number" value="20" step="0.5" oninput="fromPct()"></div></div>
+      <div class="f"><label>Down Payment $</label><div class="px"><span>$</span><input id="damt" value="260,000" oninput="fromAmt()"></div></div>
+      <div class="row"><span class="rl">Loan Amount</span><span class="rv" id="loandisp">$1,040,000</span></div>
+    </div>
+    <div class="card">
+      <div class="ct">Loan Terms</div>
+      <div class="f"><label>Interest Rate % (Market)</label><div class="px"><span>%</span><input id="rate" type="number" value="6.75" step="0.125" oninput="calc()"></div></div>
+      <div class="f"><label>Loan Term</label><select id="term" onchange="calc()"><option value="30" selected>30 Years</option><option value="20">20 Years</option><option value="15">15 Years</option><option value="10">10 Years</option></select></div>
+      <div class="f"><label>Annual Property Tax Rate %</label><div class="px"><span>%</span><input id="tax" type="number" value="1.2" step="0.05" oninput="calc()"></div></div>
+      <div class="f"><label>Home Insurance / month</label><div class="px"><span>$</span><input id="hoi" value="250" oninput="calc()"></div></div>
+      <div class="f"><label>HOA / month</label><div class="px"><span>$</span><input id="hoa" value="0" oninput="calc()"></div></div>
+      <div class="f"><label>PMI / month</label><div class="px"><span>$</span><input id="pmi" value="0" oninput="calc()"></div></div>
+      <div class="f"><label>MCC Credit / month</label><div class="px"><span>$</span><input id="mcc" value="0" oninput="calc()"></div></div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="ct">Proposed Monthly Payment</div>
+      <div class="bigbox"><div class="amt" id="piti">—</div><div class="lbl">Total PITI</div></div>
+      <div class="row"><span class="rl">Principal &amp; Interest</span><span class="rv" id="disp_pi">—</span></div>
+      <div class="row"><span class="rl">Property Taxes</span><span class="rv" id="disp_tax">—</span></div>
+      <div class="row"><span class="rl">Home Insurance</span><span class="rv" id="disp_hoi">—</span></div>
+      <div class="row"><span class="rl">HOA</span><span class="rv" id="disp_hoa">—</span></div>
+      <div class="row"><span class="rl">PMI</span><span class="rv" id="disp_pmi">—</span></div>
+      <div class="row"><span class="rl">MCC Credit</span><span class="rv" id="disp_mcc">—</span></div>
+      <div class="div"></div>
+      <div class="trow"><span class="tlbl">Total PITI</span><span class="tval" id="piti2">—</span></div>
+      <div class="div"></div>
+      <div class="ct">Rate Scenarios</div>
+      <div id="scenarios"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- BUYDOWN TAB -->
+<div class="pane" id="b">
+<div class="sh"><h2>Interest Rate Buydown Calculator</h2><button class="pbtn" onclick="print()">🖨 Print</button></div>
+<div class="g2">
+  <div>
+    <div class="card">
+      <div class="ct">Buydown Inputs</div>
+      <div class="f"><label>Loan Amount</label><div class="px"><span>$</span><input id="bdloan" value="1,040,000" oninput="calcBD()"></div></div>
+      <div class="f"><label>Market Rate %</label><div class="px"><span>%</span><input id="bdrate" type="number" value="6.75" step="0.125" oninput="calcBD()"></div></div>
+      <div class="f"><label>Loan Term</label><select id="bdterm" onchange="calcBD()"><option value="30" selected>30 Years</option><option value="20">20 Years</option><option value="15">15 Years</option></select></div>
+      <div class="f"><label>Buydown Program</label>
+        <select id="prog" onchange="calcBD()">
+          <option value="321">3-2-1 Buydown</option>
+          <option value="21">2-1 Buydown</option>
+          <option value="10">1-0 Buydown</option>
+          <option value="perm">Permanent (custom target)</option>
+          <option value="3pct">Permanent → 3.0%</option>
+          <option value="custom">Custom Temporary</option>
+        </select>
+      </div>
+      <div class="highlight f" id="y1field">
+        <label>🎯 Target Year 1 Rate % — overrides program default</label>
+        <div class="px"><span>%</span><input id="y1rate" type="number" placeholder="e.g. 3.5 — leave blank for program default" step="0.125" oninput="calcBD()"></div>
+      </div>
+      <div id="permfield" style="display:none" class="f"><label>Target Permanent Rate %</label><div class="px"><span>%</span><input id="permrate" type="number" value="5.0" step="0.125" oninput="calcBD()"></div></div>
+      <div id="custfield" style="display:none">
+        <div class="f"><label>Year 1 Rate %</label><input id="cy1" type="number" value="4.75" step="0.125" oninput="calcBD()"></div>
+        <div class="f"><label>Year 2 Rate %</label><input id="cy2" type="number" value="5.75" step="0.125" oninput="calcBD()"></div>
+        <div class="f"><label>Year 3+ Rate %</label><input id="cy3" type="number" value="6.75" step="0.125" oninput="calcBD()"></div>
+      </div>
+      <div style="background:#0f172a;border-radius:7px;padding:10px;font-size:11px;color:#94a3b8;margin-top:8px">Permanent rate cost uses 4 pts per 1% reduction. Confirm with lender.</div>
+    </div>
+  </div>
+  <div>
+    <div class="bblue"><div class="lbl">Builder Subsidy Required</div><div class="amt" id="bldrcost">—</div><div class="sub" id="bldrdes">Total cost to builder</div></div>
+    <div class="bgreen"><div class="ttl">Monthly Savings — Year 1</div><div class="amt" id="mosav">—</div><div class="sub" id="savdes">vs. market rate P&amp;I</div></div>
+    <div class="card">
+      <div class="ct">Payment Summary</div>
+      <div class="row"><span class="rl">Market Rate P&amp;I</span><span class="rv" id="mktpi">—</span></div>
+      <div class="row"><span class="rl">Year 1 Payment</span><span class="rv" id="y1pay">—</span></div>
+      <div class="row" id="r_y2"><span class="rl">Year 2 Payment</span><span class="rv" id="y2pay">—</span></div>
+      <div class="row" id="r_y3"><span class="rl">Year 3 Payment</span><span class="rv" id="y3pay">—</span></div>
+      <div class="row" id="r_be" style="display:none"><span class="rl">Breakeven (months)</span><span class="rv" id="bemonths">—</span></div>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <div class="ct">Year-by-Year Buydown Schedule</div>
+  <table>
+    <thead><tr><th>Period</th><th>Rate</th><th>Monthly P&amp;I</th><th>Market P&amp;I</th><th>Monthly Subsidy</th><th># Pmts</th><th>Period Total</th></tr></thead>
+    <tbody id="bdtbl"></tbody>
+    <tfoot><tr><td colspan="6" style="text-align:right;font-family:inherit">TOTAL BUILDER SUBSIDY:</td><td id="bdtotal">—</td></tr></tfoot>
+  </table>
+</div>
+</div>
+
+<!-- NEGOTIATION TAB -->
+<div class="pane" id="n">
+<div class="sh"><h2>Builder Negotiation Summary</h2><button class="pbtn" onclick="print()">🖨 Print for Meeting</button></div>
+<div class="g3" style="margin-bottom:20px">
+  <div class="bblue"><div class="lbl">3-2-1 Buydown Cost</div><div class="amt" id="n321">—</div><div class="sub">Funded escrow</div></div>
+  <div class="bblue"><div class="lbl">2-1 Buydown Cost</div><div class="amt" id="n21">—</div><div class="sub">Funded escrow</div></div>
+  <div class="bblue"><div class="lbl">Permanent → 3%</div><div class="amt" id="n3pct">—</div><div class="sub">Discount points</div></div>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <div class="ct">All Scenarios — Side by Side</div>
+  <table><thead><tr><th>Scenario</th><th>Rate</th><th>P&amp;I</th><th>Total PITI</th><th>Mo. Savings</th><th>Annual Savings</th><th>Builder Cost</th></tr></thead>
+  <tbody id="negtbl"></tbody></table>
+</div>
+<div class="card"><div class="ct">🤝 Negotiation Talking Points</div><div id="tpts"></div></div>
+</div>
+
+<script>
+var M={};
+function $v(id){return document.getElementById(id)}
+function pv(id){return parseFloat(($v(id).value||'0').replace(/[$,%\s,]/g,''))||0}
+function fm(n){return'$'+Math.round(n).toLocaleString()}
+function fd(n){return'$'+(+n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function pmt(P,r,n){if(r<=0)return P/n;return P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)}
+
+function showTab(id,el){
+  document.querySelectorAll('.pane').forEach(function(e){e.classList.remove('on')});
+  document.querySelectorAll('.tab').forEach(function(e){e.classList.remove('on')});
+  $v(id).classList.add('on');el.classList.add('on');
+  if(id==='b'||id==='n')syncBD();
+  if(id==='b')calcBD();
+  if(id==='n'){calcBD();calcNeg();}
+}
+
+function fromPct(){
+  var p=pv('pp'),d=+($v('dpct').value)||0;
+  var a=Math.round(p*d/100);
+  $v('damt').value=a.toLocaleString();
+  calc();
+}
+function fromAmt(){
+  var p=pv('pp'),a=pv('damt');
+  $v('dpct').value=p>0?+(a/p*100).toFixed(2):0;
+  calc();
+}
+
+function calc(){
+  var price=pv('pp'),dpct=+($v('dpct').value)||0;
+  var rate=pv('rate'),term=+($v('term').value)||30;
+  var taxr=pv('tax'),hoi=pv('hoi'),hoa=pv('hoa'),pmiv=pv('pmi'),mccv=pv('mcc');
+  var dn=price*dpct/100;
+  $v('damt').value=Math.round(dn).toLocaleString();
+  var loan=price-dn;
+  $v('loandisp').textContent=fm(loan);
+  var r=rate/100/12,n=term*12;
+  var pi=pmt(loan,r,n);
+  var taxes=price*taxr/100/12;
+  var total=pi+taxes+hoi+hoa+pmiv-mccv;
+  M={price:price,loan:loan,rate:rate,term:term,taxr:taxr,hoi:hoi,hoa:hoa,pmiv:pmiv,mccv:mccv,pi:pi,taxes:taxes,total:total};
+  $v('disp_pi').textContent=fd(pi);
+  $v('disp_tax').textContent=fd(taxes);
+  $v('disp_hoi').textContent=fd(hoi);
+  $v('disp_hoa').textContent=fd(hoa);
+  $v('disp_pmi').textContent=fd(pmiv);
+  $v('disp_mcc').textContent=mccv>0?('-'+fd(mccv)):fd(0);
+  $v('piti').textContent=fd(total);
+  $v('piti2').textContent=fd(total);
+  var rts=[3.0,3.5,4.0,4.5,5.0,5.5,6.0,rate];
+  var h='';
+  rts.forEach(function(rv){
+    var p2=pmt(loan,rv/100/12,n)+taxes+hoi+hoa+pmiv-mccv;
+    var sav=total-p2;
+    var mk=Math.abs(rv-rate)<0.001;
+    h+='<div class="row"><span class="rl">'+rv+'%'+(mk?' (market)':'')+'</span><span style="display:flex;gap:8px;align-items:center"><span class="rv">'+fd(p2)+'</span>'+(sav>0.5?'<span class="badge bg">-'+fd(sav)+'/mo</span>':mk?'<span class="badge bb">Market</span>':'')+'</span></div>';
+  });
+  $v('scenarios').innerHTML=h;
+}
+
+function syncBD(){
+  $v('bdloan').value=Math.round(M.loan||0).toLocaleString();
+  $v('bdrate').value=M.rate||6.75;
+  $v('bdterm').value=M.term||30;
+}
+
+function calcBD(){
+  var loan=pv('bdloan'),nr=pv('bdrate'),term=+($v('bdterm').value)||30;
+  var prog=$v('prog').value;
+  var y1override=pv('y1rate');
+  $v('permfield').style.display=(prog==='perm')?'block':'none';
+  $v('custfield').style.display=(prog==='custom')?'block':'none';
+  $v('y1field').style.display=(prog==='perm'||prog==='3pct')?'none':'block';
+  $v('r_y2').style.display=(prog==='10'||prog==='perm'||prog==='3pct')?'none':'flex';
+  $v('r_y3').style.display=(prog==='21'||prog==='10'||prog==='perm'||prog==='3pct')?'none':'flex';
+  $v('r_be').style.display=(prog==='perm'||prog==='3pct')?'flex':'none';
+  var r=nr/100/12,n=term*12;
+  var mktPI=pmt(loan,r,n);
+  $v('mktpi').textContent=fd(mktPI);
+  if(prog==='perm'||prog==='3pct'){
+    var tgt=prog==='3pct'?3.0:pv('permrate');
+    var rred=nr-tgt,pts=rred*4,cost=loan*pts/100;
+    var tgtPI=pmt(loan,tgt/100/12,n);
+    var sav=mktPI-tgtPI;
+    var be=sav>0?Math.ceil(cost/sav):'-';
+    $v('bldrcost').textContent=fm(cost);
+    $v('bldrdes').textContent=pts.toFixed(2)+' pts → '+tgt+'% permanent';
+    $v('mosav').textContent=fd(sav);
+    $v('savdes').textContent='monthly savings FOREVER vs '+nr+'%';
+    $v('y1pay').textContent=fd(tgtPI);
+    $v('bemonths').textContent=be+' months';
+    var tb=$v('bdtbl');tb.innerHTML='';
+    var tr=document.createElement('tr');tr.className='hlr';
+    tr.innerHTML='<td>Permanent '+tgt+'%</td><td>'+tgt+'%</td><td>'+fd(tgtPI)+'</td><td>'+fd(mktPI)+'</td><td>'+fd(sav)+'</td><td>'+n+'</td><td>'+fm(sav*n)+' (lifetime)</td>';
+    tb.appendChild(tr);
+    $v('bdtotal').textContent=fm(cost);
+    return;
+  }
+  var sched=[];
+  var defY1=nr-(prog==='321'?3:prog==='21'?2:prog==='10'?1:0);
+  var actualY1=(y1override>0&&y1override<nr)?y1override:defY1;
+  if(prog==='321'){
+    sched=[{l:'Year 1',r:actualY1,n:12},{l:'Year 2',r:nr-2,n:12},{l:'Year 3',r:nr-1,n:12},{l:'Years 4–'+term,r:nr,n:(term-3)*12}];
+  }else if(prog==='21'){
+    sched=[{l:'Year 1',r:actualY1,n:12},{l:'Year 2',r:nr-1,n:12},{l:'Years 3–'+term,r:nr,n:(term-2)*12}];
+  }else if(prog==='10'){
+    sched=[{l:'Year 1',r:actualY1,n:12},{l:'Years 2–'+term,r:nr,n:(term-1)*12}];
+  }else if(prog==='custom'){
+    sched=[{l:'Year 1',r:y1override>0?y1override:pv('cy1'),n:12},{l:'Year 2',r:pv('cy2'),n:12},{l:'Year 3+',r:pv('cy3'),n:12},{l:'Remaining',r:nr,n:(term-3)*12}];
+  }
+  var total=0;
+  sched.forEach(function(s){
+    s.pi=pmt(loan,s.r/100/12,n);
+    s.sub=Math.max(0,mktPI-s.pi);
+    s.tot=s.sub*s.n;
+    total+=s.tot;
+  });
+  var tb=$v('bdtbl');tb.innerHTML='';
+  sched.forEach(function(s,i){
+    var tr=document.createElement('tr');
+    if(i<sched.length-1)tr.className='hlr';
+    tr.innerHTML='<td>'+s.l+'</td><td>'+s.r.toFixed(3)+'%</td><td>'+fd(s.pi)+'</td><td>'+fd(mktPI)+'</td><td>'+(s.sub>0.01?fd(s.sub):'—')+'</td><td>'+s.n+'</td><td>'+(s.sub>0.01?fm(s.tot):'—')+'</td>';
+    tb.appendChild(tr);
+  });
+  $v('bdtotal').textContent=fm(total);
+  $v('bldrcost').textContent=fm(total);
+  $v('bldrdes').textContent='Total funded buydown escrow';
+  $v('mosav').textContent=fd(mktPI-sched[0].pi);
+  $v('savdes').textContent='monthly savings in Year 1';
+  $v('y1pay').textContent=fd(sched[0].pi);
+  if(sched[1])$v('y2pay').textContent=fd(sched[1].pi);
+  if(sched[2])$v('y3pay').textContent=fd(sched[2].pi);
+}
+
+function calcNeg(){
+  var loan=M.loan||0,nr=M.rate||6.75,term=M.term||30,n=term*12;
+  var taxes=M.taxes||0,hoi=M.hoi||0,hoa=M.hoa||0;
+  var r=nr/100/12;
+  var mktPI=pmt(loan,r,n);
+  var mktPITI=mktPI+taxes+hoi+hoa;
+  var pi321y1=pmt(loan,(nr-3)/100/12,n),pi321y2=pmt(loan,(nr-2)/100/12,n),pi321y3=pmt(loan,(nr-1)/100/12,n);
+  var cost321=(mktPI-pi321y1)*12+(mktPI-pi321y2)*12+(mktPI-pi321y3)*12;
+  var pi21y1=pmt(loan,(nr-2)/100/12,n),pi21y2=pmt(loan,(nr-1)/100/12,n);
+  var cost21=(mktPI-pi21y1)*12+(mktPI-pi21y2)*12;
+  var cost3pct=loan*(nr-3)*4/100;
+  $v('n321').textContent=fm(cost321);
+  $v('n21').textContent=fm(cost21);
+  $v('n3pct').textContent=fm(cost3pct);
+  var scens=[
+    {nm:'Market Rate (baseline)',r:nr,c:0},
+    {nm:'1-0 Temp (Year 1 only)',r:nr-1,c:(mktPI-pmt(loan,(nr-1)/100/12,n))*12},
+    {nm:'2-1 Temp Buydown (Year 1)',r:nr-2,c:cost21},
+    {nm:'3-2-1 Temp Buydown (Year 1)',r:nr-3,c:cost321},
+    {nm:'Permanent → 5.0%',r:5.0,c:loan*(nr-5.0)*4/100},
+    {nm:'Permanent → 4.0%',r:4.0,c:loan*(nr-4.0)*4/100},
+    {nm:'Permanent → 3.0%',r:3.0,c:cost3pct},
+  ];
+  var tb=$v('negtbl');tb.innerHTML='';
+  scens.forEach(function(s){
+    var pi=pmt(loan,s.r/100/12,n);
+    var piti=pi+taxes+hoi+hoa;
+    var sav=Math.max(0,mktPITI-piti);
+    var tr=document.createElement('tr');
+    if(sav>1500)tr.className='hlr';
+    tr.innerHTML='<td style="font-family:inherit">'+s.nm+'</td><td>'+s.r.toFixed(2)+'%</td><td>'+fd(pi)+'</td><td>'+fd(piti)+'</td><td>'+(sav>0.5?'<span class="badge bg">-'+fd(sav)+'</span>':'—')+'</td><td>'+(sav>0.5?fm(sav*12):'—')+'</td><td>'+(s.c>0?fm(s.c):'—')+'</td>';
+    tb.appendChild(tr);
+  });
+  var pi3=pmt(loan,3.0/100/12,n);
+  $v('tpts').innerHTML=
+    '<div class="tp"><strong>Opening move:</strong> "We\'re ready to close today. The list price isn\'t the issue — the monthly payment is. We\'re not asking for a price cut. We\'re asking for a funded concession that gets us there. Here are three options that cost you less than carrying this home another 60–90 days."</div>'+
+    '<div class="tp"><strong>Option A — 2-1 Buydown ('+fm(cost21)+'):</strong> Fund '+fm(cost21)+' into a buydown escrow. Saves us '+fd(mktPI-pi21y1)+'/month in Year 1, '+fd(mktPI-pi21y2)+'/month in Year 2, then full market rate. Sale price stays at list — your comps are completely protected. Most common builder incentive in the market right now (65% of builders are doing this).</div>'+
+    '<div class="tp"><strong>Option B — 3-2-1 Buydown ('+fm(cost321)+'):</strong> '+fm(cost321)+' in funded escrow. Gives us '+fd(mktPI-pi321y1)+'/month in Year 1. You move this home now instead of carrying it into Q3. Your other listings are unaffected — this is a concession, not a price change.</div>'+
+    '<div class="tp"><strong>Option C — Permanent 3% Rate ('+fm(cost3pct)+'):</strong> The bold ask. '+((nr-3)*4).toFixed(2)+' discount points locks us at 3% forever. Saves us '+fd(mktPI-pi3)+'/month for 30 years. You pay it once and we\'re committed buyers. This is your most powerful closing tool.</div>'+
+    '<div class="tp"><strong>Carry cost argument:</strong> Every month this home sits unsold costs you property taxes, financing, maintenance, and opportunity cost. A '+fm(Math.min(cost21,cost321))+' concession today almost certainly costs less than 90 days of carry. Run the math with your sales manager — it closes.</div>'+
+    '<div class="tp"><strong>Comps protection:</strong> Every one of these options is a seller concession recorded separately from the sale price. Your comparable sales, your neighboring listings, your lender relationships — none are affected. This is what major builders (D.R. Horton, Pulte, Lennar) are doing on every move-in-ready home right now.</div>'+
+    '<div class="tp"><strong>If they push back:</strong> "We understand. What can you fund? Give us a number and we\'ll show you exactly what that buys in monthly payment relief." Open this calculator and let them see the math live.</div>';
+}
+
+calc();
+</script>
+</body>
+</html>
