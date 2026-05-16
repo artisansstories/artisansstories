@@ -66,6 +66,9 @@ th{background:#0f172a;color:#94a3b8;padding:8px 10px;text-align:left;font-size:1
 td{padding:8px 10px;border-bottom:1px solid #1e293b;color:#e2e8f0;font-family:'SF Mono',Menlo,monospace;white-space:nowrap}
 .hlr td{background:#1e3a5f;color:#60a5fa;font-weight:600}
 tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
+.note-box{background:#0f172a;border-left:3px solid #3b82f6;border-radius:0 7px 7px 0;padding:10px;margin-top:10px;font-size:11px;color:#94a3b8;line-height:1.6}
+.note-warn{border-left-color:#f59e0b}
+.note-warn strong{color:#fbbf24}
 @media(min-width:768px){
   body{font-size:14px}
   .pane{padding:24px 30px;max-width:1200px;margin:0 auto}
@@ -172,7 +175,6 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
     </div>
   </div>
   <div>
-    <!-- ALL-IN PITI WITH BUYDOWN — THE BOTTOM LINE -->
     <div class="ballin">
       <div class="ttl">✅ All-In Monthly Payment — Year 1 (with buydown)</div>
       <div class="amt" id="allin_piti">—</div>
@@ -228,31 +230,72 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
           <option value="mfs">Married Filing Separately</option>
         </select>
       </div>
-      <div class="f"><label>Gross Annual Income</label><div class="px"><span>$</span><input id="tx_gross" inputmode="numeric" value="163,277" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Gross Annual Income</label><div class="px"><span>$</span><input id="tx_gross" inputmode="numeric" value="295,323" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Annual Pre-Tax Deductions (401k, health, FSA, etc.)</label><div class="px"><span>$</span><input id="tx_pretax" inputmode="numeric" value="3,270" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="f"><label>CA State Tax Rate %</label><div class="px"><span>%</span><input id="tx_state" type="number" inputmode="decimal" value="9.3" step="0.1" oninput="calcTax()"></div></div>
-      <div class="f"><label>CA Withholding / month (from paystub)</label><div class="px"><span>$</span><input id="tx_ca_withhold" inputmode="numeric" value="857" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>CA Monthly Withholding (actual from paystub × 2)</label><div class="px"><span>$</span><input id="tx_ca_withhold" inputmode="numeric" value="1,389" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Current CA Allowances (DE-4 line 1)</label><div class="px"><span>#</span><input id="tx_ca_allowances" type="number" inputmode="numeric" value="4" step="1" min="0" oninput="calcTax()"></div></div>
       <div class="f"><label>Other Itemized Deductions / year<br><span style="color:#64748b;font-size:10px">(charitable, medical over 7.5% AGI, etc.)</span></label><div class="px"><span>$</span><input id="tx_other" inputmode="numeric" value="0" oninput="fmtCurrency(this);calcTax()"></div></div>
     </div>
 
     <div class="card">
-      <div class="ct">W-4 Withholding Adjustment</div>
+      <div class="ct">W-4 / DE-4 Withholding Adjustment</div>
       <div class="f">
         <label>Pay Frequency</label>
         <select id="tx_freq" onchange="calcTax()">
-          <option value="12" selected>Monthly (12×/yr)</option>
+          <option value="12">Monthly (12×/yr)</option>
           <option value="24">Semi-Monthly (24×/yr)</option>
-          <option value="26">Bi-Weekly (26×/yr)</option>
+          <option value="26" selected>Bi-Weekly (26×/yr)</option>
           <option value="52">Weekly (52×/yr)</option>
         </select>
       </div>
-      <div class="f"><label>Current Federal Withholding / period</label><div class="px"><span>$</span><input id="tx_withhold" inputmode="numeric" value="1,824" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Actual Federal Withheld / period (from paystub)</label><div class="px"><span>$</span><input id="tx_withhold" inputmode="numeric" value="1,356" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Actual Net Pay / period (from paystub)</label><div class="px"><span>$</span><input id="tx_netpay_actual" inputmode="numeric" value="6,622" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="div"></div>
-      <div class="row"><span class="rl">Current withholding (annualized)</span><span class="rv" id="tx_out_curwithhold">—</span></div>
-      <div class="row"><span class="rl">Suggested reduction / period</span><span class="rv" style="color:#34d399" id="tx_out_sav_period">—</span></div>
-      <div class="row"><span class="rl">New suggested withholding / period</span><span class="rv" id="tx_out_newwithhold">—</span></div>
-      <div class="row"><span class="rl">Net take-home increase / period</span><span class="rv" style="color:#34d399" id="tx_out_netpay">—</span></div>
-      <div style="background:#0f172a;border-left:3px solid #3b82f6;border-radius:0 7px 7px 0;padding:10px;margin-top:10px;font-size:11px;color:#94a3b8;line-height:1.6">
-        Update <strong>IRS Form W-4</strong> Line 4(c) "Extra withholding" — reduce by the suggested amount. You still owe the same taxes; you're just withholding less now and have been overpaying the IRS interest-free. Run past your CPA before adjusting.
+
+      <!-- WITHOUT HOME -->
+      <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Without Home (current)</div>
+      <div class="row"><span class="rl">Actual fed withheld / period</span><span class="rv" id="tx_out_curwithhold_period">—</span></div>
+      <div class="row"><span class="rl">Annualized federal withheld</span><span class="rv" id="tx_out_curwithhold_annual">—</span></div>
+      <div class="row"><span class="rl">Actual net pay / period</span><span class="rv" id="tx_out_netperiod_current">—</span></div>
+      <div class="row"><span class="rl">Current net pay / month</span><span class="rv" id="tx_out_netmo_current">—</span></div>
+
+      <div class="div"></div>
+
+      <!-- FEDERAL W-4 -->
+      <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#60a5fa;text-transform:uppercase;letter-spacing:.06em">Federal W-4 Update</div>
+      <div class="row"><span class="rl">Fed taxable wages / yr (from paystub annualized)</span><span class="rv" id="tx_out_fedtaxable">—</span></div>
+      <div class="row"><span class="rl">Target annual tax WITH home (itemized)</span><span class="rv" id="tx_out_annualtax_home">—</span></div>
+      <div class="row"><span class="rl">Target withholding / period</span><span class="rv" id="tx_out_target_period">—</span></div>
+      <div class="row"><span class="rl">W-4 Step 4(b) deduction amount (annual)</span><span class="rv" style="color:#60a5fa" id="tx_out_w4step4b">—</span></div>
+      <div class="row"><span class="rl">Annual federal reduction</span><span class="rv" style="color:#34d399" id="tx_out_fed_annual_reduction">—</span></div>
+      <div class="row"><span class="rl">Per-period fed reduction</span><span class="rv" style="color:#34d399" id="tx_out_fed_period_reduction">—</span></div>
+      <div class="row"><span class="rl">Monthly fed reduction</span><span class="rv" style="color:#34d399" id="tx_out_fed_mo_reduction">—</span></div>
+      <div id="tx_gap_note" style="display:none" class="note-box note-warn" style="margin-top:8px;font-size:11px"></div>
+
+      <div class="div"></div>
+
+      <!-- CA DE-4 -->
+      <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#34d399;text-transform:uppercase;letter-spacing:.06em">California DE-4 Update</div>
+      <div class="row"><span class="rl">Current CA allowances</span><span class="rv" id="tx_out_ca_current_allow">—</span></div>
+      <div class="row"><span class="rl">Current CA withheld / month</span><span class="rv" id="tx_out_ca_current_mo">—</span></div>
+      <div class="row"><span class="rl">Recommended total CA allowances</span><span class="rv" style="color:#34d399" id="tx_out_ca_rec_allow">—</span></div>
+      <div class="row"><span class="rl">Annual CA reduction</span><span class="rv" style="color:#34d399" id="tx_out_ca_annual_red">—</span></div>
+      <div class="row"><span class="rl">Per-period CA reduction</span><span class="rv" style="color:#34d399" id="tx_out_ca_period_red">—</span></div>
+      <div class="row"><span class="rl">Monthly CA reduction</span><span class="rv" style="color:#34d399" id="tx_out_ca_mo_red">—</span></div>
+
+      <div class="div"></div>
+
+      <!-- COMBINED IMPACT -->
+      <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#f8fafc;text-transform:uppercase;letter-spacing:.06em">Combined Net Pay Impact</div>
+      <div class="row"><span class="rl">Total annual increase</span><span class="rv" style="color:#34d399" id="tx_out_total_annual">—</span></div>
+      <div class="row"><span class="rl">Per-period increase</span><span class="rv" style="color:#34d399" id="tx_out_total_period">—</span></div>
+      <div class="row"><span class="rl">Monthly increase</span><span class="rv" style="color:#34d399;font-size:15px" id="tx_out_total_mo">—</span></div>
+      <div class="row"><span class="rl">New net pay / period (after W-4 update)</span><span class="rv" style="color:#34d399" id="tx_out_new_period_net">—</span></div>
+      <div class="row"><span class="rl">New net pay / month (after W-4 update)</span><span class="rv" style="color:#34d399;font-size:15px" id="tx_out_new_mo_net">—</span></div>
+
+      <div class="note-box" style="margin-top:10px">
+        Update <strong>IRS Form W-4</strong> Line 4(b) "Deductions" — enter the annual deduction amount shown above. For CA, update <strong>DE-4</strong> to the recommended allowances. You still owe the same taxes; you're simply adjusting withholding to reflect your new deductions. Run past your CPA before adjusting.
       </div>
     </div>
   </div>
@@ -297,7 +340,7 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
       <div class="row"><span class="rl">Full PITI as % of gross (front-end DTI)</span><span class="rv" id="tx_out_fedti">—</span></div>
       <div class="row"><span class="rl">Effective PITI (after tax benefit)</span><span class="rv" style="color:#34d399" id="tx_out_effpiti">—</span></div>
       <div class="row"><span class="rl">Effective DTI (after tax benefit)</span><span class="rv" style="color:#34d399" id="tx_out_effdti">—</span></div>
-      <div style="background:#0f172a;border-left:3px solid #f59e0b;border-radius:0 7px 7px 0;padding:10px;margin-top:10px;font-size:11px;color:#94a3b8;line-height:1.6">
+      <div class="note-box note-warn" style="margin-top:10px">
         <strong style="color:#fbbf24">DTI Guideline:</strong> Front-end ≤28% preferred; ≤36% back-end (all debts). Lenders may allow up to 43–45% with strong credit/assets. Effective DTI reflects real out-of-pocket after tax recapture.
       </div>
     </div>
@@ -327,15 +370,14 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
 </div>
 
 <script>
-var M={};
+var M = {};
 
-function $v(id){return document.getElementById(id)}
-function pv(id){return parseFloat(($v(id).value||'0').replace(/[$,%\s,]/g,''))||0}
-function fm(n){return'$'+Math.round(n).toLocaleString()}
-function fd(n){return'$'+(+n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',')}
-function pmt(P,r,n){if(r<=0)return P/n;return P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1)}
+function $v(id){return document.getElementById(id);}
+function pv(id){return parseFloat(($v(id).value||'0').replace(/[$,%\s,]/g,''))||0;}
+function fm(n){return '$'+Math.round(n).toLocaleString();}
+function fd(n){return '$'+(+n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+function pmt(P,r,n){if(r<=0)return P/n;return P*r*Math.pow(1+r,n)/(Math.pow(1+r,n)-1);}
 
-// Live comma formatting while typing
 function fmtCurrency(el){
   var pos=el.selectionStart;
   var raw=el.value.replace(/[^0-9]/g,'');
@@ -343,15 +385,14 @@ function fmtCurrency(el){
   var num=parseInt(raw,10);
   var formatted=num.toLocaleString();
   el.value=formatted;
-  // adjust cursor: count how many commas were added before cursor
   var newPos=pos+(formatted.length-raw.length);
   if(newPos<0)newPos=0;
   try{el.setSelectionRange(newPos,newPos);}catch(e){}
 }
 
 function showTab(id,el){
-  document.querySelectorAll('.pane').forEach(function(e){e.classList.remove('on')});
-  document.querySelectorAll('.tab').forEach(function(e){e.classList.remove('on')});
+  document.querySelectorAll('.pane').forEach(function(e){e.classList.remove('on');});
+  document.querySelectorAll('.tab').forEach(function(e){e.classList.remove('on');});
   $v(id).classList.add('on');el.classList.add('on');
   if(id==='b'||id==='n')syncBD();
   if(id==='b')calcBD();
@@ -409,7 +450,6 @@ function syncBD(){
 }
 
 function pitiFromPI(pi){
-  // Add taxes+hoi+hoa+pmi-mcc from main calc
   var taxes=M.taxes||0,hoi=M.hoi||0,hoa=M.hoa||0,pmiv=M.pmiv||0,mccv=M.mccv||0;
   return pi+taxes+hoi+hoa+pmiv-mccv;
 }
@@ -470,7 +510,6 @@ function calcBD(){
     total+=s.tot;
   });
 
-  // All-in PITI = Year 1 all-in
   var y1PITI=sched[0].allpiti;
   $v('allin_piti').textContent=fd(y1PITI);
   $v('allin_sub').textContent='P&I at '+sched[0].r.toFixed(3)+'% + taxes + insurance + HOA';
@@ -540,37 +579,75 @@ function calcNeg(){
 calc();
 
 // ─── TAX BENEFIT TAB ───────────────────────────────────────────────
-// 2025 law: One Big Beautiful Bill Act (signed July 4, 2025)
+// 2025 law: One Big Beautiful Bill Act (OBBBA)
 // SALT cap: $40,000 (MFJ/Single/HOH) | $20,000 MFS — phases out above $500K MAGI
 // Mortgage interest: $750,000 debt cap (permanent)
-// Standard deduction 2025: MFJ=$30,000 | Single=$15,000 | HOH=$22,500
-// PMI: deductible in 2025 (AGI phaseout applies)
+// Standard deduction 2025: MFJ=$30,000 | Single=$15,000 | HOH=$22,500 | MFS=$15,000
+// CA: does NOT conform to federal SALT cap — CA allows all state income tax deduction
+//     but property tax may still be limited under CA law (we use federal SALT for simplicity)
 
-var STD_DED={mfj:30000,single:15000,hoh:22500,mfs:15000};
-var SALT_CAP={mfj:40000,single:40000,hoh:40000,mfs:20000};
-var SALT_PHASEOUT_START={mfj:500000,single:500000,hoh:500000,mfs:250000};
-var MID_DEBT_CAP=750000;
+var STD_DED    = {mfj:30000, single:15000, hoh:22500, mfs:15000};
+var SALT_CAP   = {mfj:40000, single:40000, hoh:40000, mfs:20000};
+var SALT_PHASE = {mfj:500000, single:500000, hoh:500000, mfs:250000};
+var MID_DEBT_CAP = 750000;
 
-// 2025 Federal brackets [threshold, rate] — MFJ
-var BRACKETS_MFJ=[[751600,0.37],[501050,0.35],[394600,0.32],[206700,0.24],[96950,0.22],[23850,0.12],[0,0.10]];
-// Single / HOH (use single for HOH approximation — close enough)
-var BRACKETS_SINGLE=[[626350,0.37],[250525,0.35],[197300,0.32],[103350,0.24],[48475,0.22],[11925,0.12],[0,0.10]];
-var BRACKETS_HOH=[[609350,0.37],[243700,0.35],[191950,0.32],[103350,0.24],[48755,0.22],[16550,0.12],[0,0.10]];
+// 2025 Federal tax brackets — [floor, rate]
+var BRACKETS_MFJ = [
+  [751600,0.37],[501050,0.35],[394600,0.32],[206700,0.24],
+  [96950,0.22],[23850,0.12],[0,0.10]
+];
+var BRACKETS_SINGLE = [
+  [626350,0.37],[250525,0.35],[197300,0.32],[103350,0.24],
+  [48475,0.22],[11925,0.12],[0,0.10]
+];
+var BRACKETS_HOH = [
+  [609350,0.37],[243700,0.35],[191950,0.32],[103350,0.24],
+  [48755,0.22],[16550,0.12],[0,0.10]
+];
+
+// 2025 IRS Withholding tables — Bi-Weekly (26 periods/year)
+// Publication 15-T Percentage Method — Married (MFJ) / Single / HOH
+// Tentative withholding from annualized wages, then divide by periods
+// We use the annualized method: annualize wages, look up annual tax, divide by periods.
+// This matches how most payroll systems compute W-4.
+
+function getBrackets(status){
+  if(status==='mfj')return BRACKETS_MFJ;
+  if(status==='hoh')return BRACKETS_HOH;
+  return BRACKETS_SINGLE;
+}
 
 function getMarginalRate(income,status){
-  var brks=status==='mfj'?BRACKETS_MFJ:(status==='hoh'?BRACKETS_HOH:BRACKETS_SINGLE);
+  var brks=getBrackets(status);
   for(var i=0;i<brks.length;i++){if(income>brks[i][0])return brks[i][1];}
   return 0.10;
 }
-function getBracketLabel(income,status){
-  var r=getMarginalRate(income,status);
-  return (r*100).toFixed(0)+'%';
+
+function calcFedTax(taxableIncome, status){
+  // Compute actual federal income tax (not withholding) using 2025 brackets
+  var brks = getBrackets(status);
+  // Build ordered brackets low→high
+  var tiers = [];
+  for(var i=brks.length-1;i>=0;i--) tiers.push(brks[i]);
+  var tax=0;
+  for(var j=0;j<tiers.length-1;j++){
+    if(taxableIncome>tiers[j][0]){
+      var top=Math.min(taxableIncome, tiers[j+1][0]);
+      var chunk=top-tiers[j][0];
+      tax+=chunk*tiers[j][1];
+    }
+  }
+  // top bracket
+  var top2=tiers[tiers.length-1];
+  if(taxableIncome>top2[0]){
+    tax+=(taxableIncome-top2[0])*top2[1];
+  }
+  return Math.max(0,tax);
 }
 
-// Compute effective SALT cap after phaseout
 function effectiveSALTCap(magi,status){
   var cap=SALT_CAP[status]||40000;
-  var start=SALT_PHASEOUT_START[status]||500000;
+  var start=SALT_PHASE[status]||500000;
   if(magi<=start)return cap;
   var excess=magi-start;
   var reduced=cap-0.30*excess;
@@ -578,125 +655,227 @@ function effectiveSALTCap(magi,status){
   return Math.max(floor,reduced);
 }
 
-// Year-1 interest from amortization
 function calcYear1Interest(loan,rateAnnual,termYears){
-  var r=rateAnnual/100/12,n=termYears*12;
+  var r=rateAnnual/100/12, n=termYears*12;
   var pmt_=pmt(loan,r,n);
-  var bal=loan,totalInt=0;
+  var bal=loan, totalInt=0;
   for(var m=0;m<12;m++){var i=bal*r;totalInt+=i;bal=bal+i-pmt_;}
   return totalInt;
 }
 
+// CA EDD Method B — allowance value 2025: $144.90/month per allowance (biweekly: $133.75/period)
+// Per CA EDD Publication: 1 withholding allowance = $4,800/year for 2025
+// Monthly equiv: $4,800/12 = $400/allowance/month
+// Biweekly: $4,800/26 = $184.62/period
+// Annual CA tax reduction per additional allowance = federal equiv rate * $4,800 (approx)
+// We use the more accurate approach: reduce estimated CA withholding proportionally
+// CA withholding allowance (2025): $144.90 monthly, $133.75 biweekly, $4,800 annual
+var CA_ALLOW_ANNUAL = 4800; // dollars of income sheltered per allowance, CA 2025
+
+// CA income tax rate schedules 2025 (MFJ) — approximate
+// We use actual CA withholding from paystub (user input) + marginal CA rate on deduction benefit
+// For DE-4 recommendation: additional allowances = (additional_deduction / CA_ALLOW_ANNUAL)
+// where additional_deduction = mortgage interest deductible + property tax (CA has no SALT cap)
+
 function calcTax(){
-  var status=$v('tx_status').value;
-  var grossAnnual=pv('tx_gross');
-  var stateRate=pv('tx_state')/100;
-  var otherDed=pv('tx_other');
-  var payFreq=parseInt($v('tx_freq').value)||26;
-  var curWithhold=pv('tx_withhold');
+  var status       = $v('tx_status').value;
+  var grossAnnual  = pv('tx_gross');
+  var pretaxAnnual = pv('tx_pretax') * 12; // monthly pretax → annual
+  var stateRate    = pv('tx_state') / 100;
+  var otherDed     = pv('tx_other');
+  var payFreq      = parseInt($v('tx_freq').value) || 26;
+  var curWithhold  = pv('tx_withhold');   // per period
+  var caMonthly    = pv('tx_ca_withhold'); // monthly CA (user enters monthly equiv)
+  var caAllowCur   = parseInt($v('tx_ca_allowances').value) || 4;
+  var netPerPeriod = pv('tx_netpay_actual');
 
-  // sync from Payment tab
-  var loan=M.loan||0;
-  var rate=M.rate||6.75;
-  var term=M.term||30;
-  var price=M.price||0;
-  var taxr=M.taxr||1.2;
-  var annualPropTax=price*taxr/100;
-  var piti=M.total||0;
+  var loan  = M.loan  || 0;
+  var rate  = M.rate  || 6.75;
+  var term  = M.term  || 30;
+  var price = M.price || 0;
+  var taxr  = M.taxr  || 1.2;
+  var piti  = M.total || 0;
 
-  if(grossAnnual<=0||loan<=0){return;}
+  if(grossAnnual <= 0 || loan <= 0){ return; }
 
-  // 1. Year-1 mortgage interest
-  var y1Int=calcYear1Interest(loan,rate,term);
-  // deductible portion: pro-rated if loan > $750K
-  var deductibleRatio=loan>MID_DEBT_CAP?(MID_DEBT_CAP/loan):1;
-  var y1IntDed=y1Int*deductibleRatio;
+  // ── Derived annuals ──
+  var annualPropTax = price * taxr / 100;
+  var periodsPerYear = payFreq;
 
-  // 2. SALT: capped by law + phaseout
-  var saltCap=effectiveSALTCap(grossAnnual,status);
-  // CA state income taxes (approximate: state withheld * 12)
-  var stateIncomeTax=curWithhold*payFreq/12*12; // annualized from monthly equivalent
-  // use actual CA withholding from inputs
-  var caAnnualWithhold=pv('tx_ca_withhold')*12;
-  var propTaxForSALT=Math.min(annualPropTax,saltCap);
-  // SALT = state income tax + property tax, capped
-  var totalSALT=Math.min(caAnnualWithhold+annualPropTax,saltCap);
+  // Fed taxable annualized from paystub (gross - pretax deductions)
+  // Use gross annual minus annual pre-tax deductions as basis
+  var annualPretax = pv('tx_pretax') * 12; // monthly pretax × 12
+  var fedTaxableAnnual = grossAnnual - annualPretax;
 
-  // 3. Total itemized
-  var totalItemized=y1IntDed+totalSALT+otherDed;
+  // ── Year-1 mortgage interest ──
+  var y1Int = calcYear1Interest(loan, rate, term);
+  var deductRatio = loan > MID_DEBT_CAP ? (MID_DEBT_CAP / loan) : 1;
+  var y1IntDed = y1Int * deductRatio;
 
-  // 4. Standard deduction
-  var stdDed=STD_DED[status]||30000;
+  // ── SALT (federal) ──
+  var saltCap = effectiveSALTCap(grossAnnual, status);
+  var caAnnualWithhold = caMonthly * 12;
+  var totalSALT = Math.min(caAnnualWithhold + annualPropTax, saltCap);
 
-  // 5. Net additional deduction vs standard
-  var netAddl=Math.max(0,totalItemized-stdDed);
-  var itemizeBetter=totalItemized>stdDed;
+  // ── Total Itemized ──
+  var stdDed = STD_DED[status] || 30000;
+  var totalItemized = y1IntDed + totalSALT + otherDed;
+  var netAddl = Math.max(0, totalItemized - stdDed);
+  var itemizeBetter = totalItemized > stdDed;
 
-  // 6. Federal marginal rate
-  var fedRate=getMarginalRate(grossAnnual,status);
+  // ── Federal marginal rate ──
+  var fedRate = getMarginalRate(fedTaxableAnnual, status);
 
-  // 7. Tax savings
-  var fedSavings=netAddl*fedRate;
-  var stateSavings=netAddl*stateRate;
-  var totalSavingsAnnual=fedSavings+stateSavings;
-  var totalSavingsMo=totalSavingsAnnual/12;
+  // ── Tax savings (deduction benefit method) ──
+  var fedSavingsAnnual  = netAddl * fedRate;
+  var stateSavingsAnnual = netAddl * stateRate;
+  var totalSavingsAnnual = fedSavingsAnnual + stateSavingsAnnual;
+  var totalSavingsMo = totalSavingsAnnual / 12;
+  var effectivePITI = piti - totalSavingsMo;
 
-  // 8. Effective payment
-  var effectivePITI=piti-totalSavingsMo;
+  // ──────────────────────────────────────────────
+  // W-4 WITHHOLDING CALCULATION (annualized method)
+  // Matches IRS Publication 15-T percentage method
+  // ──────────────────────────────────────────────
 
-  // 9. W-4 adjustment
-  var savingsPerPeriod=totalSavingsAnnual/payFreq;
-  var curAnnualWithhold=curWithhold*payFreq;
-  var newAnnualWithhold=Math.max(0,curAnnualWithhold-totalSavingsAnnual);
-  var newPerPeriod=newAnnualWithhold/payFreq;
-  var netPayIncrease=savingsPerPeriod;
+  // WITHOUT home: annual tax on fed taxable income
+  var annualTaxWithout = calcFedTax(fedTaxableAnnual, status);
 
-  // 10. Affordability
-  var grossMo=grossAnnual/12;
-  var feDTI=piti/grossMo*100;
-  var effDTI=effectivePITI/grossMo*100;
+  // WITH home: reduce taxable income by net additional itemized deduction
+  // W-4 Step 4(b) = total itemized - standard deduction = netAddl
+  // This reduces the taxable income used for withholding
+  var w4Step4b = netAddl; // the amount entered in W-4 Step 4(b)
+  var taxableWithHome = Math.max(0, fedTaxableAnnual - w4Step4b);
+  var annualTaxWithHome = calcFedTax(taxableWithHome, status);
 
-  // --- RENDER ---
-  $v('tx_out_y1int').textContent=fd(y1Int)+' ('+fd(y1IntDed)+' deductible)';
-  $v('tx_out_saltcap').textContent=fm(saltCap);
-  $v('tx_out_stateint').textContent=fd(caAnnualWithhold)+'/yr (CA income tax est.)';
-  $v('tx_out_proptax').textContent=fd(annualPropTax)+'/yr → '+fd(Math.min(annualPropTax,saltCap-Math.min(caAnnualWithhold,saltCap)))+' applied under SALT';
-  $v('tx_out_totalsalt').textContent=fd(totalSALT)+' / cap: '+fm(saltCap);
-  $v('tx_out_other').textContent=fd(otherDed);
-  $v('tx_out_totalitem').textContent=fd(totalItemized);
-  $v('tx_out_std').textContent=fm(stdDed)+' ('+{mfj:'MFJ',single:'Single',hoh:'HOH',mfs:'MFS'}[status]+')';
-  $v('tx_out_netaddl').textContent=itemizeBetter?fd(netAddl):'$0 — Standard deduction beats itemizing';
-  $v('tx_out_netaddl').style.color=itemizeBetter?'#34d399':'#f59e0b';
-  $v('tx_out_fedrate').textContent=getBracketLabel(grossAnnual,status)+' marginal';
-  $v('tx_out_fedsav').textContent=fd(fedSavings)+'/yr';
-  $v('tx_out_statesav').textContent=fd(stateSavings)+'/yr ('+((stateRate*100).toFixed(1))+'% state)';
-  $v('tx_out_totalsav').textContent=fd(totalSavingsAnnual)+'/yr';
-  $v('tx_out_mosav').textContent=fd(totalSavingsMo)+'/mo';
-  $v('tx_out_piti').textContent=fd(piti);
-  $v('tx_out_effpiti').textContent=fd(effectivePITI);
-  // big boxes
-  $v('tx_big_eff').textContent=fd(effectivePITI);
-  $v('tx_big_sav').textContent=fd(totalSavingsMo);
-  // W-4
-  $v('tx_out_curwithhold').textContent=fd(curWithhold)+' / period → '+fd(curAnnualWithhold)+'/yr';
-  $v('tx_out_sav_period').textContent=fd(savingsPerPeriod)+' per paycheck';
-  $v('tx_out_newwithhold').textContent=fd(newPerPeriod)+' / period';
-  $v('tx_out_netpay').textContent='+'+fd(netPayIncrease)+' per paycheck toward mortgage';
-  // affordability
-  $v('tx_out_grossmo').textContent=fd(grossMo)+'/mo';
-  $v('tx_out_fedti').textContent=fd(feDTI)+'%'+(feDTI>28?' ⚠️ over 28% guideline':'  ✅ under 28%');
-  $v('tx_out_effdti').textContent=fd(effDTI)+'%'+(effDTI>28?' ⚠️ over 28% (effective)':' ✅ under 28% effective');
+  // Per-period withholding targets
+  var targetWithholdPeriod = annualTaxWithHome / periodsPerYear;
+  var currentWithholdAnnual = curWithhold * periodsPerYear;
 
-  // warning banner
+  // Federal reduction
+  var fedAnnualReduction = currentWithholdAnnual - annualTaxWithHome;
+  var fedAnnualReduction2 = Math.max(0, fedAnnualReduction);
+  var fedPeriodReduction = fedAnnualReduction2 / periodsPerYear;
+  var fedMoReduction = fedAnnualReduction2 / 12;
+
+  // Gap check: expected vs actual withholding (without home)
+  var expectedWithoutHome = annualTaxWithout / periodsPerYear;
+  var gap = Math.abs(expectedWithoutHome - curWithhold);
+  var gapPct = curWithhold > 0 ? gap / curWithhold : 0;
+
+  // ──────────────────────────────────────────────
+  // CA DE-4 CALCULATION
+  // Additional deductions under CA: mortgage interest + property tax (CA has no SALT cap on itemizing)
+  // Additional allowances = floor(additional_CA_deduction / CA_ALLOW_ANNUAL)
+  // ──────────────────────────────────────────────
+  // CA additional itemized deductions vs CA standard deduction
+  // CA standard deduction 2025: MFJ=$10,726 | Single=$5,363 | HOH=$5,363
+  var CA_STD = {mfj:10726, single:5363, hoh:5363, mfs:5363};
+  var caStd = CA_STD[status] || 10726;
+  // CA itemized = mortgage interest (no cap for CA) + full CA prop tax + CA state income tax (excluded from CA deduction) + other
+  // Actually for CA: mortgage interest deductible same as federal ($750K cap)
+  // CA prop tax: fully deductible on CA return (no SALT cap at state level)
+  // CA does NOT allow deduction of state income tax on CA return
+  var caItemized = y1IntDed + annualPropTax + otherDed;
+  var caNetAddl = Math.max(0, caItemized - caStd);
+
+  // Additional allowances needed
+  var caAddAllowances = Math.round(caNetAddl / CA_ALLOW_ANNUAL);
+  var caRecAllowances = caAllowCur + caAddAllowances;
+
+  // CA annual reduction (using state marginal rate)
+  var caAnnualReduction = caNetAddl * stateRate;
+  var caPeriodReduction = caAnnualReduction / periodsPerYear;
+  var caMoReduction = caAnnualReduction / 12;
+
+  // ──────────────────────────────────────────────
+  // COMBINED NET PAY IMPACT
+  // ──────────────────────────────────────────────
+  var totalAnnualIncrease = fedAnnualReduction2 + caAnnualReduction;
+  var totalPeriodIncrease = totalAnnualIncrease / periodsPerYear;
+  var totalMoIncrease = totalAnnualIncrease / 12;
+
+  // Current net pay monthly equiv
+  var currentNetMo = netPerPeriod * periodsPerYear / 12;
+  var newNetPeriod = netPerPeriod + (fedPeriodReduction + caPeriodReduction);
+  var newNetMo = newNetPeriod * periodsPerYear / 12;
+
+  // ── Affordability ──
+  var grossMo = grossAnnual / 12;
+  var feDTI = piti / grossMo * 100;
+  var effDTI = effectivePITI / grossMo * 100;
+
+  // ─── RENDER ───────────────────────────────────
+
+  // Deduction breakdown
+  $v('tx_out_y1int').textContent       = fd(y1Int)+' ('+fd(y1IntDed)+' deductible)';
+  $v('tx_out_saltcap').textContent     = fm(saltCap);
+  $v('tx_out_stateint').textContent    = fd(caAnnualWithhold)+'/yr (CA income tax est.)';
+  $v('tx_out_proptax').textContent     = fd(annualPropTax)+'/yr → '+fd(Math.min(annualPropTax, Math.max(0,saltCap-Math.min(caAnnualWithhold,saltCap))))+' under SALT';
+  $v('tx_out_totalsalt').textContent   = fd(totalSALT)+' / cap: '+fm(saltCap);
+  $v('tx_out_other').textContent       = fd(otherDed);
+  $v('tx_out_totalitem').textContent   = fd(totalItemized);
+  $v('tx_out_std').textContent         = fm(stdDed)+' ('+{mfj:'MFJ',single:'Single',hoh:'HOH',mfs:'MFS'}[status]+')';
+  $v('tx_out_netaddl').textContent     = itemizeBetter ? fd(netAddl) : '$0 — Standard deduction beats itemizing';
+  $v('tx_out_netaddl').style.color     = itemizeBetter ? '#34d399' : '#f59e0b';
+  $v('tx_out_fedrate').textContent     = (getMarginalRate(fedTaxableAnnual,status)*100).toFixed(0)+'% marginal';
+  $v('tx_out_fedsav').textContent      = fd(fedSavingsAnnual)+'/yr';
+  $v('tx_out_statesav').textContent    = fd(stateSavingsAnnual)+'/yr ('+(stateRate*100).toFixed(1)+'% state)';
+  $v('tx_out_totalsav').textContent    = fd(totalSavingsAnnual)+'/yr';
+  $v('tx_out_mosav').textContent       = fd(totalSavingsMo)+'/mo';
+  $v('tx_out_piti').textContent        = fd(piti);
+  $v('tx_out_effpiti').textContent     = fd(effectivePITI);
+  $v('tx_big_eff').textContent         = fd(effectivePITI);
+  $v('tx_big_sav').textContent         = fd(totalSavingsMo);
+  $v('tx_out_grossmo').textContent     = fd(grossMo)+'/mo';
+  $v('tx_out_fedti').textContent       = feDTI.toFixed(1)+'%'+(feDTI>28?' ⚠️ over 28% guideline':'  ✅ under 28%');
+  $v('tx_out_effdti').textContent      = effDTI.toFixed(1)+'%'+(effDTI>28?' ⚠️ over 28% (effective)':' ✅ under 28% effective');
+
+  // W-4/DE-4 section
+  $v('tx_out_curwithhold_period').textContent  = fd(curWithhold)+' / period';
+  $v('tx_out_curwithhold_annual').textContent  = fd(currentWithholdAnnual)+'/yr ('+periodsPerYear+'× '+fd(curWithhold)+')';
+  $v('tx_out_netperiod_current').textContent   = fd(netPerPeriod)+' / period';
+  $v('tx_out_netmo_current').textContent       = fd(currentNetMo)+'/mo';
+
+  $v('tx_out_fedtaxable').textContent          = fd(fedTaxableAnnual)+'/yr (gross minus pre-tax deductions)';
+  $v('tx_out_annualtax_home').textContent      = fd(annualTaxWithHome)+'/yr';
+  $v('tx_out_target_period').textContent       = fd(targetWithholdPeriod)+' / period';
+  $v('tx_out_w4step4b').textContent            = fm(Math.round(w4Step4b))+' (enter on W-4 Line 4b)';
+  $v('tx_out_fed_annual_reduction').textContent= fd(fedAnnualReduction2)+'/yr';
+  $v('tx_out_fed_period_reduction').textContent= fd(fedPeriodReduction)+' / period';
+  $v('tx_out_fed_mo_reduction').textContent    = fd(fedMoReduction)+'/mo';
+
+  // Gap note
+  var gapEl = $v('tx_gap_note');
+  if(gapPct > 0.05){
+    gapEl.style.display = 'block';
+    gapEl.innerHTML = '⚠️ <strong>Withholding gap note:</strong> Expected withholding without home = '+fd(expectedWithoutHome)+'/period. Actual = '+fd(curWithhold)+'/period ('+fd(gap)+' gap). This may mean you already have deductions on file in your W-4, or employer rounding. The target above reflects only what\'s needed for the home purchase deduction.';
+  } else {
+    gapEl.style.display = 'none';
+  }
+
+  $v('tx_out_ca_current_allow').textContent    = caAllowCur+' allowances';
+  $v('tx_out_ca_current_mo').textContent       = fd(caMonthly)+'/mo (from paystub)';
+  $v('tx_out_ca_rec_allow').textContent        = caRecAllowances+' allowances (+'+caAddAllowances+' additional)';
+  $v('tx_out_ca_annual_red').textContent       = fd(caAnnualReduction)+'/yr';
+  $v('tx_out_ca_period_red').textContent       = fd(caPeriodReduction)+' / period';
+  $v('tx_out_ca_mo_red').textContent           = fd(caMoReduction)+'/mo';
+
+  $v('tx_out_total_annual').textContent        = fd(totalAnnualIncrease)+'/yr';
+  $v('tx_out_total_period').textContent        = fd(totalPeriodIncrease)+' / period';
+  $v('tx_out_total_mo').textContent            = fd(totalMoIncrease)+'/mo';
+  $v('tx_out_new_period_net').textContent      = fd(newNetPeriod)+' / period';
+  $v('tx_out_new_mo_net').textContent          = fd(newNetMo)+'/mo';
+
+  // Warning banner
   var warn='';
-  if(!itemizeBetter)warn='<div style="background:#7c2d12;border:1px solid #dc2626;border-radius:8px;padding:12px;font-size:12px;color:#fca5a5;margin-bottom:12px">⚠️ <strong>Standard deduction ($'+fm(stdDed)+') exceeds your itemized total ($'+fd(totalItemized)+').</strong> Itemizing yields no additional federal benefit. You may still benefit from state itemizing if CA allows it separately.</div>';
-  $v('tx_warn').innerHTML=warn;
+  if(!itemizeBetter) warn='<div style="background:#7c2d12;border:1px solid #dc2626;border-radius:8px;padding:12px;font-size:12px;color:#fca5a5;margin-bottom:12px">⚠️ <strong>Standard deduction ($'+fm(stdDed)+') exceeds your itemized total ($'+fd(totalItemized)+').</strong> Itemizing yields no additional federal benefit at this loan/price combination.</div>';
+  $v('tx_warn').innerHTML = warn;
 }
 
 function syncTax(){
-  // pre-fill loan/price/rate/term from Payment tab
-  $v('tx_info_loan').textContent='Loan: '+fm(M.loan||0)+' @ '+(M.rate||6.75)+'% / '+(M.term||30)+' yr';
-  $v('tx_info_proptax').textContent='Annual property tax: '+fd((M.price||0)*(M.taxr||1.2)/100);
+  $v('tx_info_loan').textContent    = 'Loan: '+fm(M.loan||0)+' @ '+(M.rate||6.75)+'% / '+(M.term||30)+' yr';
+  $v('tx_info_proptax').textContent = 'Annual property tax: '+fd((M.price||0)*(M.taxr||1.2)/100);
   calcTax();
 }
 </script>
