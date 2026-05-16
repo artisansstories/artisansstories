@@ -335,13 +335,51 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
 
     <div class="card">
       <div class="ct">Affordability Summary</div>
-      <div class="row"><span class="rl">Gross Monthly Income</span><span class="rv" id="tx_out_grossmo">—</span></div>
+
+      <!-- Anna IHSS Toggle -->
+      <div style="background:#1a2a1a;border:1px solid #34d399;border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:12px;font-weight:700;color:#34d399">Anna's IHSS Income (co-borrower)</span>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0">
+            <span style="font-size:11px;color:#94a3b8">Include</span>
+            <div style="position:relative;width:36px;height:20px">
+              <input type="checkbox" id="tx_anna_toggle" onchange="calcTax()" style="opacity:0;width:0;height:0;position:absolute">
+              <div id="tx_anna_slider" onclick="document.getElementById('tx_anna_toggle').click()" style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#334155;border-radius:20px;transition:.3s"><div style="position:absolute;content:'';height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s" id="tx_anna_knob"></div></div>
+            </div>
+          </label>
+        </div>
+        <div class="f" style="margin-bottom:6px">
+          <label style="font-size:11px;color:#94a3b8">Anna IHSS Monthly Income (actual)</label>
+          <div class="px"><span>$</span><input id="tx_anna_income" inputmode="numeric" value="1,253" oninput="fmtCurrency(this);calcTax()" style="font-size:14px"></div>
+        </div>
+        <div style="font-size:10px;color:#64748b;line-height:1.5">
+          Lender gross-up: actual × 1.25 = <strong id="tx_anna_grossup" style="color:#34d399">—</strong> qualifying income
+        </div>
+      </div>
+
+      <div class="row"><span class="rl">Wayne gross monthly income</span><span class="rv" id="tx_out_grossmo">—</span></div>
+      <div class="row" id="tx_anna_row" style="display:none"><span class="rl">Anna IHSS (grossed up ×1.25)</span><span class="rv" style="color:#34d399" id="tx_out_anna_grossup">—</span></div>
+      <div class="row" id="tx_combined_row" style="display:none"><span class="rl">Combined qualifying income</span><span class="rv" style="color:#f1f5f9;font-size:15px" id="tx_out_combined_income">—</span></div>
+      <div class="div"></div>
       <div class="row"><span class="rl">Full PITI</span><span class="rv" id="tx_out_piti">—</span></div>
-      <div class="row"><span class="rl">Full PITI as % of gross (front-end DTI)</span><span class="rv" id="tx_out_fedti">—</span></div>
+      <div class="row"><span class="rl">Front-end DTI (lender qualifying)</span><span class="rv" id="tx_out_fedti">—</span></div>
+      <div class="row" id="tx_combined_dti_row" style="display:none"><span class="rl">Front-end DTI (combined income)</span><span class="rv" style="color:#34d399" id="tx_out_combined_dti">—</span></div>
+      <div class="div"></div>
       <div class="row"><span class="rl">Effective PITI (after tax benefit)</span><span class="rv" style="color:#34d399" id="tx_out_effpiti">—</span></div>
-      <div class="row"><span class="rl">Effective Monthly Cost (after tax benefit) <span style="font-size:10px;color:#64748b">— planning only, not lender DTI</span></span><span class="rv" style="color:#34d399" id="tx_out_effdti">—</span></div>
+      <div class="row"><span class="rl">Effective monthly cost <span style="font-size:10px;color:#64748b">— planning only</span></span><span class="rv" style="color:#34d399" id="tx_out_effdti">—</span></div>
+
       <div class="note-box note-warn" style="margin-top:10px">
-        <strong style="color:#fbbf24">DTI Guideline:</strong> Lenders qualify on <strong style="color:#f1f5f9">gross income vs. full PITI only</strong> — no credit for tax savings. Front-end ≤28% preferred; ≤36% back-end (all debts); up to 43–45% with strong compensating factors. The “effective cost” above is a cash flow planning tool only — your lender will not use it.
+        <strong style="color:#fbbf24">DTI Guideline:</strong> Lenders qualify on <strong style="color:#f1f5f9">gross income vs. full PITI only</strong> — no credit for tax savings. Front-end ≤28% preferred; ≤36% back-end (all debts); up to 43–45% with strong compensating factors.
+      </div>
+
+      <!-- Anna Co-Borrower Footnote -->
+      <div id="tx_anna_footnote" style="display:none;margin-top:12px">
+        <div style="background:#0f172a;border-left:3px solid #f59e0b;border-radius:0 7px 7px 0;padding:12px;font-size:11px;color:#94a3b8;line-height:1.7">
+          <strong style="color:#fbbf24">Co-Borrower Note (per Fannie Mae B3-3.4-12):</strong><br>
+          Anna’s IHSS income can only count toward DTI if she is a <strong style="color:#f1f5f9">co-borrower on the loan</strong>. Non-borrower income cannot offset DTI under standard Fannie Mae rules. Adding Anna as co-borrower means: credit check, all her debts added to back-end DTI, legal obligation on the note, and any derogatory credit affects the analysis.<br><br>
+          <strong style="color:#fbbf24">Is it worth it?</strong> The DTI improvement is modest (typically 1.5–2.0 points). IHSS income is hourly/variable and requires documented history. The real test is back-end DTI — if all debts are comfortably under 43–45%, Anna’s income may not change the lender’s decision.<br><br>
+          <strong style="color:#fbbf24">Effective DTI is a planning tool only.</strong> Lenders do not reduce PITI by estimated tax savings when calculating qualifying DTI. The effective cost figures above are for your personal cash flow analysis — not for lender qualification.
+        </div>
       </div>
     </div>
 
@@ -831,7 +869,27 @@ function calcTax(){
   $v('tx_big_sav').textContent         = fd(totalSavingsMo);
   $v('tx_out_grossmo').textContent     = fd(grossMo)+'/mo';
   $v('tx_out_fedti').textContent       = feDTI.toFixed(1)+'%'+(feDTI>28?' ⚠️ over 28% guideline':'  ✅ under 28%');
-  $v('tx_out_effdti').textContent      = fd(effectivePITI)+'/mo real cost (≈'+effDTI.toFixed(1)+'% of gross — planning only, not lender DTI)';
+  $v('tx_out_effpiti').textContent     = fd(effectivePITI)+'/mo';
+  $v('tx_out_effdti').textContent      = '≈'+effDTI.toFixed(1)+'% of gross — planning only';
+
+  // Anna IHSS toggle
+  var annaOn = $v('tx_anna_toggle').checked;
+  var annaActual = pv('tx_anna_income');
+  var annaGrossed = annaActual * 1.25;
+  $v('tx_anna_grossup').textContent = fd(annaGrossed)+'/mo';
+  $v('tx_anna_slider').style.background = annaOn ? '#065f46' : '#334155';
+  $v('tx_anna_knob').style.left = annaOn ? '19px' : '3px';
+  $v('tx_anna_row').style.display = annaOn ? '' : 'none';
+  $v('tx_combined_row').style.display = annaOn ? '' : 'none';
+  $v('tx_combined_dti_row').style.display = annaOn ? '' : 'none';
+  $v('tx_anna_footnote').style.display = annaOn ? '' : 'none';
+  if(annaOn){
+    var combinedMo = grossMo + annaGrossed;
+    var combinedDTI = piti / combinedMo * 100;
+    $v('tx_out_anna_grossup').textContent  = fd(annaGrossed)+'/mo (actual '+fd(annaActual)+' ×1.25)';
+    $v('tx_out_combined_income').textContent = fd(combinedMo)+'/mo';
+    $v('tx_out_combined_dti').textContent = combinedDTI.toFixed(1)+'%'+(combinedDTI>28?' ⚠️ over 28%':' ✅ under 28%')+' (Wayne + Anna)';
+  }
 
   // W-4/DE-4 section
   $v('tx_out_curwithhold_period').textContent  = fd(curWithhold)+' / period';
