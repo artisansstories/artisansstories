@@ -339,9 +339,9 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
       <div class="row"><span class="rl">Full PITI</span><span class="rv" id="tx_out_piti">—</span></div>
       <div class="row"><span class="rl">Full PITI as % of gross (front-end DTI)</span><span class="rv" id="tx_out_fedti">—</span></div>
       <div class="row"><span class="rl">Effective PITI (after tax benefit)</span><span class="rv" style="color:#34d399" id="tx_out_effpiti">—</span></div>
-      <div class="row"><span class="rl">Effective DTI (after tax benefit)</span><span class="rv" style="color:#34d399" id="tx_out_effdti">—</span></div>
+      <div class="row"><span class="rl">Effective Monthly Cost (after tax benefit) <span style="font-size:10px;color:#64748b">— planning only, not lender DTI</span></span><span class="rv" style="color:#34d399" id="tx_out_effdti">—</span></div>
       <div class="note-box note-warn" style="margin-top:10px">
-        <strong style="color:#fbbf24">DTI Guideline:</strong> Front-end ≤28% preferred; ≤36% back-end (all debts). Lenders may allow up to 43–45% with strong credit/assets. Effective DTI reflects real out-of-pocket after tax recapture.
+        <strong style="color:#fbbf24">DTI Guideline:</strong> Lenders qualify on <strong style="color:#f1f5f9">gross income vs. full PITI only</strong> — no credit for tax savings. Front-end ≤28% preferred; ≤36% back-end (all debts); up to 43–45% with strong compensating factors. The “effective cost” above is a cash flow planning tool only — your lender will not use it.
       </div>
     </div>
 
@@ -831,7 +831,7 @@ function calcTax(){
   $v('tx_big_sav').textContent         = fd(totalSavingsMo);
   $v('tx_out_grossmo').textContent     = fd(grossMo)+'/mo';
   $v('tx_out_fedti').textContent       = feDTI.toFixed(1)+'%'+(feDTI>28?' ⚠️ over 28% guideline':'  ✅ under 28%');
-  $v('tx_out_effdti').textContent      = effDTI.toFixed(1)+'%'+(effDTI>28?' ⚠️ over 28% (effective)':' ✅ under 28% effective');
+  $v('tx_out_effdti').textContent      = fd(effectivePITI)+'/mo real cost (≈'+effDTI.toFixed(1)+'% of gross — planning only, not lender DTI)';
 
   // W-4/DE-4 section
   $v('tx_out_curwithhold_period').textContent  = fd(curWithhold)+' / period';
