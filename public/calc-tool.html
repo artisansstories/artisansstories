@@ -231,7 +231,7 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
         </select>
       </div>
       <div class="f"><label>Gross Annual Income</label><div class="px"><span>$</span><input id="tx_gross" inputmode="numeric" value="295,323" oninput="fmtCurrency(this);calcTax()"></div></div>
-      <div class="f"><label>Annual Pre-Tax Deductions (401k, health, FSA, etc.)</label><div class="px"><span>$</span><input id="tx_pretax" inputmode="numeric" value="3,270" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Monthly Pre-Tax Deductions (401k, health, FSA, dental) — ×12 for annual</label><div class="px"><span>$</span><input id="tx_pretax" inputmode="numeric" value="3,270" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="f"><label>CA State Tax Rate %</label><div class="px"><span>%</span><input id="tx_state" type="number" inputmode="decimal" value="9.3" step="0.1" oninput="calcTax()"></div></div>
       <div class="f"><label>CA Monthly Withholding (actual from paystub × 2)</label><div class="px"><span>$</span><input id="tx_ca_withhold" inputmode="numeric" value="1,389" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="f"><label>Current CA Allowances (DE-4 line 1)</label><div class="px"><span>#</span><input id="tx_ca_allowances" type="number" inputmode="numeric" value="4" step="1" min="0" oninput="calcTax()"></div></div>
@@ -670,7 +670,7 @@ function calcYear1Interest(loan,rateAnnual,termYears){
 // Annual CA tax reduction per additional allowance = federal equiv rate * $4,800 (approx)
 // We use the more accurate approach: reduce estimated CA withholding proportionally
 // CA withholding allowance (2025): $144.90 monthly, $133.75 biweekly, $4,800 annual
-var CA_ALLOW_ANNUAL = 4800; // dollars of income sheltered per allowance, CA 2025
+var CA_ALLOW_ANNUAL = 5550; // dollars of income sheltered per allowance, CA 2025 (EDD Method B)
 
 // CA income tax rate schedules 2025 (MFJ) — approximate
 // We use actual CA withholding from paystub (user input) + marginal CA rate on deduction benefit
@@ -680,7 +680,7 @@ var CA_ALLOW_ANNUAL = 4800; // dollars of income sheltered per allowance, CA 202
 function calcTax(){
   var status       = $v('tx_status').value;
   var grossAnnual  = pv('tx_gross');
-  var pretaxAnnual = pv('tx_pretax') * 12; // monthly pretax → annual
+  var pretaxAnnual = pv('tx_pretax') * 12; // monthly pre-tax × 12 = annual
   var stateRate    = pv('tx_state') / 100;
   var otherDed     = pv('tx_other');
   var payFreq      = parseInt($v('tx_freq').value) || 26;
@@ -704,7 +704,7 @@ function calcTax(){
 
   // Fed taxable annualized from paystub (gross - pretax deductions)
   // Use gross annual minus annual pre-tax deductions as basis
-  var annualPretax = pv('tx_pretax') * 12; // monthly pretax × 12
+  var annualPretax = pv('tx_pretax') * 12; // monthly pre-tax × 12 = annual
   var fedTaxableAnnual = grossAnnual - annualPretax;
 
   // ── Year-1 mortgage interest ──
@@ -752,11 +752,12 @@ function calcTax(){
   var targetWithholdPeriod = annualTaxWithHome / periodsPerYear;
   var currentWithholdAnnual = curWithhold * periodsPerYear;
 
-  // Federal reduction
-  var fedAnnualReduction = currentWithholdAnnual - annualTaxWithHome;
-  var fedAnnualReduction2 = Math.max(0, fedAnnualReduction);
-  var fedPeriodReduction = fedAnnualReduction2 / periodsPerYear;
-  var fedMoReduction = fedAnnualReduction2 / 12;
+  // Federal reduction from buying (deduction benefit = tax savings from itemizing vs standard)
+  var fedAnnualReduction2 = Math.max(0, annualTaxWithout - annualTaxWithHome);
+  var fedPeriodReduction  = fedAnnualReduction2 / periodsPerYear;
+  var fedMoReduction      = fedAnnualReduction2 / 12;
+  // Also compute: how much current withholding differs from new target (to show new per-period target)
+  var fedAnnualReduction = currentWithholdAnnual - annualTaxWithHome; // could be small if already well-set
 
   // Gap check: expected vs actual withholding (without home)
   var expectedWithoutHome = annualTaxWithout / periodsPerYear;
@@ -791,6 +792,7 @@ function calcTax(){
   // ──────────────────────────────────────────────
   // COMBINED NET PAY IMPACT
   // ──────────────────────────────────────────────
+  // Total net pay increase = federal deduction savings + CA DE-4 allowance savings
   var totalAnnualIncrease = fedAnnualReduction2 + caAnnualReduction;
   var totalPeriodIncrease = totalAnnualIncrease / periodsPerYear;
   var totalMoIncrease = totalAnnualIncrease / 12;
