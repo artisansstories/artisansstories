@@ -230,10 +230,10 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
           <option value="mfs">Married Filing Separately</option>
         </select>
       </div>
-      <div class="f"><label>Gross Annual Income</label><div class="px"><span>$</span><input id="tx_gross" inputmode="numeric" value="295,323" oninput="fmtCurrency(this);calcTax()"></div></div>
-      <div class="f"><label>Monthly Pre-Tax Deductions (401k, health, FSA, dental) — ×12 for annual</label><div class="px"><span>$</span><input id="tx_pretax" inputmode="numeric" value="3,155" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Gross Annual Income</label><div class="px"><span>$</span><input id="tx_gross" inputmode="numeric" value="295,324" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Monthly Pre-Tax Deductions (401k, health, FSA, dental) — ×12 for annual</label><div class="px"><span>$</span><input id="tx_pretax" inputmode="numeric" value="3,018" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="f"><label>CA State Tax Rate %</label><div class="px"><span>%</span><input id="tx_state" type="number" inputmode="decimal" value="9.3" step="0.1" oninput="calcTax()"></div></div>
-      <div class="f"><label>CA Monthly Withholding (actual from paystub × 2)</label><div class="px"><span>$</span><input id="tx_ca_withhold" inputmode="numeric" value="1,389" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>CA Monthly Withholding (annual ÷ 12)</label><div class="px"><span>$</span><input id="tx_ca_withhold" inputmode="numeric" value="1,281" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="f"><label>Current CA Allowances (DE-4 line 1)</label><div class="px"><span>#</span><input id="tx_ca_allowances" type="number" inputmode="numeric" value="4" step="1" min="0" oninput="calcTax()"></div></div>
       <div class="f"><label>Other Itemized Deductions / year<br><span style="color:#64748b;font-size:10px">(charitable, medical over 7.5% AGI, etc.)</span></label><div class="px"><span>$</span><input id="tx_other" inputmode="numeric" value="0" oninput="fmtCurrency(this);calcTax()"></div></div>
     </div>
@@ -244,13 +244,13 @@ tfoot td{background:#0f172a;color:#f8fafc;font-weight:700;font-size:13px}
         <label>Pay Frequency</label>
         <select id="tx_freq" onchange="calcTax()">
           <option value="12">Monthly (12×/yr)</option>
-          <option value="24">Semi-Monthly (24×/yr)</option>
-          <option value="26" selected>Bi-Weekly (26×/yr)</option>
+          <option value="24" selected>Semi-Monthly (24×/yr)</option>
+          <option value="26">Bi-Weekly (26×/yr)</option>
           <option value="52">Weekly (52×/yr)</option>
         </select>
       </div>
-      <div class="f"><label>Actual Federal Withheld / period (from paystub)</label><div class="px"><span>$</span><input id="tx_withhold" inputmode="numeric" value="1,356" oninput="fmtCurrency(this);calcTax()"></div></div>
-      <div class="f"><label>Actual Net Pay / period (from paystub)</label><div class="px"><span>$</span><input id="tx_netpay_actual" inputmode="numeric" value="6,622" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Expected Federal Withheld / period (semi-monthly basis)</label><div class="px"><span>$</span><input id="tx_withhold" inputmode="numeric" value="1,695" oninput="fmtCurrency(this);calcTax()"></div></div>
+      <div class="f"><label>Est. Net Pay / period (standard full period)</label><div class="px"><span>$</span><input id="tx_netpay_actual" inputmode="numeric" value="7,253" oninput="fmtCurrency(this);calcTax()"></div></div>
       <div class="div"></div>
 
       <!-- WITHOUT HOME -->
