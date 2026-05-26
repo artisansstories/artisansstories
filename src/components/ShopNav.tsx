@@ -34,6 +34,15 @@ function IconX({ size = 22 }: { size?: number }) {
   );
 }
 
+function IconUser({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  );
+}
+
 const NAV_LINKS = [
   { href: "/shop", label: "Shop" },
   { href: "/about", label: "About" },
@@ -99,6 +108,14 @@ export default function ShopNav() {
         </nav>
 
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <Link href="/account" style={{ position: "relative", background: "transparent", border: "none", cursor: "pointer", color: "#3a2e24", padding: 8, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, minWidth: 44, minHeight: 44, transition: "color 0.15s", textDecoration: "none" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#8B6914"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#3a2e24"; }}
+            aria-label="My Account"
+          >
+            <IconUser size={22} />
+          </Link>
+
           <button onClick={openCart} style={{ position: "relative", background: "transparent", border: "none", cursor: "pointer", color: "#3a2e24", padding: 8, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, minWidth: 44, minHeight: 44, transition: "color 0.15s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#8B6914"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = "#3a2e24"; }}
@@ -128,6 +145,9 @@ export default function ShopNav() {
               style={{ fontFamily: "'Inter',sans-serif", fontSize: 16, fontWeight: 500, color: "#3a2e24", textDecoration: "none", padding: "12px 8px", borderBottom: "1px solid #f5f0e8" }}
             >{link.label}</Link>
           ))}
+          <Link href="/account" onClick={() => setMobileMenuOpen(false)}
+            style={{ fontFamily: "'Inter',sans-serif", fontSize: 16, fontWeight: 500, color: "#3a2e24", textDecoration: "none", padding: "12px 8px" }}
+          >My Account</Link>
         </nav>
       </div>
 

@@ -153,10 +153,10 @@ function LoginForm() {
         textAlign: "center",
         marginBottom: 6,
       }}>
-        Sign in to your account
+        Sign in or create account
       </h1>
       <p style={{ fontSize: 13, color: "#9a876e", textAlign: "center", fontFamily: "'Inter',sans-serif", marginBottom: 28 }}>
-        We&apos;ll send a magic link to your email
+        New or returning — just enter your email and we&apos;ll send a magic link. No password ever.
       </p>
 
       {status === "error" && errorMessage && (
@@ -243,7 +243,7 @@ function LoginForm() {
       </form>
 
       <p style={{ fontSize: 12, color: "#b09878", textAlign: "center", fontFamily: "'Inter',sans-serif", marginTop: 20, lineHeight: 1.6 }}>
-        No password needed. We&apos;ll email you a secure sign-in link.
+        First time? No problem — your account is created automatically when you click the link.
       </p>
 
     </div>
