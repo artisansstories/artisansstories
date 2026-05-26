@@ -784,10 +784,15 @@ export default function ProductForm({ product }: ProductFormProps) {
               </div>
             ) : (
               <div>
+                {/* How variants work — help text */}
+                <div style={{ background: "#fdf8ee", border: "1px solid #e8d5a3", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#6b4c14", fontFamily: "'Inter', sans-serif", lineHeight: 1.6 }}>
+                  <strong>How variants work:</strong> Each <em>Option</em> is a dimension (e.g. Size, Color, Metal Type). Each <em>Value</em> is a specific choice within that dimension (e.g. Small, Rose Gold, Sterling Silver). Type a value and press <kbd style={{ background: "#fff", border: "1px solid #d4b483", borderRadius: 3, padding: "0 5px", fontSize: 11 }}>Enter</kbd> to add it — phrases with spaces are fully supported. Use <strong>+ Add option</strong> to add a second dimension (e.g. both Size and Color), which will generate all combinations automatically.
+                </div>
+
                 {/* Options builder */}
                 {options.map((opt, idx) => (
                   <div key={idx} style={{ background: "#faf7f2", borderRadius: 10, padding: "14px 16px", marginBottom: 10, border: "1px solid #ede8df" }}>
-                    <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 6, alignItems: "flex-start", flexWrap: "wrap" }}>
                       <div style={{ flex: "1 1 120px" }}>
                         <Label>Option Name</Label>
                         <input
@@ -799,14 +804,17 @@ export default function ProductForm({ product }: ProductFormProps) {
                         />
                       </div>
                       <div style={{ flex: "2 1 200px" }}>
-                        <Label>Values (comma-separated)</Label>
-                        <input
-                          type="text"
-                          value={opt.values.join(", ")}
-                          onChange={(e) => updateOptionValues(idx, e.target.value)}
-                          placeholder="e.g. Red, Blue, Green"
-                          style={inputStyle}
+                        <Label>Values</Label>
+                        <TagInput
+                          values={opt.values}
+                          onChange={(vals) => {
+                            const next = [...options];
+                            next[idx] = { ...next[idx], values: vals };
+                            setOptions(next);
+                          }}
+                          placeholder="Type a value, press Enter"
                         />
+                        <p style={{ fontSize: 11, color: "#9a876e", margin: "4px 0 0", fontFamily: "'Inter', sans-serif" }}>Phrases with spaces are fine — e.g. "Rose Gold", "Sterling Silver"</p>
                       </div>
                       <button
                         type="button"
