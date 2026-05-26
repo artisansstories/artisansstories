@@ -278,15 +278,20 @@ function CheckoutForm({
   const taxTotal = Math.round(taxableAmount * 0.0825);
   const total = Math.max(0, subtotal - effectiveDiscount + shippingTotal + taxTotal);
 
-  // Fetch shipping rates when country changes
-  const fetchShippingRates = useCallback(async (countryCode: string) => {
+  // Fetch shipping rates when country or subtotal changes
+  const fetchShippingRates = useCallback(async (countryCode: string, orderSubtotal: number) => {
     setLoadingRates(true);
     try {
-      const res = await fetch(`/api/checkout/shipping-rates?countryCode=${countryCode}`);
+      const res = await fetch(`/api/checkout/shipping-rates?countryCode=${countryCode}&subtotal=${orderSubtotal}`);
       const rates: ShippingRate[] = await res.json();
       setShippingRates(rates);
-      if (rates.length > 0 && !selectedRateId) {
-        setSelectedRateId(rates[0].id);
+      // Always auto-select the first eligible rate (cheapest)
+      // Re-select even if we had a previous selection in case it's no longer eligible
+      if (rates.length > 0) {
+        const currentStillValid = rates.find((r) => r.id === selectedRateId);
+        if (!currentStillValid) {
+          setSelectedRateId(rates[0].id);
+        }
       }
     } catch {
       setShippingRates([]);
@@ -296,9 +301,9 @@ function CheckoutForm({
   }, [selectedRateId]);
 
   useEffect(() => {
-    fetchShippingRates(form.countryCode || "US");
+    fetchShippingRates(form.countryCode || "US", subtotal);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.countryCode]);
+  }, [form.countryCode, subtotal]);
 
   // Setup PaymentRequest for Apple Pay / Google Pay
   useEffect(() => {
