@@ -212,16 +212,15 @@ function FilterPanel({ categories, allTags, filters, onChange, onClose }: Filter
         }}>
           Price Range
         </h4>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 6, alignItems: "center" }}>
           <input
             type="number"
             placeholder="Min $"
             value={filters.minPrice}
             onChange={e => onChange({ ...filters, minPrice: e.target.value })}
             style={{
-              flex: 1,
-              minWidth: 0,
-              width: 0,
+              width: "100%",
+              boxSizing: "border-box",
               padding: "8px 6px",
               border: "1px solid #e0d5c5",
               borderRadius: 6,
@@ -233,16 +232,15 @@ function FilterPanel({ categories, allTags, filters, onChange, onClose }: Filter
             }}
             min="0"
           />
-          <span style={{ color: "#9a876e", fontSize: 13, flexShrink: 0 }}>–</span>
+          <span style={{ color: "#9a876e", fontSize: 13, textAlign: "center" }}>–</span>
           <input
             type="number"
             placeholder="Max $"
             value={filters.maxPrice}
             onChange={e => onChange({ ...filters, maxPrice: e.target.value })}
             style={{
-              flex: 1,
-              minWidth: 0,
-              width: 0,
+              width: "100%",
+              boxSizing: "border-box",
               padding: "8px 6px",
               border: "1px solid #e0d5c5",
               borderRadius: 6,
