@@ -427,6 +427,14 @@ export default function ProductForm({ product }: ProductFormProps) {
         dimensionUnit,
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
+        images: images.map((img, i) => ({
+          url: img.url,
+          urlMedium: img.urlMedium ?? null,
+          urlThumb: img.urlThumb ?? null,
+          altText: img.altText ?? null,
+          position: i,
+          isDefault: img.isDefault ?? i === 0,
+        })),
       };
 
       const url = isEdit ? `/api/admin/products/${product!.id}` : "/api/admin/products";
@@ -444,11 +452,6 @@ export default function ProductForm({ product }: ProductFormProps) {
       }
 
       const data = await res.json() as { product: { id: string } };
-
-      // Save images (simplified: link them to the product via a separate approach)
-      // For now images are stored in state and would be linked via ProductImage records
-      // In a full implementation, you'd also POST image records here
-      // This is acceptable for Phase 2 scope
 
       showToast(isEdit ? "Product saved!" : "Product created!");
 

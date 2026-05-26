@@ -80,6 +80,14 @@ export async function PUT(
       seoTitle?: string;
       seoDescription?: string;
       isFeatured?: boolean;
+      images?: Array<{
+        url: string;
+        urlMedium?: string | null;
+        urlThumb?: string | null;
+        altText?: string | null;
+        position?: number;
+        isDefault?: boolean;
+      }>;
     };
     let slug = existing.slug;
     if (body.name && body.name !== existing.name) {
@@ -115,6 +123,23 @@ export async function PUT(
         deleteMany: {},
         create: body.categoryIds.map((categoryId) => ({ categoryId })),
       };
+    }
+    // Update images if provided — delete all existing and re-insert
+    if (body.images !== undefined) {
+      await prisma.productImage.deleteMany({ where: { productId: id } });
+      if (body.images.length > 0) {
+        await prisma.productImage.createMany({
+          data: body.images.map((img, i) => ({
+            productId: id,
+            url: img.url,
+            urlMedium: img.urlMedium ?? null,
+            urlThumb: img.urlThumb ?? null,
+            altText: img.altText ?? null,
+            position: img.position ?? i,
+            isDefault: img.isDefault ?? i === 0,
+          })),
+        });
+      }
     }
     const product = await prisma.product.update({
       where: { id },

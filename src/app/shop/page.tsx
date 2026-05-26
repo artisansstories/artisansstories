@@ -220,7 +220,9 @@ function FilterPanel({ categories, allTags, filters, onChange, onClose }: Filter
             onChange={e => onChange({ ...filters, minPrice: e.target.value })}
             style={{
               flex: 1,
-              padding: "8px 10px",
+              minWidth: 0,
+              width: 0,
+              padding: "8px 6px",
               border: "1px solid #e0d5c5",
               borderRadius: 6,
               fontSize: 13,
@@ -231,7 +233,7 @@ function FilterPanel({ categories, allTags, filters, onChange, onClose }: Filter
             }}
             min="0"
           />
-          <span style={{ color: "#9a876e", fontSize: 13 }}>–</span>
+          <span style={{ color: "#9a876e", fontSize: 13, flexShrink: 0 }}>–</span>
           <input
             type="number"
             placeholder="Max $"
@@ -239,7 +241,9 @@ function FilterPanel({ categories, allTags, filters, onChange, onClose }: Filter
             onChange={e => onChange({ ...filters, maxPrice: e.target.value })}
             style={{
               flex: 1,
-              padding: "8px 10px",
+              minWidth: 0,
+              width: 0,
+              padding: "8px 6px",
               border: "1px solid #e0d5c5",
               borderRadius: 6,
               fontSize: 13,
