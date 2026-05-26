@@ -18,9 +18,8 @@ function customerMagicLinkEmail(magicLink: string): string {
     <tr><td align="center">
       <table cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
         <tr>
-          <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:32px 40px;text-align:center;">
-            <h1 style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:2px;text-transform:uppercase;">ARTISANS' STORIES</h1>
-            <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.8);letter-spacing:1px;">Handcrafted with care</p>
+          <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:28px 40px;text-align:center;">
+            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="220" style="display:block;margin:0 auto;width:220px;max-width:80%;height:auto;" />
           </td>
         </tr>
         <tr>
@@ -41,7 +40,7 @@ function customerMagicLinkEmail(magicLink: string): string {
         </tr>
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">Questions? <a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
+            <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">Questions? <a href="mailto:anna@artisansstories.com" style="color:#C9A84C;text-decoration:none;">anna@artisansstories.com</a></p>
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
           </td>
         </tr>
