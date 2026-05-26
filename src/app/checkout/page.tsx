@@ -329,6 +329,23 @@ function CheckoutForm({
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handlePhoneChange = (raw: string) => {
+    // Strip everything except digits
+    const digits = raw.replace(/\D/g, "").slice(0, 10);
+    // Format as (XXX) XXX-XXXX
+    let formatted = "";
+    if (digits.length === 0) {
+      formatted = "";
+    } else if (digits.length <= 3) {
+      formatted = `(${digits}`;
+    } else if (digits.length <= 6) {
+      formatted = `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    } else {
+      formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    setForm((prev) => ({ ...prev, phone: formatted }));
+  };
+
   const handleStateChange = (stateCode: string) => {
     const found = US_STATES.find((s) => s.code === stateCode);
     setForm((prev) => ({
@@ -651,9 +668,10 @@ function CheckoutForm({
                 label="Phone (optional)"
                 type="tel"
                 value={form.phone}
-                onChange={(e) => handleFieldChange("phone", e.target.value)}
-                placeholder="+1 (555) 000-0000"
+                onChange={(e) => handlePhoneChange(e.target.value)}
+                placeholder="(555) 000-0000"
                 autoComplete="tel"
+                maxLength={14}
               />
               <label
                 style={{
