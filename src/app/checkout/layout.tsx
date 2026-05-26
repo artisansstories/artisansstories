@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 
 const cormorant = Cormorant_Garamond({
@@ -62,18 +63,16 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
             justifyContent: "space-between",
           }}
         >
-          <a
-            href="/"
-            style={{
-              fontFamily: "var(--font-cormorant), 'Cormorant Garamond', serif",
-              fontSize: 22,
-              fontWeight: 700,
-              color: "#8B6914",
-              textDecoration: "none",
-              letterSpacing: "0.5px",
-            }}
-          >
-            Artisans' Stories
+          <a href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
+            <Image
+              src="/logo-color.png"
+              alt="Artisans' Stories"
+              width={160}
+              height={43}
+              style={{ width: 140, height: "auto" }}
+              priority
+              unoptimized
+            />
           </a>
 
           <div
