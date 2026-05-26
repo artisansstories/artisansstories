@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
     await resend.emails.send({
       from: "Artisans' Stories <hello@artisansstories.com>",
-      to: "hello@artisansstories.com",
+      to: "anna@artisansstories.com",
       replyTo: email,
       subject: `Contact Form: ${subject || "General Inquiry"} — from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject || "General Inquiry"}\n\nMessage:\n${message}`,
