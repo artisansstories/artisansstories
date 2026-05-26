@@ -192,14 +192,18 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
             </td>
           </tr>
 
-          <!-- Confirmation note -->
+          <!-- View Order CTA -->
           <tr>
-            <td style="padding: 24px 40px; text-align: center; border-top: 1px solid #ede8df;">
-              <p style="margin: 0 0 8px; font-size: 14px; color: #7a6852;">
-                A confirmation email has been sent to <strong style="color: #3a2e24;">${email}</strong>
+            <td style="padding: 28px 40px; text-align: center; border-top: 1px solid #ede8df;">
+              <p style="margin: 0 0 16px; font-size: 14px; color: #7a6852;">
+                Track your order or view your order history anytime:
               </p>
-              <p style="margin: 0; font-size: 14px; color: #7a6852;">
-                We'll notify you when your order ships.
+              <a href="https://artisansstories.com/account/orders/${orderNumber}"
+                style="display: inline-block; padding: 14px 32px; background: #8B6914; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; letter-spacing: 0.03em; font-family: 'Helvetica Neue', Arial, sans-serif;">
+                View Your Order
+              </a>
+              <p style="margin: 12px 0 0; font-size: 12px; color: #9a876e;">
+                You'll be asked to verify your email — we'll send a quick magic link, no password needed.
               </p>
             </td>
           </tr>
@@ -209,8 +213,8 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
             <td style="padding: 24px 40px; background: #3a2e24; text-align: center;">
               <p style="margin: 0 0 8px; font-size: 13px; color: rgba(255,255,255,0.7);">
                 Questions? Contact us at
-                <a href="mailto:hello@artisansstories.com" style="color: #C9A84C; text-decoration: none;">
-                  hello@artisansstories.com
+                <a href="mailto:anna@artisansstories.com" style="color: #C9A84C; text-decoration: none;">
+                  anna@artisansstories.com
                 </a>
               </p>
               <p style="margin: 0; font-size: 12px; color: rgba(255,255,255,0.4);">
