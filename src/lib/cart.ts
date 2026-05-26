@@ -19,8 +19,6 @@ interface CartStore {
   removeItem: (variantId: string) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
   clearCart: () => void;
-  totalItems: number;
-  subtotal: number;
   discountCode?: string;
   discountAmount: number;
   setDiscount: (code: string, amount: number) => void;
@@ -69,14 +67,6 @@ export const useCart = create<CartStore>()(
       },
 
       clearCart: () => set({ items: [], discountCode: undefined, discountAmount: 0 }),
-
-      get totalItems() {
-        return get().items.reduce((sum, i) => sum + i.quantity, 0);
-      },
-
-      get subtotal() {
-        return get().items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-      },
 
       setDiscount: (code: string, amount: number) => {
         set({ discountCode: code, discountAmount: amount });

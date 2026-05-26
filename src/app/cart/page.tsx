@@ -58,11 +58,12 @@ function IconLock({ size = 14 }: { size?: number }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, subtotal, discountCode, discountAmount, setDiscount, clearDiscount } = useCart();
+  const { items, removeItem, updateQuantity, discountCode, discountAmount, setDiscount, clearDiscount } = useCart();
   const [discountInput, setDiscountInput] = useState("");
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
 
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const total = subtotal - discountAmount;
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
 

@@ -1245,7 +1245,8 @@ function EmptyCartMessage() {
 
 // ── Page Component ────────────────────────────────────────────────────────────
 export default function CheckoutPage() {
-  const { items, subtotal, discountCode, discountAmount } = useCart();
+  const { items, discountCode, discountAmount } = useCart();
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {

@@ -40,7 +40,8 @@ function IconShoppingBag({ size = 40 }: { size?: number }) {
 
 export default function CartDrawer() {
   const { isOpen, closeCart } = useCartDrawer();
-  const { items, removeItem, updateQuantity, subtotal, discountAmount } = useCart();
+  const { items, removeItem, updateQuantity, discountAmount } = useCart();
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click
