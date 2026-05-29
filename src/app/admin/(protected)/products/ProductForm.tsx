@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -355,6 +356,15 @@ export default function ProductForm({ product }: ProductFormProps) {
     if (e.dataTransfer.files) handleFilesSelected(e.dataTransfer.files);
   }
 
+  function onImageDragEnd(result: DropResult) {
+    if (!result.destination || result.destination.index === result.source.index) return;
+    const next = [...images];
+    const [moved] = next.splice(result.source.index, 1);
+    next.splice(result.destination.index, 0, moved);
+    // Re-assign default to first image if the default was moved
+    setImages(next.map((img, i) => ({ ...img, position: i })));
+  }
+
   function moveImage(index: number, dir: -1 | 1) {
     const next = [...images];
     const target = index + dir;
@@ -672,71 +682,100 @@ export default function ProductForm({ product }: ProductFormProps) {
               </div>
             )}
 
-            {/* Image grid */}
+            {/* Image grid — drag to reorder */}
             {images.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-                {images.map((img, idx) => (
-                  <div key={idx} style={{ border: `2px solid ${img.isDefault ? "#8B6914" : "#ede8df"}`, borderRadius: 10, overflow: "hidden", background: "#fff" }}>
-                    <div style={{ position: "relative", aspectRatio: "1", background: "#f5f0e8" }}>
-                      <img
-                        src={img.urlThumb ?? img.url}
-                        alt={img.altText ?? ""}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                      {img.isDefault && (
-                        <span style={{ position: "absolute", top: 6, left: 6, background: "#8B6914", color: "#fff", fontSize: 10, fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: "2px 6px", borderRadius: 4 }}>
-                          DEFAULT
-                        </span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeImage(idx)}
-                        style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
-                      >
-                        ×
-                      </button>
+              <DragDropContext onDragEnd={onImageDragEnd}>
+                <Droppable droppableId="product-images" direction="horizontal">
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}
+                    >
+                      {images.map((img, idx) => (
+                        <Draggable key={img.url + idx} draggableId={img.url + idx} index={idx}>
+                          {(drag, snapshot) => (
+                            <div
+                              ref={drag.innerRef}
+                              {...drag.draggableProps}
+                              style={{
+                                border: `2px solid ${img.isDefault ? "#8B6914" : "#ede8df"}`,
+                                borderRadius: 10,
+                                overflow: "hidden",
+                                background: "#fff",
+                                boxShadow: snapshot.isDragging ? "0 8px 24px rgba(0,0,0,0.18)" : undefined,
+                                opacity: snapshot.isDragging ? 0.92 : 1,
+                                cursor: "grab",
+                                ...drag.draggableProps.style,
+                              }}
+                            >
+                              {/* Drag handle header */}
+                              <div
+                                {...drag.dragHandleProps}
+                                style={{ padding: "4px 8px", background: "#faf7f2", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", justifyContent: "center", cursor: "grab" }}
+                              >
+                                <span style={{ color: "#c9b99a", fontSize: 14, letterSpacing: 2 }}>⠿</span>
+                              </div>
+                              <div style={{ position: "relative", aspectRatio: "1", background: "#f5f0e8" }}>
+                                <img
+                                  src={img.urlThumb ?? img.url}
+                                  alt={img.altText ?? ""}
+                                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                />
+                                {img.isDefault && (
+                                  <span style={{ position: "absolute", top: 6, left: 6, background: "#8B6914", color: "#fff", fontSize: 10, fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: "2px 6px", borderRadius: 4 }}>
+                                    DEFAULT
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeImage(idx)}
+                                  style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                              <div style={{ padding: "8px 10px" }}>
+                                <input
+                                  type="text"
+                                  value={img.altText ?? ""}
+                                  onChange={(e) => updateAltText(idx, e.target.value)}
+                                  placeholder="Alt text..."
+                                  style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 11, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
+                                />
+                                {variants.length > 0 && (
+                                  <select
+                                    value={img.variantId ?? ""}
+                                    onChange={(e) => {
+                                      const next = [...images];
+                                      next[idx] = { ...next[idx], variantId: e.target.value || null };
+                                      setImages(next);
+                                    }}
+                                    style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 10, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, background: "#faf7f2", boxSizing: "border-box" }}
+                                  >
+                                    <option value="">No variant</option>
+                                    {variants.map((v) => (
+                                      <option key={v.id ?? v.name} value={v.id ?? ""}>
+                                        {v.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
+                                {!img.isDefault && (
+                                  <button type="button" onClick={() => setDefaultImage(idx)} style={{ width: "100%", padding: "4px 6px", borderRadius: 5, border: "1px solid #c9a84c", background: "#fdf5ea", color: "#7a5a00", cursor: "pointer", fontSize: 10, fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
+                                    Set default
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
                     </div>
-                    <div style={{ padding: "8px 10px" }}>
-                      <input
-                        type="text"
-                        value={img.altText ?? ""}
-                        onChange={(e) => updateAltText(idx, e.target.value)}
-                        placeholder="Alt text..."
-                        style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 11, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
-                      />
-                      {variants.length > 0 && (
-                        <select
-                          value={img.variantId ?? ""}
-                          onChange={(e) => {
-                            const next = [...images];
-                            next[idx] = { ...next[idx], variantId: e.target.value || null };
-                            setImages(next);
-                          }}
-                          style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 10, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, background: "#faf7f2", boxSizing: "border-box" }}
-                        >
-                          <option value="">No variant</option>
-                          {variants.map((v) => (
-                            <option key={v.id ?? v.name} value={v.id ?? ""}>
-                              {v.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                      <div style={{ display: "flex", gap: 4, justifyContent: "space-between" }}>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button type="button" onClick={() => moveImage(idx, -1)} disabled={idx === 0} style={{ padding: "3px 7px", borderRadius: 5, border: "1px solid #ede8df", background: "#faf7f2", cursor: "pointer", fontSize: 11, opacity: idx === 0 ? 0.4 : 1 }}>↑</button>
-                          <button type="button" onClick={() => moveImage(idx, 1)} disabled={idx === images.length - 1} style={{ padding: "3px 7px", borderRadius: 5, border: "1px solid #ede8df", background: "#faf7f2", cursor: "pointer", fontSize: 11, opacity: idx === images.length - 1 ? 0.4 : 1 }}>↓</button>
-                        </div>
-                        {!img.isDefault && (
-                          <button type="button" onClick={() => setDefaultImage(idx)} style={{ padding: "3px 6px", borderRadius: 5, border: "1px solid #c9a84c", background: "#fdf5ea", color: "#7a5a00", cursor: "pointer", fontSize: 10, fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
-                            Set default
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </div>
 
