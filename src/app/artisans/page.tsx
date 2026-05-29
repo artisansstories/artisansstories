@@ -20,6 +20,17 @@ export default async function ArtisansPage() {
 
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto", padding: "48px 20px 80px" }}>
+      {/* Back link */}
+      <div style={{ marginBottom: 32 }}>
+        <Link href="/" style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#8B6914", textDecoration: "none" }}>
+          ← Back to Home
+        </Link>
+        <span style={{ margin: "0 10px", color: "#c9b99a", fontSize: 14 }}>·</span>
+        <Link href="/shop" style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#8B6914", textDecoration: "none" }}>
+          Shop
+        </Link>
+      </div>
+
       {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 56 }}>
         <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.18em", textTransform: "uppercase", color: "#8B6914", marginBottom: 10 }}>
