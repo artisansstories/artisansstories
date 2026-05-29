@@ -64,6 +64,7 @@ export default async function EditProductPage({ params }: PageProps) {
       width: img.width,
       height: img.height,
       size: img.size,
+      variantId: img.variantId ?? null,
     })),
     variants: product.variants.map((v) => ({
       id: v.id,
