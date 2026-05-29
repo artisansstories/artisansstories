@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart, formatPrice, CartItem } from "@/lib/cart";
@@ -39,19 +39,44 @@ function IconCheck({ size = 16 }: { size?: number }) {
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const { openCart } = useCartDrawer();
   const [added, setAdded] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const inventoryCapRef = useRef<number | undefined>(undefined);
+  const fetchedRef = useRef(false);
 
   const image = product.images[0];
   const discount = product.compareAtPrice && product.compareAtPrice > product.price
     ? Math.round((1 - product.price / product.compareAtPrice) * 100)
     : null;
 
-  function handleAddToCart(e: React.MouseEvent) {
+  // Pre-fetch inventory on hover so click is instant
+  const prefetchInventory = useCallback(async () => {
+    if (fetchedRef.current || !product.variantId || product.hasVariants) return;
+    fetchedRef.current = true;
+    try {
+      const res = await fetch(`/api/shop/inventory?variantIds=${product.variantId}`);
+      if (!res.ok) return;
+      const data: Record<string, number> = await res.json();
+      inventoryCapRef.current = data[product.variantId];
+    } catch { /* silent */ }
+  }, [product.variantId, product.hasVariants]);
+
+  async function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
     if (!product.variantId) return;
+
+    // Fetch inventory now if not already pre-fetched
+    if (!fetchedRef.current) await prefetchInventory();
+
+    const cap = inventoryCapRef.current;
+    // Block add if out of stock
+    if (cap !== undefined && cap === 0) return;
+
+    // Check how many are already in cart
+    const inCart = items.find(i => i.variantId === product.variantId)?.quantity ?? 0;
+    if (cap !== undefined && inCart >= cap) return;
 
     const item: CartItem = {
       productId: product.id,
@@ -63,7 +88,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       image: image?.url,
       slug: product.slug,
     };
-    addItem(item);
+    addItem(item, cap);
     setAdded(true);
     openCart();
     setTimeout(() => setAdded(false), 2500);
@@ -73,7 +98,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     <Link
       href={`/shop/${product.slug}`}
       style={{ textDecoration: "none", display: "block" }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => { setHovered(true); prefetchInventory(); }}
       onMouseLeave={() => setHovered(false)}
     >
       <article style={{
