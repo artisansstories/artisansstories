@@ -127,6 +127,7 @@ export async function PUT(
     }
     // Update images if provided — delete all existing and re-insert
     if (body.images !== undefined) {
+      console.log('[PUT products] images variantIds:', body.images.map(img => img.variantId));
       await prisma.productImage.deleteMany({ where: { productId: id } });
       if (body.images.length > 0) {
         await prisma.productImage.createMany({
