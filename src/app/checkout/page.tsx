@@ -1117,7 +1117,7 @@ function OrderSummaryContent({
               </span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 13, color: "#3a2e24", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#3a2e24", fontWeight: 500 }}>
                 {item.name}
               </p>
               {item.variantName && (
