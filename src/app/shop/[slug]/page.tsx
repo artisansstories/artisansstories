@@ -384,7 +384,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 {product.images.map((img, idx) => (
                   <button
                     key={img.id}
-                    onClick={() => setSelectedImage(idx)}
+                    onClick={() => {
+                        setSelectedImage(idx);
+                        // Sync variant selector if this image is tagged to a variant
+                        const img = product!.images[idx];
+                        if (img?.variantId) {
+                          const matchedVariant = product!.variants.find(v => v.id === img.variantId);
+                          if (matchedVariant) {
+                            const vals = matchedVariant.optionValues as Record<string, string>;
+                            setSelectedOptions(prev => ({ ...prev, ...vals }));
+                          }
+                        }
+                      }}
                     style={{
                       width: 64,
                       height: 64,
