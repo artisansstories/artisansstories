@@ -383,16 +383,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               >
                 {product.images.map((img, idx) => (
                   <button
-                    key={img.id}
+                    key={img.id ?? idx}
                     onClick={() => {
                         setSelectedImage(idx);
                         // Sync variant selector if this image is tagged to a variant
-                        const img = product!.images[idx];
-                        if (img?.variantId) {
+                        if (img.variantId) {
                           const matchedVariant = product!.variants.find(v => v.id === img.variantId);
                           if (matchedVariant) {
                             const vals = matchedVariant.optionValues as Record<string, string>;
-                            setSelectedOptions(prev => ({ ...prev, ...vals }));
+                            setSelectedOptions(vals);
                           }
                         }
                       }}
@@ -457,6 +456,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 </div>
               )}
             </div>
+            {/* Variant label under hero */}
+            {product.options.length > 0 && Object.keys(selectedOptions).length > 0 && (
+              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
+                {product.options.map(opt => (
+                  selectedOptions[opt.name] ? (
+                    <span key={opt.id} style={{
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: 12,
+                      color: "#7a6a55",
+                      background: "rgba(139,105,20,0.08)",
+                      border: "1px solid rgba(139,105,20,0.2)",
+                      borderRadius: 20,
+                      padding: "3px 10px",
+                    }}>
+                      {opt.name}: <strong style={{ color: "#5a4028" }}>{selectedOptions[opt.name]}</strong>
+                    </span>
+                  ) : null
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
