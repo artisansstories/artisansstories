@@ -89,6 +89,21 @@ export async function PUT(
         isDefault?: boolean;
         variantId?: string | null;
       }>;
+      options?: Array<{
+        id?: string;
+        name: string;
+        values: string[];
+        position: number;
+      }>;
+      variants?: Array<{
+        id?: string;
+        name: string;
+        sku?: string | null;
+        price?: number | null;
+        quantity?: number;
+        optionValues: Record<string, string>;
+        position: number;
+      }>;
     };
     let slug = existing.slug;
     if (body.name && body.name !== existing.name) {
@@ -125,23 +140,87 @@ export async function PUT(
         create: body.categoryIds.map((categoryId) => ({ categoryId })),
       };
     }
-    // Update images if provided — delete all existing and re-insert
-    if (body.images !== undefined) {
-      console.log('[PUT products] images variantIds:', body.images.map(img => img.variantId));
-      await prisma.productImage.deleteMany({ where: { productId: id } });
-      if (body.images.length > 0) {
-        await prisma.productImage.createMany({
-          data: body.images.map((img, i) => ({
+    // Update options if provided — delete all existing and re-insert
+    if (body.options !== undefined) {
+      await prisma.productOption.deleteMany({ where: { productId: id } });
+      if (body.options.length > 0) {
+        await prisma.productOption.createMany({
+          data: body.options.map((o, i) => ({
             productId: id,
-            url: img.url,
-            urlMedium: img.urlMedium ?? null,
-            urlThumb: img.urlThumb ?? null,
-            altText: img.altText ?? null,
-            position: img.position ?? i,
-            isDefault: img.isDefault ?? i === 0,
-            variantId: img.variantId ?? null,
+            name: o.name,
+            values: o.values,
+            position: o.position ?? i,
           })),
         });
+      }
+    }
+
+    // Update variants if provided — upsert by id, delete removed ones, create new ones
+    if (body.variants !== undefined) {
+      const incomingIds = body.variants.filter(v => v.id).map(v => v.id as string);
+      // Delete variants not in incoming list
+      await prisma.productVariant.deleteMany({
+        where: { productId: id, id: { notIn: incomingIds } },
+      });
+      // Upsert each variant
+      for (const v of body.variants) {
+        if (v.id) {
+          // Update existing
+          await prisma.productVariant.update({
+            where: { id: v.id },
+            data: {
+              name: v.name,
+              sku: v.sku || null,
+              price: v.price ?? null,
+              optionValues: v.optionValues,
+              position: v.position,
+            },
+          });
+          // Update inventory quantity
+          await prisma.inventory.upsert({
+            where: { variantId: v.id },
+            update: { quantity: v.quantity ?? 0 },
+            create: { variantId: v.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+          });
+        } else {
+          // Create new variant
+          const newVariant = await prisma.productVariant.create({
+            data: {
+              productId: id,
+              name: v.name,
+              sku: v.sku || null,
+              price: v.price ?? null,
+              optionValues: v.optionValues,
+              position: v.position,
+            },
+          });
+          await prisma.inventory.create({
+            data: { variantId: newVariant.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+          });
+        }
+      }
+    }
+
+    // Update images if provided — delete all existing and re-insert
+    // Note: done AFTER variants so new variant IDs are available for variantId FK
+    if (body.images !== undefined) {
+      // Refresh variant list to get new IDs for any just-created variants
+      const freshVariants = await prisma.productVariant.findMany({ where: { productId: id } });
+      const resolvedImages = body.images.map((img, i) => ({
+        productId: id,
+        url: img.url,
+        urlMedium: img.urlMedium ?? null,
+        urlThumb: img.urlThumb ?? null,
+        altText: img.altText ?? null,
+        position: img.position ?? i,
+        isDefault: img.isDefault ?? i === 0,
+        // If variantId is a valid existing variant ID, use it; otherwise null
+        variantId: img.variantId && freshVariants.some(v => v.id === img.variantId) ? img.variantId : null,
+      }));
+      console.log('[PUT products] saving images with variantIds:', resolvedImages.map(img => img.variantId));
+      await prisma.productImage.deleteMany({ where: { productId: id } });
+      if (resolvedImages.length > 0) {
+        await prisma.productImage.createMany({ data: resolvedImages });
       }
     }
     const product = await prisma.product.update({

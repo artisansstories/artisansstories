@@ -452,6 +452,21 @@ export default function ProductForm({ product }: ProductFormProps) {
           isDefault: img.isDefault ?? i === 0,
           variantId: img.variantId ?? null,
         })),
+        options: hasVariants ? options.filter(o => o.name && o.values.length > 0).map((o, i) => ({
+          id: o.id,
+          name: o.name,
+          values: o.values,
+          position: i,
+        })) : [],
+        variants: hasVariants ? variantsRef.current.map((v, i) => ({
+          id: v.id,
+          name: v.name,
+          sku: v.sku || null,
+          price: v.price ?? null,
+          quantity: v.quantity ?? 0,
+          optionValues: v.optionValues,
+          position: i,
+        })) : [],
       };
 
       const url = isEdit ? `/api/admin/products/${product!.id}` : "/api/admin/products";
