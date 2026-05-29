@@ -4,12 +4,68 @@ import sharp from "sharp";
 import heicConvert from "heic-convert";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+
+// ─── AI Alt Text ─────────────────────────────────────────────────────────────
+// Calls Gemini Flash via OpenRouter with the thumb image + product context
+// Returns a concise, SEO-friendly alt text string, or null on failure
+async function generateAltText(
+  thumbBuffer: Buffer,
+  context: { productName?: string; artisanName?: string; variantHint?: string }
+): Promise<string | null> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const base64 = thumbBuffer.toString("base64");
+    const contextParts: string[] = [];
+    if (context.productName) contextParts.push(`Product: ${context.productName}`);
+    if (context.artisanName) contextParts.push(`Made by: ${context.artisanName}`);
+    if (context.variantHint) contextParts.push(`Variant: ${context.variantHint}`);
+    const contextStr = contextParts.length > 0 ? `\n\nContext: ${contextParts.join(" | ")}` : "";
+
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://artisansstories.com",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash-001",
+        max_tokens: 80,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Write a concise, descriptive alt text for this product image. Be specific about what you see: materials, colors, design details, style. Do not start with "Image of" or "Photo of". Keep it under 125 characters.${contextStr}`,
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:image/webp;base64,${base64}` },
+            },
+          ],
+        }],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const text = data.choices?.[0]?.message?.content?.trim();
+    return text ?? null;
+  } catch {
+    return null; // never block upload on alt text failure
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     
     
     const formData = await request.formData();
     const file = formData.get("file");
+    // Optional product context for AI alt text
+    const productName = formData.get("productName")?.toString() ?? undefined;
+    const artisanName = formData.get("artisanName")?.toString() ?? undefined;
+    const variantHint = formData.get("variantHint")?.toString() ?? undefined;
     if (!file || typeof file === "string") {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
@@ -85,7 +141,8 @@ export async function POST(request: NextRequest) {
         secretAccessKey,
       },
     });
-    await Promise.all([
+    // Run R2 upload and AI alt text generation in parallel
+    const [,,,altTextResult] = await Promise.allSettled([
       s3.send(new PutObjectCommand({
         Bucket: bucketName,
         Key: fullKey,
@@ -104,7 +161,11 @@ export async function POST(request: NextRequest) {
         Body: thumbBuffer,
         ContentType: "image/webp",
       })),
+      generateAltText(thumbBuffer, { productName, artisanName, variantHint }),
     ]);
+    // Throw if any R2 upload failed (alt text failure is fine)
+    const altText = altTextResult.status === "fulfilled" ? altTextResult.value : null;
+
     return NextResponse.json({
       url: `${publicUrl}/${fullKey}`,
       urlThumb: `${publicUrl}/${thumbKey}`,
@@ -112,6 +173,7 @@ export async function POST(request: NextRequest) {
       width: metadata.width ?? null,
       height: metadata.height ?? null,
       size: buffer.byteLength,
+      altText: altText ?? null,
     });
   } catch (err) {
     console.error("POST /api/admin/upload error:", err);

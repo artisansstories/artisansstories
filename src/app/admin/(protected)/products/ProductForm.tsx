@@ -320,20 +320,28 @@ export default function ProductForm({ product }: ProductFormProps) {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      // Pass product context for AI alt text generation
+      if (name) fd.append("productName", name);
+      if (artisanName) fd.append("artisanName", artisanName);
+      // Hint: first selected variant value (e.g. color being uploaded)
+      const firstOption = options[0];
+      if (firstOption?.name && firstOption?.values?.length > 0) {
+        fd.append("variantHint", `${firstOption.name}: ${firstOption.values.join(", ")}`);
+      }
       const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
       if (!res.ok) {
         const err = await res.json() as { error: string };
         showToast(err.error ?? "Upload failed", true);
         return;
       }
-      const data = await res.json() as { url: string; urlThumb: string; urlMedium: string; width: number; height: number; size: number };
+      const data = await res.json() as { url: string; urlThumb: string; urlMedium: string; width: number; height: number; size: number; altText?: string | null };
       setImages((prev) => {
         const isFirst = prev.length === 0;
         return [...prev, {
           url: data.url,
           urlThumb: data.urlThumb,
           urlMedium: data.urlMedium,
-          altText: null,
+          altText: data.altText ?? null, // AI-generated, overridable
           position: prev.length,
           isDefault: isFirst,
           width: data.width,
@@ -346,7 +354,7 @@ export default function ProductForm({ product }: ProductFormProps) {
     } finally {
       setUploadingImages((prev) => prev.filter((id) => id !== tempId));
     }
-  }, []);
+  }, [name, artisanName, options]);
 
   function handleFilesSelected(files: FileList) {
     Array.from(files).forEach((file) => {
@@ -754,7 +762,7 @@ export default function ProductForm({ product }: ProductFormProps) {
                                   type="text"
                                   value={img.altText ?? ""}
                                   onChange={(e) => updateAltText(idx, e.target.value)}
-                                  placeholder="Alt text..."
+                                  placeholder="AI-generating alt text..."
                                   style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 11, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
                                 />
                                 {variants.length > 0 && (
