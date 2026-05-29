@@ -310,7 +310,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   const TABS = [
     { id: "description" as const, label: "Description", show: !!product.description },
-    { id: "story" as const, label: "Artisan Story", show: !!product.story },
+    { id: "story" as const, label: "About this Piece", show: !!product.story },
     { id: "details" as const, label: "Materials & Details", show: true },
   ].filter(t => t.show);
 
@@ -860,6 +860,64 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               Free shipping on orders over $75
             </span>
           </div>
+
+          {/* Artisan Spotlight — links to full profile if artisan has one */}
+          {(product.artisan?.status === "ACTIVE" || product.artisanName) && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              padding: "16px",
+              background: "#fff",
+              border: "1px solid #ede8df",
+              borderRadius: 10,
+              marginBottom: 28,
+            }}>
+              {product.artisan?.avatarUrl ? (
+                <img
+                  src={product.artisan.avatarUrl}
+                  alt={product.artisan.name}
+                  style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: "2px solid #f5f0e8" }}
+                />
+              ) : (
+                <div style={{ width: 52, height: 52, borderRadius: "50%", background: "linear-gradient(135deg, #3a2e24, #8B6914)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span style={{ fontSize: 22 }}>✦</span>
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#9a876e", margin: "0 0 3px" }}>
+                  Handcrafted by
+                </p>
+                <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: "#3a2e24", margin: "0 0 2px" }}>
+                  {product.artisan?.name ?? product.artisanName}
+                </p>
+                {product.originCountry && (
+                  <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: 0 }}>
+                    {product.originCountry}
+                  </p>
+                )}
+              </div>
+              {product.artisan?.status === "ACTIVE" && (
+                <a
+                  href={`/artisans/${product.artisan.slug}`}
+                  style={{
+                    flexShrink: 0,
+                    padding: "8px 14px",
+                    border: "1.5px solid #8B6914",
+                    borderRadius: 8,
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#8B6914",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Her Story →
+                </a>
+              )}
+            </div>
+          )}
 
           {/* Tabs */}
           {TABS.length > 0 && (
