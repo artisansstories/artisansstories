@@ -133,7 +133,8 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            marginTop: -48,
+            marginTop: artisan.avatarUrl ? -48 : 0,
+            paddingTop: artisan.avatarUrl ? 0 : 40,
             marginBottom: 48,
           }}>
             {artisan.avatarUrl && (
@@ -151,7 +152,7 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
                 <Image src={artisan.avatarUrl} alt={artisan.name} fill style={{ objectFit: "cover" }} sizes="120px" />
               </div>
             )}
-            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: artisan.avatarUrl ? 0 : 32 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, marginTop: artisan.avatarUrl ? 0 : 0 }}>
               {originStr && (
                 <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#5a4a38", background: "#fff", border: "1px solid #ede8df", borderRadius: 20, padding: "4px 12px" }}>
                   📍 {originStr}
