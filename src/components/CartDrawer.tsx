@@ -319,6 +319,27 @@ export default function CartDrawer() {
                       </p>
                     )}
 
+                    {/* Stock signal — shown when at/near cap */}
+                    {(() => {
+                      const cap = inventoryCaps[item.variantId];
+                      if (cap === undefined) return null;
+                      if (cap === 0) return (
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, color: "#c0392b", margin: "0 0 6px" }}>
+                          ⚠️ Out of stock
+                        </p>
+                      );
+                      if (cap <= 10 && item.quantity >= cap) return (
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600, color: "#c0612b", margin: "0 0 6px" }}>
+                          {cap === 1 ? "Only 1 left — max reached" : `Only ${cap} left — max reached`}
+                        </p>
+                      );
+                      if (cap <= 10) return (
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#e67e22", margin: "0 0 6px" }}>
+                          Only {cap} left
+                        </p>
+                      );
+                      return null;
+                    })()}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       {/* Qty controls */}
                       <div style={{
