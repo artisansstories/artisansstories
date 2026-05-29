@@ -267,6 +267,8 @@ export default function ProductForm({ product }: ProductFormProps) {
   useEffect(() => { variantsRef.current = variants; }, [variants]);
 
   // Rebuild variants when options change
+  // IMPORTANT: preserves existing variant IDs by matching on name so image variantId FKs survive saves
+  const isInitialMount = useRef(true);
   useEffect(() => {
     if (!hasVariants || options.length === 0) return;
     const validOptions = options.filter((o) => o.name && o.values.length > 0);
@@ -279,7 +281,11 @@ export default function ProductForm({ product }: ProductFormProps) {
       const optionValues: Record<string, string> = {};
       validOptions.forEach((o, i) => { optionValues[o.name] = combo[i]; });
       const variantName = combo.join(" / ");
-      const existing = currentVariants.find((v) => v.name === variantName);
+      // Match existing by name OR by optionValues to preserve IDs
+      const existing = currentVariants.find((v) =>
+        v.name === variantName ||
+        Object.entries(optionValues).every(([k, val]) => v.optionValues?.[k] === val)
+      );
       return {
         id: existing?.id,
         name: variantName,
@@ -290,6 +296,14 @@ export default function ProductForm({ product }: ProductFormProps) {
         position: idx,
       };
     });
+    // Skip the initial mount rebuild if all variant IDs and names already match
+    // This prevents wiping image variantId assignments on page load
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const alreadyMatches = newVariants.length === currentVariants.length &&
+        newVariants.every((nv, i) => currentVariants[i]?.id === nv.id && currentVariants[i]?.name === nv.name);
+      if (alreadyMatches) return;
+    }
     // Only update if something actually changed (avoid unnecessary re-renders)
     const hasChanges = newVariants.some((nv, i) => {
       const cv = currentVariants[i];
