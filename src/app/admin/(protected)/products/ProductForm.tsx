@@ -202,8 +202,9 @@ export default function ProductForm({ product }: ProductFormProps) {
 
   const [hasVariants, setHasVariants] = useState((product?.options?.length ?? 0) > 0);
   const [options, setOptions] = useState<ProductOption[]>(product?.options ?? []);
-  const [variants, setVariants] = useState<ProductVariantRow[]>(
-    product?.variants?.map((v) => ({
+  const variantsRef = useRef<ProductVariantRow[]>([]);
+  const [variants, setVariants] = useState<ProductVariantRow[]>(() => {
+    const initial = product?.variants?.map((v) => ({
       id: v.id,
       name: v.name,
       sku: v.sku ?? undefined,
@@ -211,8 +212,10 @@ export default function ProductForm({ product }: ProductFormProps) {
       quantity: v.quantity ?? 0,
       optionValues: (v.optionValues as Record<string, string>) ?? {},
       position: v.position,
-    })) ?? [{ name: "Default", quantity: 0, optionValues: {}, position: 0 }]
-  );
+    })) ?? [{ name: "Default", quantity: 0, optionValues: {}, position: 0 }];
+    variantsRef.current = initial;
+    return initial;
+  });
 
   const [categoryIds, setCategoryIds] = useState<string[]>(product?.categoryIds ?? []);
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
@@ -259,6 +262,9 @@ export default function ProductForm({ product }: ProductFormProps) {
     }
   }
 
+  // Keep variantsRef in sync
+  useEffect(() => { variantsRef.current = variants; }, [variants]);
+
   // Rebuild variants when options change
   useEffect(() => {
     if (!hasVariants || options.length === 0) return;
@@ -266,12 +272,13 @@ export default function ProductForm({ product }: ProductFormProps) {
     if (validOptions.length === 0) return;
 
     const combinations = cartesian(validOptions.map((o) => o.values));
+    // Use ref to avoid stale closure — preserves IDs of existing variants by name
+    const currentVariants = variantsRef.current;
     const newVariants: ProductVariantRow[] = combinations.map((combo, idx) => {
       const optionValues: Record<string, string> = {};
       validOptions.forEach((o, i) => { optionValues[o.name] = combo[i]; });
       const variantName = combo.join(" / ");
-      // Preserve existing variant data if name matches
-      const existing = variants.find((v) => v.name === variantName);
+      const existing = currentVariants.find((v) => v.name === variantName);
       return {
         id: existing?.id,
         name: variantName,
@@ -282,8 +289,12 @@ export default function ProductForm({ product }: ProductFormProps) {
         position: idx,
       };
     });
-    setVariants(newVariants);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only update if something actually changed (avoid unnecessary re-renders)
+    const hasChanges = newVariants.some((nv, i) => {
+      const cv = currentVariants[i];
+      return !cv || cv.id !== nv.id || cv.name !== nv.name;
+    }) || newVariants.length !== currentVariants.length;
+    if (hasChanges) setVariants(newVariants);
   }, [options, hasVariants]);
 
   // ─── Image Upload ─────────────────────────────────────────────────────────
