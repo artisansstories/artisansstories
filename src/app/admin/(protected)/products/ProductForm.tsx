@@ -323,7 +323,7 @@ export default function ProductForm({ product }: ProductFormProps) {
 
   function handleFilesSelected(files: FileList) {
     Array.from(files).forEach((file) => {
-      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      if (!["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type)) {
         showToast(`${file.name}: invalid file type`, true);
         return;
       }
@@ -630,7 +630,7 @@ export default function ProductForm({ product }: ProductFormProps) {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                 multiple
                 style={{ display: "none" }}
                 onChange={(e) => { if (e.target.files) handleFilesSelected(e.target.files); }}
