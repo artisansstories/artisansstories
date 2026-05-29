@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart, formatPrice } from "@/lib/cart";
@@ -43,6 +43,30 @@ export default function CartDrawer() {
   const { items, removeItem, updateQuantity, discountAmount } = useCart();
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const [inventoryCaps, setInventoryCaps] = useState<Record<string, number>>({});
+
+  // Fetch inventory caps whenever drawer opens or items change
+  const fetchInventory = useCallback(async () => {
+    const variantIds = items.map(i => i.variantId).filter(Boolean);
+    if (variantIds.length === 0) return;
+    try {
+      const res = await fetch(`/api/shop/inventory?variantIds=${variantIds.join(",")}`);
+      if (!res.ok) return;
+      const data: Record<string, number> = await res.json();
+      setInventoryCaps(data);
+      // Auto-correct any quantities already over the cap
+      items.forEach(item => {
+        const cap = data[item.variantId];
+        if (cap !== undefined && item.quantity > cap) {
+          updateQuantity(item.variantId, Math.max(1, cap));
+        }
+      });
+    } catch { /* silent */ }
+  }, [items, updateQuantity]);
+
+  useEffect(() => {
+    if (isOpen) fetchInventory();
+  }, [isOpen, fetchInventory]);
 
   // Close on outside click
   useEffect(() => {
@@ -332,7 +356,11 @@ export default function CartDrawer() {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                          onClick={() => {
+                            const cap = inventoryCaps[item.variantId] ?? 999;
+                            updateQuantity(item.variantId, Math.min(item.quantity + 1, cap));
+                          }}
+                          disabled={inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]}
                           style={{
                             width: 30,
                             height: 30,
@@ -341,8 +369,8 @@ export default function CartDrawer() {
                             justifyContent: "center",
                             background: "transparent",
                             border: "none",
-                            cursor: "pointer",
-                            color: "#6b5540",
+                            cursor: (inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]) ? "not-allowed" : "pointer",
+                            color: (inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]) ? "#c9b99a" : "#6b5540",
                           }}
                           aria-label="Increase quantity"
                         >

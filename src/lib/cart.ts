@@ -15,9 +15,9 @@ export interface CartItem {
 
 interface CartStore {
   items: CartItem[];
-  addItem: (item: CartItem) => void;
+  addItem: (item: CartItem, maxQty?: number) => void;
   removeItem: (variantId: string) => void;
-  updateQuantity: (variantId: string, quantity: number) => void;
+  updateQuantity: (variantId: string, quantity: number, maxQty?: number) => void;
   clearCart: () => void;
   discountCode?: string;
   discountAmount: number;
@@ -32,19 +32,22 @@ export const useCart = create<CartStore>()(
       discountAmount: 0,
       discountCode: undefined,
 
-      addItem: (item: CartItem) => {
+      addItem: (item: CartItem, maxQty?: number) => {
         set(state => {
           const existing = state.items.find(i => i.variantId === item.variantId);
           if (existing) {
+            const newQty = existing.quantity + item.quantity;
+            const capped = maxQty !== undefined ? Math.min(newQty, maxQty) : newQty;
             return {
               items: state.items.map(i =>
                 i.variantId === item.variantId
-                  ? { ...i, quantity: i.quantity + item.quantity }
+                  ? { ...i, quantity: capped }
                   : i
               ),
             };
           }
-          return { items: [...state.items, item] };
+          const initialQty = maxQty !== undefined ? Math.min(item.quantity, maxQty) : item.quantity;
+          return { items: [...state.items, { ...item, quantity: initialQty }] };
         });
       },
 
@@ -54,14 +57,15 @@ export const useCart = create<CartStore>()(
         }));
       },
 
-      updateQuantity: (variantId: string, quantity: number) => {
+      updateQuantity: (variantId: string, quantity: number, maxQty?: number) => {
         if (quantity <= 0) {
           get().removeItem(variantId);
           return;
         }
+        const capped = maxQty !== undefined ? Math.min(quantity, maxQty) : quantity;
         set(state => ({
           items: state.items.map(i =>
-            i.variantId === variantId ? { ...i, quantity } : i
+            i.variantId === variantId ? { ...i, quantity: capped } : i
           ),
         }));
       },

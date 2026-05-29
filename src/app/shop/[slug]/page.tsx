@@ -294,7 +294,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       slug: product!.slug,
       sku: selectedVariant.sku ?? undefined,
     };
-    addItem(item);
+    // Pass availableQty cap so total in cart never exceeds stock
+    addItem(item, availableQty < 999 ? availableQty : undefined);
     setAddedToCart(true);
     openCart();
     setTimeout(() => setAddedToCart(false), 3000);
