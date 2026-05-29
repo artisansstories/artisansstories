@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
+import heicConvert from "heic-convert";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 export async function POST(request: NextRequest) {
@@ -24,12 +25,26 @@ export async function POST(request: NextRequest) {
       );
     }
     const arrayBuffer = await blob.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    let buffer = Buffer.from(arrayBuffer);
     if (buffer.byteLength > MAX_SIZE) {
       return NextResponse.json(
         { error: "File too large. Maximum size is 10MB." },
         { status: 400 }
       );
+    }
+    // Convert HEIC/HEIF to JPEG before processing with sharp
+    if (heicByExt || contentType === "image/heic" || contentType === "image/heif") {
+      try {
+        const converted = await heicConvert({
+          buffer: new Uint8Array(buffer),
+          format: "JPEG",
+          quality: 0.92,
+        });
+        buffer = Buffer.from(converted);
+      } catch (heicErr) {
+        console.error("HEIC conversion failed:", heicErr);
+        return NextResponse.json({ error: "Failed to convert HEIC image." }, { status: 400 });
+      }
     }
     // Process images with sharp
     const sharpInstance = sharp(buffer);

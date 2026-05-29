@@ -23,6 +23,7 @@
     "@tiptap/react": "^3.22.3",
     "@tiptap/starter-kit": "^3.22.3",
     "@types/marked": "^5.0.2",
+    "heic-convert": "^2.1.0",
     "jose": "^6.2.2",
     "marked": "^17.0.5",
     "next": "16.2.2",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/heic-convert": "^2.1.0",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
