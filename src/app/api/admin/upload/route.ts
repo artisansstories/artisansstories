@@ -13,10 +13,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
     const blob = file as Blob;
+    const fileName = (file as File).name ?? "";
+    const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
+    const heicByExt = ["heic", "heif"].includes(ext);
     const contentType = blob.type;
-    if (!ALLOWED_TYPES.includes(contentType)) {
+    if (!ALLOWED_TYPES.includes(contentType) && !heicByExt) {
       return NextResponse.json(
-        { error: "Invalid file type. Only JPEG, PNG, and WebP are allowed." },
+        { error: "Invalid file type. Only JPEG, PNG, WebP, and HEIC are allowed." },
         { status: 400 }
       );
     }

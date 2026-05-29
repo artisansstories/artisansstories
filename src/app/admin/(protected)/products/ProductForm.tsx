@@ -323,7 +323,10 @@ export default function ProductForm({ product }: ProductFormProps) {
 
   function handleFilesSelected(files: FileList) {
     Array.from(files).forEach((file) => {
-      if (!["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type)) {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const heicByExt = ["heic", "heif"].includes(ext);
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type);
+      if (!allowed && !heicByExt) {
         showToast(`${file.name}: invalid file type`, true);
         return;
       }
