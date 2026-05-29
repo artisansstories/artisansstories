@@ -245,11 +245,13 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const isOutOfStock = inventory?.trackedInventory && availableQty === 0 && !inventory.allowBackorder;
   const isLowStock = inventory?.trackedInventory && availableQty > 0 && availableQty <= 10;
 
-  // Gallery images scoped to selected variant (Opus plan: gallery nav = variant-scoped)
+  // Hero image: show first image tagged to selected variant; fallback to product hero
   const variantScopedImages = selectedVariant
     ? product.images.filter(img => img.variantId === selectedVariant.id)
     : [];
-  const displayImages = variantScopedImages.length > 0 ? variantScopedImages : product.images;
+  const hasVariantImage = variantScopedImages.length > 0;
+  // displayImages: for the hero only — scoped to variant if available, else product images
+  const displayImages = hasVariantImage ? variantScopedImages : product.images;
 
   // Swatch click = single source of truth: updates cart selection + resets gallery to idx 0
   function handleOptionSelect(optionName: string, value: string) {
@@ -306,7 +308,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           .pdp-layout { flex-direction: row !important; }
           .pdp-gallery { flex: 0 0 50% !important; max-width: 50% !important; }
           .pdp-info { flex: 1 1 0% !important; }
-          .pdp-thumbnails { flex-direction: column !important; width: 72px !important; }
           .pdp-gallery-inner { flex-direction: row !important; }
           .related-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
@@ -366,51 +367,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       >
         {/* Gallery */}
         <div className="pdp-gallery" style={{ width: "100%" }}>
-          <div className="pdp-gallery-inner" style={{ display: "flex", flexDirection: "column-reverse", gap: 12 }}>
-            {/* Thumbnails — navigation only within current variant's images */}
-            {displayImages.length > 1 && (
-              <div
-                className="pdp-thumbnails"
-                style={{
-                  display: "flex",
-                  flexDirection: "row",
-                  gap: 8,
-                  overflowX: "auto",
-                  flexShrink: 0,
-                }}
-              >
-                {displayImages.map((img, idx) => (
-                  <button
-                    key={img.id ?? idx}
-                    onClick={() => setSelectedImage(idx)}
-                    style={{
-                      width: 64,
-                      height: 64,
-                      flexShrink: 0,
-                      borderRadius: 8,
-                      overflow: "hidden",
-                      border: idx === selectedImage ? "2px solid #8B6914" : "2px solid #ede8df",
-                      cursor: "pointer",
-                      padding: 0,
-                      background: "#f5f0e8",
-                      transition: "border-color 0.15s",
-                      position: "relative",
-                    }}
-                    aria-label={`View image ${idx + 1}`}
-                  >
-                    <Image
-                      src={img.urlThumb ?? img.urlMedium ?? img.url}
-                      alt={img.altText ?? `${product.name} ${idx + 1}`}
-                      fill
-                      style={{ objectFit: "cover" }}
-                      sizes="64px"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Main image */}
+          <div className="pdp-gallery-inner" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Main image — no thumbnail strip; swatches are the single control */}
             <div style={{
               flex: 1,
               position: "relative",
@@ -443,8 +401,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   </svg>
                 </div>
               )}
-              {/* Hero overlay: variant label + photo position */}
-              {displayImages.length > 0 && (
+              {/* Hero overlay: selected variant label */}
+              {product.options.length > 0 && selectedVariant && (
                 <div style={{
                   position: "absolute",
                   bottom: 0,
@@ -463,16 +421,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     padding: "3px 10px",
                     letterSpacing: "0.02em",
                   }}>
-                    {(() => {
-                      const currentImg = displayImages[selectedImage];
-                      const variantLabel = currentImg?.variantId
-                        ? product.variants.find(v => v.id === currentImg.variantId)?.name
-                        : null;
-                      const photoPos = displayImages.length > 1
-                        ? ` • ${selectedImage + 1} of ${displayImages.length}`
-                        : "";
-                      return variantLabel ? `${variantLabel}${photoPos}` : `Photo ${selectedImage + 1}${displayImages.length > 1 ? ` of ${displayImages.length}` : ""}`;
-                    })()}
+                    {selectedVariant.name}
+                    {!hasVariantImage && " · Photo unavailable"}
                   </span>
                 </div>
               )}
