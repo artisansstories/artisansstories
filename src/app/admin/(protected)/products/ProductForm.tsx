@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import RichTextEditor from "@/components/RichTextEditor";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -578,22 +579,20 @@ export default function ProductForm({ product }: ProductFormProps) {
             </div>
             <div style={fieldGroup}>
               <Label>Description</Label>
-              <textarea
-                rows={4}
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder="Describe this product..."
-                style={textareaStyle}
+                minHeight={120}
               />
             </div>
             <div style={fieldGroup}>
               <Label>Artisan Story</Label>
-              <textarea
-                rows={4}
+              <RichTextEditor
                 value={story}
-                onChange={(e) => setStory(e.target.value)}
+                onChange={setStory}
                 placeholder="The story behind this product and the artisan who made it..."
-                style={textareaStyle}
+                minHeight={120}
               />
             </div>
           </div>
