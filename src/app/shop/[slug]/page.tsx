@@ -632,34 +632,40 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
           ))}
 
-          {/* Inventory indicator */}
+          {/* Inventory indicator — prominent banner for low/out-of-stock */}
           <div style={{ marginBottom: 20 }}>
             {isOutOfStock ? (
-              <span style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#c0392b",
+              <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 8,
+                background: "#fdf0ef",
+                border: "1.5px solid #e74c3c",
+                borderRadius: 8,
+                padding: "10px 14px",
               }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#c0392b", display: "inline-block" }} />
-                Out of Stock
-              </span>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#c0392b", flexShrink: 0, display: "inline-block" }} />
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, color: "#c0392b" }}>
+                  Out of Stock
+                </span>
+              </div>
             ) : isLowStock ? (
-              <span style={{
-                fontFamily: "'Inter', sans-serif",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "#e67e22",
+              <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
+                gap: 8,
+                background: "#fff8f0",
+                border: "1.5px solid #e67e22",
+                borderRadius: 8,
+                padding: "10px 14px",
               }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#e67e22", display: "inline-block" }} />
-                Only {availableQty} left!
-              </span>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#e67e22", flexShrink: 0, display: "inline-block" }} />
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, color: "#c0612b" }}>
+                  {availableQty === 1
+                    ? "Only 1 left — order soon!"
+                    : `Only ${availableQty} left!`}
+                </span>
+              </div>
             ) : (
               <span style={{
                 fontFamily: "'Inter', sans-serif",
@@ -747,6 +753,18 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 <IconPlus size={14} />
               </button>
             </div>
+            {/* Max quantity reached hint */}
+            {!isOutOfStock && inventory?.trackedInventory && quantity >= availableQty && (
+              <p style={{
+                fontFamily: "'Inter', sans-serif",
+                fontSize: 12,
+                color: "#e67e22",
+                margin: "6px 0 0",
+                fontStyle: "italic",
+              }}>
+                Maximum available quantity selected
+              </p>
+            )}
           </div>
 
           {/* Add to cart + Buy now */}
