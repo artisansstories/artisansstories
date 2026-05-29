@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart, formatPrice } from "@/lib/cart";
@@ -62,6 +62,34 @@ export default function CartPage() {
   const [discountInput, setDiscountInput] = useState("");
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
+  // Inventory caps keyed by variantId
+  const [inventoryCaps, setInventoryCaps] = useState<Record<string, number>>({});
+
+  // Fetch inventory for all cart items on load
+  useEffect(() => {
+    if (items.length === 0) return;
+    const variantIds = items.map(i => i.variantId).filter(Boolean);
+    if (variantIds.length === 0) return;
+    fetch(`/api/shop/inventory?variantIds=${variantIds.join(",")}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data) return;
+        const caps: Record<string, number> = {};
+        Object.entries(data).forEach(([vid, qty]) => {
+          caps[vid] = qty as number;
+        });
+        setInventoryCaps(caps);
+        // Auto-correct any quantities already over the cap
+        items.forEach(item => {
+          const cap = caps[item.variantId];
+          if (cap !== undefined && item.quantity > cap) {
+            updateQuantity(item.variantId, Math.max(1, cap));
+          }
+        });
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const total = subtotal - discountAmount;
@@ -320,7 +348,11 @@ export default function CartPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.variantId, item.quantity + 1)}
+                        onClick={() => {
+                          const cap = inventoryCaps[item.variantId] ?? 999;
+                          updateQuantity(item.variantId, Math.min(item.quantity + 1, cap));
+                        }}
+                        disabled={inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]}
                         style={{
                           width: 34,
                           height: 34,
@@ -329,8 +361,8 @@ export default function CartPage() {
                           justifyContent: "center",
                           background: "transparent",
                           border: "none",
-                          cursor: "pointer",
-                          color: "#6b5540",
+                          cursor: (inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]) ? "not-allowed" : "pointer",
+                          color: (inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]) ? "#c9b99a" : "#6b5540",
                         }}
                         aria-label="Increase"
                       >

@@ -52,15 +52,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Shipping rate is required" }, { status: 400 });
     }
 
-    // Fetch variants from DB to get current prices
+    // Fetch variants from DB to get current prices + inventory
     const variantIds = items.map((i) => i.variantId);
     const variants = await prisma.productVariant.findMany({
       where: { id: { in: variantIds } },
-      include: { product: true },
+      include: { product: true, inventory: true },
     });
 
     if (variants.length !== variantIds.length) {
       return NextResponse.json({ error: "One or more items not found" }, { status: 400 });
+    }
+
+    // Inventory check — prevent overselling server-side
+    for (const item of items) {
+      const variant = variants.find((v) => v.id === item.variantId);
+      if (!variant) continue;
+      const inv = variant.inventory;
+      if (inv && inv.trackedInventory && !inv.allowBackorder) {
+        const available = Math.max(0, (inv.quantity ?? 0) - (inv.reservedQuantity ?? 0));
+        if (item.quantity > available) {
+          return NextResponse.json({
+            error: `Only ${available} of "${variant.product.name}${variant.name !== "Default" ? ` (${variant.name})` : ""}" available. Please update your cart.`,
+            code: "INSUFFICIENT_INVENTORY",
+            variantId: item.variantId,
+            available,
+          }, { status: 400 });
+        }
+      }
     }
 
     // Calculate subtotal from DB prices

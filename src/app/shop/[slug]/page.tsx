@@ -725,7 +725,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 {quantity}
               </span>
               <button
-                onClick={() => setQuantity(q => q + 1)}
+                onClick={() => setQuantity(q => Math.min(q + 1, availableQty))}
+                disabled={quantity >= availableQty}
                 style={{
                   width: 42,
                   height: 42,
@@ -734,11 +735,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   justifyContent: "center",
                   background: "transparent",
                   border: "none",
-                  cursor: "pointer",
-                  color: "#6b5540",
+                  cursor: quantity >= availableQty ? "not-allowed" : "pointer",
+                  color: quantity >= availableQty ? "#c9b99a" : "#6b5540",
                   transition: "background 0.15s",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#f5f0e8"; }}
+                onMouseEnter={e => { if (quantity < availableQty) (e.currentTarget as HTMLElement).style.background = "#f5f0e8"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 aria-label="Increase"
               >
