@@ -455,27 +455,38 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   </svg>
                 </div>
               )}
+              {/* Variant label — overlay at bottom of hero */}
+              {product.options.length > 0 && Object.keys(selectedOptions).length > 0 && (
+                <div style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  background: "linear-gradient(to top, rgba(30,20,10,0.72) 0%, transparent 100%)",
+                  padding: "24px 14px 12px",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                }}>
+                  {product.options.map(opt =>
+                    selectedOptions[opt.name] ? (
+                      <span key={opt.id} style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#fff",
+                        background: "rgba(0,0,0,0.35)",
+                        borderRadius: 20,
+                        padding: "3px 10px",
+                        letterSpacing: "0.02em",
+                      }}>
+                        {opt.name}: {selectedOptions[opt.name]}
+                      </span>
+                    ) : null
+                  )}
+                </div>
+              )}
             </div>
-            {/* Variant label under hero */}
-            {product.options.length > 0 && Object.keys(selectedOptions).length > 0 && (
-              <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
-                {product.options.map(opt => (
-                  selectedOptions[opt.name] ? (
-                    <span key={opt.id} style={{
-                      fontFamily: "'Inter', sans-serif",
-                      fontSize: 12,
-                      color: "#7a6a55",
-                      background: "rgba(139,105,20,0.08)",
-                      border: "1px solid rgba(139,105,20,0.2)",
-                      borderRadius: 20,
-                      padding: "3px 10px",
-                    }}>
-                      {opt.name}: <strong style={{ color: "#5a4028" }}>{selectedOptions[opt.name]}</strong>
-                    </span>
-                  ) : null
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
