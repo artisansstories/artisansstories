@@ -245,28 +245,26 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const isOutOfStock = inventory?.trackedInventory && availableQty === 0 && !inventory.allowBackorder;
   const isLowStock = inventory?.trackedInventory && availableQty > 0 && availableQty <= 10;
 
-  // When variant changes, update the displayed image if variant has images
+  // Gallery images scoped to selected variant (Opus plan: gallery nav = variant-scoped)
+  const variantScopedImages = selectedVariant
+    ? product.images.filter(img => img.variantId === selectedVariant.id)
+    : [];
+  const displayImages = variantScopedImages.length > 0 ? variantScopedImages : product.images;
+
+  // Swatch click = single source of truth: updates cart selection + resets gallery to idx 0
   function handleOptionSelect(optionName: string, value: string) {
     const newOpts = { ...selectedOptions, [optionName]: value };
     setSelectedOptions(newOpts);
+    // Reset to first image of new variant
+    setSelectedImage(0);
+  }
 
-    const matchingVariant = product!.variants.find(v => {
+  // Helper: get inventory for any variant (for out-of-stock swatch display)
+  function getVariantByOptionValue(optionName: string, value: string): ProductVariant | undefined {
+    return product!.variants.find(v => {
       const vals = v.optionValues as Record<string, string>;
-      return product!.options.every(opt => vals[opt.name] === newOpts[opt.name]);
+      return vals[optionName] === value;
     });
-    if (matchingVariant) {
-      // First: look for a product-level image tagged to this variant
-      const variantImg = product!.images.find(img => img.variantId === matchingVariant.id);
-      if (variantImg) {
-        const idx = product!.images.indexOf(variantImg);
-        if (idx >= 0) { setSelectedImage(idx); return; }
-      }
-      // Fallback: variant's own images relation
-      if (matchingVariant.images.length) {
-        const variantImageIdx = product!.images.findIndex(img => img.id === matchingVariant.images[0].id);
-        if (variantImageIdx >= 0) setSelectedImage(variantImageIdx);
-      }
-    }
   }
 
   function handleAddToCart() {
@@ -369,8 +367,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         {/* Gallery */}
         <div className="pdp-gallery" style={{ width: "100%" }}>
           <div className="pdp-gallery-inner" style={{ display: "flex", flexDirection: "column-reverse", gap: 12 }}>
-            {/* Thumbnails */}
-            {product.images.length > 1 && (
+            {/* Thumbnails — navigation only within current variant's images */}
+            {displayImages.length > 1 && (
               <div
                 className="pdp-thumbnails"
                 style={{
@@ -381,20 +379,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   flexShrink: 0,
                 }}
               >
-                {product.images.map((img, idx) => (
+                {displayImages.map((img, idx) => (
                   <button
                     key={img.id ?? idx}
-                    onClick={() => {
-                        setSelectedImage(idx);
-                        // Sync variant selector if this image is tagged to a variant
-                        if (img.variantId) {
-                          const matchedVariant = product!.variants.find(v => v.id === img.variantId);
-                          if (matchedVariant) {
-                            const vals = matchedVariant.optionValues as Record<string, string>;
-                            setSelectedOptions(vals);
-                          }
-                        }
-                      }}
+                    onClick={() => setSelectedImage(idx)}
                     style={{
                       width: 64,
                       height: 64,
@@ -431,10 +419,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               background: "#f5f0e8",
               aspectRatio: "1 / 1",
             }}>
-              {product.images[selectedImage] ? (
+              {displayImages[selectedImage] ? (
                 <Image
-                  src={product.images[selectedImage].urlMedium ?? product.images[selectedImage].url}
-                  alt={product.images[selectedImage].altText ?? product.name}
+                  src={displayImages[selectedImage].urlMedium ?? displayImages[selectedImage].url}
+                  alt={displayImages[selectedImage].altText ?? product.name}
                   fill
                   style={{ objectFit: "cover" }}
                   sizes="(max-width: 767px) 100vw, 50vw"
@@ -455,8 +443,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   </svg>
                 </div>
               )}
-              {/* Variant label — overlay at bottom of hero */}
-              {product.options.length > 0 && Object.keys(selectedOptions).length > 0 && (
+              {/* Hero overlay: variant label + photo position */}
+              {displayImages.length > 0 && (
                 <div style={{
                   position: "absolute",
                   bottom: 0,
@@ -464,26 +452,28 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                   right: 0,
                   background: "linear-gradient(to top, rgba(30,20,10,0.72) 0%, transparent 100%)",
                   padding: "24px 14px 12px",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 6,
                 }}>
-                  {product.options.map(opt =>
-                    selectedOptions[opt.name] ? (
-                      <span key={opt.id} style={{
-                        fontFamily: "'Inter', sans-serif",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        color: "#fff",
-                        background: "rgba(0,0,0,0.35)",
-                        borderRadius: 20,
-                        padding: "3px 10px",
-                        letterSpacing: "0.02em",
-                      }}>
-                        {opt.name}: {selectedOptions[opt.name]}
-                      </span>
-                    ) : null
-                  )}
+                  <span style={{
+                    fontFamily: "'Inter', sans-serif",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#fff",
+                    background: "rgba(0,0,0,0.35)",
+                    borderRadius: 20,
+                    padding: "3px 10px",
+                    letterSpacing: "0.02em",
+                  }}>
+                    {(() => {
+                      const currentImg = displayImages[selectedImage];
+                      const variantLabel = currentImg?.variantId
+                        ? product.variants.find(v => v.id === currentImg.variantId)?.name
+                        : null;
+                      const photoPos = displayImages.length > 1
+                        ? ` • ${selectedImage + 1} of ${displayImages.length}`
+                        : "";
+                      return variantLabel ? `${variantLabel}${photoPos}` : `Photo ${selectedImage + 1}${displayImages.length > 1 ? ` of ${displayImages.length}` : ""}`;
+                    })()}
+                  </span>
                 </div>
               )}
             </div>
@@ -572,149 +562,110 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 {option.name}: <span style={{ fontWeight: 400, textTransform: "none" }}>{selectedOptions[option.name]}</span>
               </p>
 
-              {(() => {
-                // Check if any variant has a tagged image for this option
-                const hasVariantImages = option.values.some(value => {
-                  const variant = product!.variants.find(v => {
-                    const vals = v.optionValues as Record<string, string>;
-                    return vals[option.name] === value;
-                  });
-                  return variant && product!.images.some(img => img.variantId === variant.id);
-                });
-                if (hasVariantImages) {
+              {/* Swatches — always shown, single source of truth for cart selection */}
+              <div role="radiogroup" aria-label={option.name} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                {option.values.map(value => {
+                  const isSelected = selectedOptions[option.name] === value;
+                  const variant = getVariantByOptionValue(option.name, value);
+                  const variantInv = variant?.inventory;
+                  const variantAvailQty = variantInv?.trackedInventory
+                    ? Math.max(0, (variantInv.quantity ?? 0) - (variantInv.reservedQuantity ?? 0))
+                    : 999;
+                  const variantOOS = variantInv?.trackedInventory && variantAvailQty === 0 && !variantInv.allowBackorder;
+                  const variantImg = variant
+                    ? product!.images.find(img => img.variantId === variant.id)
+                    : undefined;
                   return (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {option.values.map(value => {
-                        const isSelected = selectedOptions[option.name] === value;
-                        const variant = product!.variants.find(v => {
-                          const vals = v.optionValues as Record<string, string>;
-                          return vals[option.name] === value;
-                        });
-                        const variantImg = variant
-                          ? product!.images.find(img => img.variantId === variant.id)
-                          : undefined;
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => handleOptionSelect(option.name, value)}
-                            title={value}
-                            aria-label={value}
-                            aria-pressed={isSelected}
-                            style={{
-                              width: 64,
-                              height: 64,
-                              flexShrink: 0,
-                              borderRadius: 8,
-                              overflow: "hidden",
-                              border: isSelected ? "2.5px solid #8B6914" : "2px solid #ede8df",
-                              cursor: "pointer",
-                              padding: 0,
-                              background: "#f5f0e8",
-                              outline: isSelected ? "2px solid rgba(139,105,20,0.25)" : "none",
-                              outlineOffset: 2,
-                              transition: "border-color 0.15s, outline 0.15s",
-                              position: "relative",
-                              boxSizing: "border-box",
-                            }}
-                          >
-                            {variantImg ? (
-                              <Image
-                                src={variantImg.urlThumb ?? variantImg.urlMedium ?? variantImg.url}
-                                alt={value}
-                                fill
-                                style={{ objectFit: "cover" }}
-                                sizes="64px"
-                              />
-                            ) : (
-                              <span style={{
-                                position: "absolute",
-                                inset: 0,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontFamily: "'Inter', sans-serif",
-                                fontSize: 9,
-                                color: "#9a876e",
-                                padding: 4,
-                                textAlign: "center",
-                                lineHeight: 1.2,
-                              }}>
-                                {value}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-              {(() => {
-                // Only show size pills / dropdown if no variant images were shown above
-                const hasVariantImagesForFallback = option.values.some(value => {
-                  const variant = product!.variants.find(v => {
-                    const vals = v.optionValues as Record<string, string>;
-                    return vals[option.name] === value;
-                  });
-                  return variant && product!.images.some(img => img.variantId === variant.id);
-                });
-                if (hasVariantImagesForFallback) return null;
-                if (option.name.toLowerCase() === "size") {
-                  return (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {option.values.map(value => {
-                        const isSelected = selectedOptions[option.name] === value;
-                        return (
-                          <button
-                            key={value}
-                            onClick={() => handleOptionSelect(option.name, value)}
-                            style={{
-                              padding: "8px 16px",
-                              border: isSelected ? "2px solid #8B6914" : "1.5px solid #e0d5c5",
-                              borderRadius: 8,
-                              background: isSelected ? "rgba(139,105,20,0.08)" : "#fff",
-                              color: isSelected ? "#8B6914" : "#5a4a38",
-                              fontFamily: "'Inter', sans-serif",
-                              fontSize: 13,
-                              fontWeight: isSelected ? 600 : 400,
-                              cursor: "pointer",
-                              transition: "all 0.15s",
-                            }}
-                          >
+                    <div key={value} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <button
+                        role="radio"
+                        aria-checked={isSelected}
+                        aria-label={value}
+                        onClick={() => !variantOOS && handleOptionSelect(option.name, value)}
+                        title={variantOOS ? `${value} — Out of Stock` : value}
+                        style={{
+                          width: 64,
+                          height: 64,
+                          flexShrink: 0,
+                          borderRadius: 8,
+                          overflow: "hidden",
+                          border: isSelected ? "2.5px solid #8B6914" : "2px solid #ede8df",
+                          cursor: variantOOS ? "not-allowed" : "pointer",
+                          padding: 0,
+                          background: "#f5f0e8",
+                          outline: isSelected ? "2px solid rgba(139,105,20,0.25)" : "none",
+                          outlineOffset: 2,
+                          transition: "border-color 0.15s, outline 0.15s",
+                          position: "relative",
+                          boxSizing: "border-box",
+                          opacity: variantOOS ? 0.45 : 1,
+                        }}
+                      >
+                        {variantImg ? (
+                          <Image
+                            src={variantImg.urlThumb ?? variantImg.urlMedium ?? variantImg.url}
+                            alt={value}
+                            fill
+                            style={{ objectFit: "cover" }}
+                            sizes="64px"
+                          />
+                        ) : (
+                          <span style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: 10,
+                            fontWeight: 500,
+                            color: isSelected ? "#8B6914" : "#9a876e",
+                            padding: 6,
+                            textAlign: "center",
+                            lineHeight: 1.2,
+                          }}>
                             {value}
-                          </button>
-                        );
-                      })}
+                          </span>
+                        )}
+                        {/* OOS strikethrough overlay */}
+                        {variantOOS && (
+                          <div style={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}>
+                            <div style={{
+                              position: "absolute",
+                              top: "50%",
+                              left: 0,
+                              right: 0,
+                              height: 2,
+                              background: "rgba(192,57,43,0.7)",
+                              transform: "rotate(-45deg) translateY(-50%)",
+                              transformOrigin: "center",
+                            }} />
+                          </div>
+                        )}
+                      </button>
+                      {/* Variant label below swatch */}
+                      <span style={{
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: 10,
+                        color: variantOOS ? "#c0392b" : isSelected ? "#8B6914" : "#9a876e",
+                        fontWeight: isSelected ? 600 : 400,
+                        textDecoration: variantOOS ? "line-through" : "none",
+                        textAlign: "center",
+                        maxWidth: 64,
+                        lineHeight: 1.2,
+                      }}>
+                        {variantOOS ? "Sold Out" : value}
+                      </span>
                     </div>
                   );
-                }
-                return (
-                  <select
-                    value={selectedOptions[option.name] ?? ""}
-                    onChange={e => handleOptionSelect(option.name, e.target.value)}
-                    style={{
-                      padding: "10px 32px 10px 12px",
-                      border: "1.5px solid #e0d5c5",
-                      borderRadius: 8,
-                      background: "#fff",
-                      color: "#3a2e24",
-                      fontFamily: "'Inter', sans-serif",
-                      fontSize: 14,
-                      outline: "none",
-                      cursor: "pointer",
-                      appearance: "none",
-                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a876e' strokeWidth='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                      backgroundRepeat: "no-repeat",
-                      backgroundPosition: "right 10px center",
-                    }}
-                  >
-                    {option.values.map(value => (
-                      <option key={value} value={value}>{value}</option>
-                    ))}
-                  </select>
-                );
-              })()}
+                })}
+              </div>
             </div>
           ))}
 
