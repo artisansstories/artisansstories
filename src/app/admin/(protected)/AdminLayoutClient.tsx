@@ -7,6 +7,7 @@ import Image from "next/image";
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard", icon: IconDashboard, mobileShow: true },
   { href: "/admin/products", label: "Products", icon: IconBox, mobileShow: true },
+  { href: "/admin/artisans", label: "Artisans", icon: IconStar, mobileShow: false },
   { href: "/admin/categories", label: "Categories", icon: IconTag, mobileShow: false },
   { href: "/admin/inventory", label: "Inventory", icon: IconWarehouse, mobileShow: false },
   { href: "/admin/orders", label: "Orders", icon: IconShoppingBag, mobileShow: true },
@@ -29,6 +30,9 @@ function IconDashboard({ size = 20 }: { size?: number }) {
 }
 function IconBox({ size = 20 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>);
+}
+function IconStar({ size = 20 }: { size?: number }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>);
 }
 function IconTag({ size = 20 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42Z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>);

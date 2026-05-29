@@ -59,6 +59,7 @@ interface Product {
   price: number;
   compareAtPrice?: number | null;
   artisanName?: string | null;
+  artisan?: { id: string; slug: string; name: string; status: string; avatarUrl?: string | null } | null;
   originCountry: string;
   materialsUsed: string[];
   tags: string[];
@@ -459,16 +460,21 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
           {/* Artisan */}
           {(product.artisanName || product.originCountry) && (
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              marginBottom: 16,
-              color: "#9a876e",
-            }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, color: "#9a876e" }}>
               <IconCraft size={14} />
               <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13 }}>
-                {product.artisanName ? `By ${product.artisanName}` : ""}
+                {product.artisanName ? (
+                  product.artisan?.status === "ACTIVE" ? (
+                    <>
+                      {"By "}
+                      <a href={`/artisans/${product.artisan.slug}`} style={{ color: "#8B6914", textDecoration: "underline", textUnderlineOffset: 2 }}>
+                        {product.artisan.name}
+                      </a>
+                    </>
+                  ) : (
+                    <>By {product.artisanName}</>
+                  )
+                ) : ""}
                 {product.artisanName && product.originCountry ? " · " : ""}
                 {product.originCountry}
               </span>

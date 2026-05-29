@@ -25,6 +25,11 @@ export async function GET(
             category: { select: { id: true, slug: true, name: true } },
           },
         },
+        artisans: {
+          include: {
+            artisan: { select: { id: true, slug: true, name: true, status: true, avatarUrl: true } },
+          },
+        },
       },
     });
 
@@ -69,6 +74,7 @@ export async function GET(
       product: {
         ...product,
         categories: product.categories.map(pc => pc.category),
+        artisan: product.artisans?.[0]?.artisan ?? null,
       },
       relatedProducts: relatedProducts.map(p => ({
         ...p,

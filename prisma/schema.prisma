@@ -119,6 +119,7 @@ model Product {
   tags             String[]
   artisanName      String?
   originCountry    String            @default("El Salvador")
+  artisans         ProductArtisan[]
   materialsUsed    String[]
   isFeatured       Boolean           @default(false)
   isDigital        Boolean           @default(false)
@@ -555,4 +556,67 @@ model WelcomeEmailTemplate {
   signatureData       Json?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+}
+
+// ─── ARTISANS ────────────────────────────────────────────────────────────────
+
+model Artisan {
+  id              String               @id @default(cuid())
+  slug            String               @unique
+  name            String
+  status          ArtisanStatus        @default(DRAFT)
+  tagline         String?
+  quote           String?
+  story           String?
+  heroImageUrl    String?
+  avatarUrl       String?
+  originCountry   String               @default("El Salvador")
+  city            String?
+  region          String?
+  craft           String?
+  practicingSince Int?
+  letterToBuyer   String?
+  socialLinks     Json?
+  metaTitle       String?
+  metaDescription String?
+  isFeatured      Boolean              @default(false)
+  images          ArtisanImage[]
+  products        ProductArtisan[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+}
+
+enum ArtisanStatus {
+  DRAFT
+  ACTIVE
+}
+
+model ArtisanImage {
+  id        String               @id @default(cuid())
+  artisanId String
+  artisan   Artisan              @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  url       String
+  urlThumb  String?
+  urlMedium String?
+  altText   String?
+  caption   String?
+  category  ArtisanImageCategory @default(GALLERY)
+  position  Int                  @default(0)
+  createdAt DateTime             @default(now())
+}
+
+enum ArtisanImageCategory {
+  GALLERY
+  WORKSHOP
+  PROCESS
+  PORTRAIT
+}
+
+model ProductArtisan {
+  productId String
+  artisanId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  artisan   Artisan @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+
+  @@id([productId, artisanId])
 }
