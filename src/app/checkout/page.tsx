@@ -1089,12 +1089,11 @@ function OrderSummaryContent({
                 background: "#f5f0e8",
                 border: "1px solid #ede8df",
                 flexShrink: 0,
-                overflow: "hidden",
                 position: "relative",
               }}
             >
               {item.image ? (
-                <img src={item.image} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <img src={item.image} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 6 }} />
               ) : null}
               <span
                 style={{
@@ -1111,6 +1110,7 @@ function OrderSummaryContent({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                 }}
               >
                 {item.quantity}
