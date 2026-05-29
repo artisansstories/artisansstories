@@ -16,6 +16,7 @@ export interface ProductImage {
   width?: number | null;
   height?: number | null;
   size?: number | null;
+  variantId?: string | null;
 }
 
 export interface ProductVariantRow {
@@ -434,6 +435,7 @@ export default function ProductForm({ product }: ProductFormProps) {
           altText: img.altText ?? null,
           position: i,
           isDefault: img.isDefault ?? i === 0,
+          variantId: img.variantId ?? null,
         })),
       };
 
@@ -674,6 +676,24 @@ export default function ProductForm({ product }: ProductFormProps) {
                         placeholder="Alt text..."
                         style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 11, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
                       />
+                      {variants.length > 0 && (
+                        <select
+                          value={img.variantId ?? ""}
+                          onChange={(e) => {
+                            const next = [...images];
+                            next[idx] = { ...next[idx], variantId: e.target.value || null };
+                            setImages(next);
+                          }}
+                          style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 10, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, background: "#faf7f2", boxSizing: "border-box" }}
+                        >
+                          <option value="">No variant</option>
+                          {variants.map((v) => (
+                            <option key={v.id ?? v.name} value={v.id ?? ""}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       <div style={{ display: "flex", gap: 4, justifyContent: "space-between" }}>
                         <div style={{ display: "flex", gap: 4 }}>
                           <button type="button" onClick={() => moveImage(idx, -1)} disabled={idx === 0} style={{ padding: "3px 7px", borderRadius: 5, border: "1px solid #ede8df", background: "#faf7f2", cursor: "pointer", fontSize: 11, opacity: idx === 0 ? 0.4 : 1 }}>↑</button>

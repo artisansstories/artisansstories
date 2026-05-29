@@ -87,6 +87,7 @@ export async function PUT(
         altText?: string | null;
         position?: number;
         isDefault?: boolean;
+        variantId?: string | null;
       }>;
     };
     let slug = existing.slug;
@@ -137,6 +138,7 @@ export async function PUT(
             altText: img.altText ?? null,
             position: img.position ?? i,
             isDefault: img.isDefault ?? i === 0,
+            variantId: img.variantId ?? null,
           })),
         });
       }

@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
         altText?: string | null;
         position?: number;
         isDefault?: boolean;
+        variantId?: string | null;
       }>;
     };
     if (!body.name) {
@@ -175,6 +176,7 @@ export async function POST(request: NextRequest) {
                 altText: img.altText ?? null,
                 position: img.position ?? i,
                 isDefault: img.isDefault ?? i === 0,
+                variantId: img.variantId ?? null,
               })),
             }
           : undefined,

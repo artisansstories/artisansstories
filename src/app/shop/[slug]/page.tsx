@@ -250,14 +250,22 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     const newOpts = { ...selectedOptions, [optionName]: value };
     setSelectedOptions(newOpts);
 
-    // Find the matching variant and switch to its first image
     const matchingVariant = product!.variants.find(v => {
       const vals = v.optionValues as Record<string, string>;
       return product!.options.every(opt => vals[opt.name] === newOpts[opt.name]);
     });
-    if (matchingVariant?.images.length) {
-      const variantImageIdx = product!.images.findIndex(img => img.id === matchingVariant.images[0].id);
-      if (variantImageIdx >= 0) setSelectedImage(variantImageIdx);
+    if (matchingVariant) {
+      // First: look for a product-level image tagged to this variant
+      const variantImg = product!.images.find(img => img.variantId === matchingVariant.id);
+      if (variantImg) {
+        const idx = product!.images.indexOf(variantImg);
+        if (idx >= 0) { setSelectedImage(idx); return; }
+      }
+      // Fallback: variant's own images relation
+      if (matchingVariant.images.length) {
+        const variantImageIdx = product!.images.findIndex(img => img.id === matchingVariant.images[0].id);
+        if (variantImageIdx >= 0) setSelectedImage(variantImageIdx);
+      }
     }
   }
 
@@ -512,88 +520,149 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 {option.name}: <span style={{ fontWeight: 400, textTransform: "none" }}>{selectedOptions[option.name]}</span>
               </p>
 
-              {option.name.toLowerCase() === "color" ? (
-                // Color swatches
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {option.values.map(value => {
-                    const isSelected = selectedOptions[option.name] === value;
-                    return (
-                      <button
-                        key={value}
-                        onClick={() => handleOptionSelect(option.name, value)}
-                        title={value}
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          border: isSelected ? "3px solid #8B6914" : "2px solid #e0d5c5",
-                          cursor: "pointer",
-                          padding: 0,
-                          outline: isSelected ? "2px solid rgba(139,105,20,0.3)" : "none",
-                          outlineOffset: 2,
-                          background: value.toLowerCase(),
-                          transition: "border-color 0.15s, outline 0.15s",
-                          boxSizing: "border-box",
-                        }}
-                        aria-label={value}
-                        aria-pressed={isSelected}
-                      />
-                    );
-                  })}
-                </div>
-              ) : option.name.toLowerCase() === "size" ? (
-                // Size buttons
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  {option.values.map(value => {
-                    const isSelected = selectedOptions[option.name] === value;
-                    return (
-                      <button
-                        key={value}
-                        onClick={() => handleOptionSelect(option.name, value)}
-                        style={{
-                          padding: "8px 16px",
-                          border: isSelected ? "2px solid #8B6914" : "1.5px solid #e0d5c5",
-                          borderRadius: 8,
-                          background: isSelected ? "rgba(139,105,20,0.08)" : "#fff",
-                          color: isSelected ? "#8B6914" : "#5a4a38",
-                          fontFamily: "'Inter', sans-serif",
-                          fontSize: 13,
-                          fontWeight: isSelected ? 600 : 400,
-                          cursor: "pointer",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {value}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                // Dropdown for other options
-                <select
-                  value={selectedOptions[option.name] ?? ""}
-                  onChange={e => handleOptionSelect(option.name, e.target.value)}
-                  style={{
-                    padding: "10px 32px 10px 12px",
-                    border: "1.5px solid #e0d5c5",
-                    borderRadius: 8,
-                    background: "#fff",
-                    color: "#3a2e24",
-                    fontFamily: "'Inter', sans-serif",
-                    fontSize: 14,
-                    outline: "none",
-                    cursor: "pointer",
-                    appearance: "none",
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a876e' strokeWidth='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
-                    backgroundRepeat: "no-repeat",
-                    backgroundPosition: "right 10px center",
-                  }}
-                >
-                  {option.values.map(value => (
-                    <option key={value} value={value}>{value}</option>
-                  ))}
-                </select>
-              )}
+              {(() => {
+                // Check if any variant has a tagged image for this option
+                const hasVariantImages = option.values.some(value => {
+                  const variant = product!.variants.find(v => {
+                    const vals = v.optionValues as Record<string, string>;
+                    return vals[option.name] === value;
+                  });
+                  return variant && product!.images.some(img => img.variantId === variant.id);
+                });
+                if (hasVariantImages) {
+                  return (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {option.values.map(value => {
+                        const isSelected = selectedOptions[option.name] === value;
+                        const variant = product!.variants.find(v => {
+                          const vals = v.optionValues as Record<string, string>;
+                          return vals[option.name] === value;
+                        });
+                        const variantImg = variant
+                          ? product!.images.find(img => img.variantId === variant.id)
+                          : undefined;
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => handleOptionSelect(option.name, value)}
+                            title={value}
+                            aria-label={value}
+                            aria-pressed={isSelected}
+                            style={{
+                              width: 64,
+                              height: 64,
+                              flexShrink: 0,
+                              borderRadius: 8,
+                              overflow: "hidden",
+                              border: isSelected ? "2.5px solid #8B6914" : "2px solid #ede8df",
+                              cursor: "pointer",
+                              padding: 0,
+                              background: "#f5f0e8",
+                              outline: isSelected ? "2px solid rgba(139,105,20,0.25)" : "none",
+                              outlineOffset: 2,
+                              transition: "border-color 0.15s, outline 0.15s",
+                              position: "relative",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            {variantImg ? (
+                              <Image
+                                src={variantImg.urlThumb ?? variantImg.urlMedium ?? variantImg.url}
+                                alt={value}
+                                fill
+                                style={{ objectFit: "cover" }}
+                                sizes="64px"
+                              />
+                            ) : (
+                              <span style={{
+                                position: "absolute",
+                                inset: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontFamily: "'Inter', sans-serif",
+                                fontSize: 9,
+                                color: "#9a876e",
+                                padding: 4,
+                                textAlign: "center",
+                                lineHeight: 1.2,
+                              }}>
+                                {value}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              {(() => {
+                // Only show size pills / dropdown if no variant images were shown above
+                const hasVariantImagesForFallback = option.values.some(value => {
+                  const variant = product!.variants.find(v => {
+                    const vals = v.optionValues as Record<string, string>;
+                    return vals[option.name] === value;
+                  });
+                  return variant && product!.images.some(img => img.variantId === variant.id);
+                });
+                if (hasVariantImagesForFallback) return null;
+                if (option.name.toLowerCase() === "size") {
+                  return (
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {option.values.map(value => {
+                        const isSelected = selectedOptions[option.name] === value;
+                        return (
+                          <button
+                            key={value}
+                            onClick={() => handleOptionSelect(option.name, value)}
+                            style={{
+                              padding: "8px 16px",
+                              border: isSelected ? "2px solid #8B6914" : "1.5px solid #e0d5c5",
+                              borderRadius: 8,
+                              background: isSelected ? "rgba(139,105,20,0.08)" : "#fff",
+                              color: isSelected ? "#8B6914" : "#5a4a38",
+                              fontFamily: "'Inter', sans-serif",
+                              fontSize: 13,
+                              fontWeight: isSelected ? 600 : 400,
+                              cursor: "pointer",
+                              transition: "all 0.15s",
+                            }}
+                          >
+                            {value}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+                return (
+                  <select
+                    value={selectedOptions[option.name] ?? ""}
+                    onChange={e => handleOptionSelect(option.name, e.target.value)}
+                    style={{
+                      padding: "10px 32px 10px 12px",
+                      border: "1.5px solid #e0d5c5",
+                      borderRadius: 8,
+                      background: "#fff",
+                      color: "#3a2e24",
+                      fontFamily: "'Inter', sans-serif",
+                      fontSize: 14,
+                      outline: "none",
+                      cursor: "pointer",
+                      appearance: "none",
+                      backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a876e' strokeWidth='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+                      backgroundRepeat: "no-repeat",
+                      backgroundPosition: "right 10px center",
+                    }}
+                  >
+                    {option.values.map(value => (
+                      <option key={value} value={value}>{value}</option>
+                    ))}
+                  </select>
+                );
+              })()}
             </div>
           ))}
 
