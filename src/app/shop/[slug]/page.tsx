@@ -319,8 +319,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         .rte-content p:last-child { margin-bottom: 0; }
         .rte-content h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.3em; font-weight: 600; color: #2a1f14; margin: 0.8em 0 0.4em; }
         .rte-content h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.1em; font-weight: 600; color: #2a1f14; margin: 0.7em 0 0.3em; }
-        .rte-content ul, .rte-content ol { padding-left: 1.4em; margin: 0.5em 0; }
-        .rte-content li { margin-bottom: 0.25em; }
+        .rte-content ul { padding-left: 1.4em; margin: 0.5em 0; list-style-type: disc; }
+        .rte-content ol { padding-left: 1.4em; margin: 0.5em 0; list-style-type: decimal; }
+        .rte-content li { margin-bottom: 0.25em; display: list-item; }
         .rte-content strong { font-weight: 600; color: #2a1f14; }
         .rte-content em { font-style: italic; }
         .rte-content blockquote { border-left: 3px solid #8B6914; margin: 0.75em 0; padding: 0.5em 1em; color: #7a6a55; background: rgba(139,105,20,0.04); border-radius: 0 6px 6px 0; }
