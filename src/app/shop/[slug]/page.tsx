@@ -250,15 +250,27 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     ? product.images.filter(img => img.variantId === selectedVariant.id)
     : [];
   const hasVariantImage = variantScopedImages.length > 0;
-  // displayImages: for the hero only — scoped to variant if available, else product images
+  // displayImages: scoped to variant if tagged images exist, else all product images
   const displayImages = hasVariantImage ? variantScopedImages : product.images;
 
-  // Swatch click = single source of truth: updates cart selection + resets gallery to idx 0
+  // Check if ANY variant has tagged images (determines fallback behavior)
+  const anyVariantHasImages = product.images.some(img => img.variantId !== null);
+
+  // Swatch click = single source of truth: updates cart selection + updates hero image
   function handleOptionSelect(optionName: string, value: string) {
     const newOpts = { ...selectedOptions, [optionName]: value };
     setSelectedOptions(newOpts);
-    // Reset to first image of new variant
-    setSelectedImage(0);
+
+    if (anyVariantHasImages) {
+      // Some variants have tagged images — reset to 0 so scoped gallery takes over
+      setSelectedImage(0);
+    } else {
+      // No variants have tagged images at all — cycle through product images by variant index
+      const variantIndex = product!.options
+        .find(o => o.name === optionName)
+        ?.values.indexOf(value) ?? 0;
+      setSelectedImage(Math.min(variantIndex, product!.images.length - 1));
+    }
   }
 
   // Helper: get inventory for any variant (for out-of-stock swatch display)
