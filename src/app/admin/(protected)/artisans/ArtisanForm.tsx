@@ -449,35 +449,58 @@ export default function ArtisanForm({ artisan }: Props) {
               ))}
             </div>
 
-            {/* Auto Social Feed — embed code */}
+            {/* Instagram Auto Feed */}
             <div style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 8px" }}>
-                Auto Social Feed
+                Instagram Feed
               </h2>
-              <div style={{ background: "rgba(139,105,20,0.06)", border: "1px solid rgba(139,105,20,0.2)", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
-                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, color: "#5a4a38", margin: "0 0 6px" }}>
-                  ✨ Recommended: Behold.so (free, auto-updates)
-                </p>
-                <ol style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#6b5540", margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
-                  <li>Go to <strong>behold.so</strong> → Sign up free</li>
-                  <li>Connect Instagram account → Create a feed</li>
-                  <li>Customize: grid layout, number of posts, style</li>
-                  <li>Copy the embed code → paste below</li>
-                </ol>
-                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "8px 0 0" }}>
-                  Any widget embed code works — Behold, Elfsight, Curator.io, etc. Posts auto-update without touching the site.
-                </p>
-              </div>
-              <label style={labelStyle}>Embed Code</label>
-              <textarea
-                value={socialEmbedCode}
-                onChange={e => setSocialEmbedCode(e.target.value)}
-                style={{ ...inputStyle, minHeight: 100, resize: "vertical", fontFamily: "monospace", fontSize: 11 }}
-                placeholder={`<div id="behold-widget" ...></div>\n<script ...></script>`}
-              />
-              {socialEmbedCode && (
-                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#27ae60", margin: "6px 0 0" }}>
-                  ✓ Embed code saved — will render on profile below the gallery
+              {artisan?.id ? (
+                <div>
+                  {(artisan as { igAccessToken?: string | null }).igAccessToken ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "rgba(39,174,96,0.06)", border: "1px solid rgba(39,174,96,0.25)", borderRadius: 8 }}>
+                      <span style={{ fontSize: 20 }}>✅</span>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, color: "#1a8a4a", margin: 0 }}>Instagram connected</p>
+                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "2px 0 0" }}>Latest posts will auto-appear on the profile page.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await fetch("/api/admin/instagram/disconnect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ artisanId: artisan!.id }) });
+                          window.location.reload();
+                        }}
+                        style={{ padding: "6px 12px", border: "1px solid #e0d5c5", borderRadius: 6, background: "#fff", cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e" }}
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 14px" }}>
+                        Connect Instagram once — latest posts auto-populate the profile page grid, no manual updates needed.
+                      </p>
+                      <a
+                        href={`/api/admin/instagram/connect?artisanId=${artisan!.id}`}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 8,
+                          padding: "10px 20px",
+                          background: "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
+                          color: "#fff", textDecoration: "none", borderRadius: 8,
+                          fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600,
+                        }}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                        Connect Instagram
+                      </a>
+                      <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#c9b99a", margin: "10px 0 0" }}>
+                        Requires INSTAGRAM_APP_ID + INSTAGRAM_APP_SECRET in Vercel env vars.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: 0 }}>
+                  Save the artisan first, then connect Instagram.
                 </p>
               )}
             </div>

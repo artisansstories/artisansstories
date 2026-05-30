@@ -251,19 +251,20 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Featured Social Posts */}
+        {/* Social Posts Feed */}
         {(() => {
-          const fp = artisan.featuredPosts as { instagram?: string[]; tiktok?: string[]; displayCount?: number } | null;
-          const igUrls = fp?.instagram ?? [];
+          const fp = artisan.featuredPosts as { tiktok?: string[]; displayCount?: number } | null;
           const ttUrls = fp?.tiktok ?? [];
-          const count = fp?.displayCount ?? 6;
-          if (igUrls.length === 0 && ttUrls.length === 0) return null;
+          const count = fp?.displayCount ?? 9;
+          const igConnected = !!(artisan as { igAccessToken?: string | null }).igAccessToken;
+          if (!igConnected && ttUrls.length === 0) return null;
           return (
             <ArtisanSocialPosts
-              instagramUrls={igUrls}
+              artisanSlug={artisan.slug}
               tiktokUrls={ttUrls}
               displayCount={count}
               artisanName={artisan.name}
+              igConnected={igConnected}
             />
           );
         })()}

@@ -579,7 +579,10 @@ model Artisan {
   socialLinks     Json?
   featuredPosts      Json?        // { instagram: string[], tiktok: string[], displayCount: number }
   showGallery        Boolean           @default(true)
-  socialEmbedCode    String?           // Paste embed code from Behold.so or similar
+  socialEmbedCode    String?           // Legacy embed code field
+  igUserId           String?           // Instagram user ID (from Graph API OAuth)
+  igAccessToken      String?           // Instagram long-lived access token
+  igTokenExpiry      DateTime?         // Token expiry (refresh before this)
   socialLinksVisible Json?             // { instagram: bool, facebook: bool, tiktok: bool, youtube: bool, website: bool }
   metaTitle          String?
   metaDescription String?

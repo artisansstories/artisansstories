@@ -1,19 +1,27 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
+
+interface IGPost {
+  id: string;
+  url: string;
+  imageUrl?: string;
+  caption?: string;
+  isVideo?: boolean;
+}
 
 interface TikTokPost {
   url: string;
   thumbnailUrl?: string;
   title?: string;
-  authorName?: string;
 }
 
 interface Props {
-  instagramUrls: string[];
+  artisanSlug: string;
   tiktokUrls: string[];
   displayCount: number;
   artisanName: string;
+  igConnected: boolean;
 }
 
 function InstagramIcon({ size = 16 }: { size?: number }) {
@@ -32,156 +40,144 @@ function TikTokIcon({ size = 16 }: { size?: number }) {
   );
 }
 
-// Detect whether an Instagram URL is a post vs a profile
-function isInstagramPost(url: string) {
-  return /instagram\.com\/(p|reel|tv)\//.test(url);
-}
-
-// Instagram native embed card (blockquote + embed.js)
-function InstagramEmbed({ url }: { url: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Trigger Instagram embed.js to process this blockquote
-    if (typeof window !== "undefined") {
-      const ig = (window as Window & { instgrm?: { Embeds?: { process?: () => void } } }).instgrm;
-      if (ig?.Embeds?.process) {
-        ig.Embeds.process();
-      } else {
-        // Load embed.js if not present
-        if (!document.querySelector('script[src*="instagram.com/embed.js"]')) {
-          const s = document.createElement("script");
-          s.src = "https://www.instagram.com/embed.js";
-          s.async = true;
-          document.body.appendChild(s);
-        }
-      }
-    }
-  }, [url]);
-
+function PostCard({ url, imageUrl, caption, isVideo, platform }: {
+  url: string; imageUrl?: string; caption?: string; isVideo?: boolean; platform: "instagram" | "tiktok";
+}) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div ref={ref} style={{ maxWidth: 320, width: "100%" }}>
-      <blockquote
-        className="instagram-media"
-        data-instgrm-permalink={url}
-        data-instgrm-version="14"
-        data-instgrm-captioned
-        style={{
-          background: "#fff",
-          border: "1px solid #ede8df",
-          borderRadius: 10,
-          margin: 0,
-          maxWidth: "100%",
-          minWidth: 280,
-          padding: 0,
-        }}
-      />
-    </div>
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ textDecoration: "none", display: "block" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={{
+        position: "relative",
+        aspectRatio: "1",
+        borderRadius: 10,
+        overflow: "hidden",
+        background: "#f5f0e8",
+        cursor: "pointer",
+      }}>
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={caption ?? `${platform} post`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s", transform: hovered ? "scale(1.05)" : "scale(1)" }}
+          />
+        ) : (
+          <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #3a2e24, #8B6914)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {platform === "instagram" ? <InstagramIcon size={32} /> : <TikTokIcon size={32} />}
+          </div>
+        )}
+        {/* Platform badge */}
+        <div style={{
+          position: "absolute", top: 8, left: 8,
+          background: platform === "instagram"
+            ? "linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)"
+            : "#010101",
+          color: "#fff", borderRadius: 6, padding: "4px 7px",
+          display: "flex", alignItems: "center", gap: 4,
+        }}>
+          {platform === "instagram" ? <InstagramIcon size={11} /> : <TikTokIcon size={11} />}
+          {isVideo && <span style={{ fontSize: 9, fontFamily: "'Inter', sans-serif", fontWeight: 700 }}>▶</span>}
+        </div>
+        {/* Caption overlay on hover */}
+        {caption && hovered && (
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)",
+            display: "flex", alignItems: "flex-end",
+            padding: "20px 10px 10px",
+          }}>
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#fff", margin: 0, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+              {caption}
+            </p>
+          </div>
+        )}
+      </div>
+    </a>
   );
 }
 
-export default function ArtisanSocialPosts({ instagramUrls, tiktokUrls, displayCount, artisanName }: Props) {
+export default function ArtisanSocialPosts({ artisanSlug, tiktokUrls, displayCount, artisanName, igConnected }: Props) {
+  const [igPosts, setIgPosts] = useState<IGPost[]>([]);
   const [tiktokPosts, setTiktokPosts] = useState<TikTokPost[]>([]);
-  const [loadingTt, setLoadingTt] = useState(tiktokUrls.length > 0);
-
-  // Separate post URLs from profile URLs
-  const igPostUrls = instagramUrls.filter(isInstagramPost).slice(0, displayCount);
-  const igProfileUrls = instagramUrls.filter(u => !isInstagramPost(u));
-  const ttUrls = tiktokUrls.slice(0, Math.max(0, displayCount - igPostUrls.length));
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (ttUrls.length === 0) { setLoadingTt(false); return; }
-    fetch(`/api/shop/oembed?urls=${ttUrls.map(encodeURIComponent).join(",")}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        if (data?.posts) {
-          setTiktokPosts(
-            data.posts
-              .filter((p: { error?: string; thumbnailUrl?: string }) => !p.error && p.thumbnailUrl)
-              .map((p: { url: string; thumbnailUrl?: string; title?: string; authorName?: string }) => ({
-                url: p.url, thumbnailUrl: p.thumbnailUrl, title: p.title, authorName: p.authorName,
-              }))
-          );
-        }
-        setLoadingTt(false);
-      })
-      .catch(() => setLoadingTt(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ttUrls.join(",")]);
+    const fetches: Promise<void>[] = [];
 
-  const hasContent = igPostUrls.length > 0 || igProfileUrls.length > 0 || tiktokPosts.length > 0 || loadingTt;
+    if (igConnected) {
+      fetches.push(
+        fetch(`/api/shop/instagram/${artisanSlug}?limit=${displayCount}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => { if (d?.posts) setIgPosts(d.posts); })
+          .catch(() => {})
+      );
+    }
+
+    if (tiktokUrls.length > 0) {
+      const ttLimit = igConnected ? Math.max(0, displayCount - igPosts.length) : displayCount;
+      if (ttLimit > 0) {
+        fetches.push(
+          fetch(`/api/shop/oembed?urls=${tiktokUrls.slice(0, ttLimit).map(encodeURIComponent).join(",")}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+              if (d?.posts) setTiktokPosts(d.posts.filter((p: { error?: string; thumbnailUrl?: string }) => !p.error && p.thumbnailUrl));
+            })
+            .catch(() => {})
+        );
+      }
+    }
+
+    if (fetches.length === 0) { setLoading(false); return; }
+    Promise.all(fetches).finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artisanSlug, igConnected, tiktokUrls.join(","), displayCount]);
+
+  const hasContent = igPosts.length > 0 || tiktokPosts.length > 0;
+
+  if (loading) {
+    return (
+      <section style={{ maxWidth: 1200, margin: "0 auto 64px", padding: "0 20px" }}>
+        <style>{`@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:calc(200px + 100%) 0}}`}</style>
+        <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(24px,4vw,36px)", fontWeight: 600, color: "#3a2e24", marginBottom: 24 }}>Follow {artisanName}</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+          {Array.from({ length: Math.min(displayCount, 6) }).map((_, i) => (
+            <div key={i} style={{ aspectRatio: "1", borderRadius: 10, background: "linear-gradient(90deg,#f0ede8 25%,#ebe7e0 50%,#f0ede8 75%)", backgroundSize: "200px 100%", animation: "shimmer 1.5s infinite" }} />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   if (!hasContent) return null;
+
+  const allPosts = [
+    ...igPosts.map(p => ({ ...p, platform: "instagram" as const })),
+    ...tiktokPosts.map(p => ({ url: p.url, imageUrl: p.thumbnailUrl, caption: p.title, isVideo: true, platform: "tiktok" as const })),
+  ].slice(0, displayCount);
 
   return (
     <section style={{ maxWidth: 1200, margin: "0 auto 64px", padding: "0 20px" }}>
-      <style>{`@keyframes shimmer { 0% { background-position: -200px 0 } 100% { background-position: calc(200px + 100%) 0 } }`}</style>
-      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 600, color: "#3a2e24", marginBottom: 24 }}>
+      <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(24px,4vw,36px)", fontWeight: 600, color: "#3a2e24", marginBottom: 24 }}>
         Follow {artisanName}
       </h2>
-
-      {/* TikTok thumbnail grid */}
-      {(tiktokPosts.length > 0 || loadingTt) && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
-          {loadingTt && tiktokPosts.length === 0
-            ? Array.from({ length: Math.min(ttUrls.length, 3) }).map((_, i) => (
-                <div key={i} style={{ aspectRatio: "9/16", borderRadius: 10, background: "linear-gradient(90deg,#f0ede8 25%,#ebe7e0 50%,#f0ede8 75%)", backgroundSize: "200px 100%", animation: "shimmer 1.5s infinite" }} />
-              ))
-            : tiktokPosts.map(post => (
-                <a key={post.url} href={post.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none", display: "block" }}>
-                  <div style={{ position: "relative", aspectRatio: "9/16", borderRadius: 10, overflow: "hidden", background: "#1a1a1a" }}>
-                    {post.thumbnailUrl && (
-                      <img src={post.thumbnailUrl} alt={post.title ?? `${artisanName} on TikTok`} style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLImageElement).style.transform = "scale(1.05)"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLImageElement).style.transform = "scale(1)"; }}
-                      />
-                    )}
-                    <div style={{ position: "absolute", top: 8, left: 8, background: "#010101", color: "#fff", borderRadius: 6, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4 }}>
-                      <TikTokIcon />
-                    </div>
-                    {post.title && (
-                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)", padding: "24px 10px 10px" }}>
-                        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#fff", margin: 0, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
-                          {post.title}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </a>
-              ))
-          }
-        </div>
-      )}
-
-      {/* Instagram native embeds (post URLs) */}
-      {igPostUrls.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: igProfileUrls.length > 0 ? 24 : 0 }}>
-          {igPostUrls.map(url => (
-            <InstagramEmbed key={url} url={url} />
-          ))}
-          <script async src="https://www.instagram.com/embed.js" />
-        </div>
-      )}
-
-      {/* Profile URL fallback — just link cards */}
-      {igProfileUrls.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-          {igProfileUrls.map(url => (
-            <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "14px 20px",
-              background: "linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)",
-              borderRadius: 10, textDecoration: "none", color: "#fff",
-            }}>
-              <InstagramIcon size={20} />
-              <div>
-                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 700, margin: 0 }}>Follow on Instagram</p>
-                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, margin: "2px 0 0", opacity: 0.85 }}>
-                  {url.replace("https://www.instagram.com/", "@").replace(/\/$/, "")}
-                </p>
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+        {allPosts.map(post => (
+          <PostCard
+            key={post.url}
+            url={post.url}
+            imageUrl={post.imageUrl}
+            caption={post.caption}
+            isVideo={post.isVideo}
+            platform={post.platform}
+          />
+        ))}
+      </div>
     </section>
   );
 }
