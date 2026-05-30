@@ -219,7 +219,7 @@ export default function LandingPage({ settings }: { settings: Settings }) {
                 width={1748}
                 height={470}
                 style={{
-                  width:"min(90vw,720px)",
+                  width:"min(82vw,460px)",
                   height:"auto",
                   display:"block",
                 }}
