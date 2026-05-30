@@ -577,8 +577,10 @@ model Artisan {
   practicingSince Int?
   letterToBuyer   String?
   socialLinks     Json?
-  featuredPosts   Json?           // { instagram: string[], tiktok: string[], displayCount: number }
-  metaTitle       String?
+  featuredPosts      Json?        // { instagram: string[], tiktok: string[], displayCount: number }
+  showGallery        Boolean           @default(true)
+  socialLinksVisible Json?             // { instagram: bool, facebook: bool, tiktok: bool, youtube: bool, website: bool }
+  metaTitle          String?
   metaDescription String?
   isFeatured      Boolean              @default(false)
   images          ArtisanImage[]

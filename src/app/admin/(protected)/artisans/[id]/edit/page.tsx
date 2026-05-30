@@ -34,6 +34,8 @@ export default async function EditArtisanPage({ params }: PageProps) {
     letterToBuyer: artisan.letterToBuyer ?? undefined,
     socialLinks: (artisan.socialLinks as Record<string, string> | null) ?? null,
     featuredPosts: (artisan.featuredPosts as { instagram?: string[]; tiktok?: string[]; displayCount?: number } | null) ?? null,
+    showGallery: artisan.showGallery,
+    socialLinksVisible: (artisan.socialLinksVisible as { instagram?: boolean; facebook?: boolean; tiktok?: boolean; youtube?: boolean; website?: boolean } | null) ?? null,
     metaTitle: artisan.metaTitle ?? undefined,
     metaDescription: artisan.metaDescription ?? undefined,
     isFeatured: artisan.isFeatured,

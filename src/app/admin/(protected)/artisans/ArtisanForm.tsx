@@ -22,6 +22,8 @@ export interface ArtisanData {
   letterToBuyer?: string;
   socialLinks?: { instagram?: string; facebook?: string; tiktok?: string; youtube?: string; website?: string } | null;
   featuredPosts?: { instagram?: string[]; tiktok?: string[]; displayCount?: number } | null;
+  showGallery?: boolean;
+  socialLinksVisible?: { instagram?: boolean; facebook?: boolean; tiktok?: boolean; youtube?: boolean; website?: boolean } | null;
   metaTitle?: string;
   metaDescription?: string;
   isFeatured?: boolean;
@@ -81,6 +83,12 @@ export default function ArtisanForm({ artisan }: Props) {
   const [featuredInstagram, setFeaturedInstagram] = useState<string[]>(artisan?.featuredPosts?.instagram ?? []);
   const [featuredTiktok, setFeaturedTiktok] = useState<string[]>(artisan?.featuredPosts?.tiktok ?? []);
   const [displayCount, setDisplayCount] = useState(artisan?.featuredPosts?.displayCount ?? 6);
+  const [showGallery, setShowGallery] = useState(artisan?.showGallery ?? true);
+  const [slvInstagram, setSlvInstagram] = useState(artisan?.socialLinksVisible?.instagram ?? true);
+  const [slvFacebook, setSlvFacebook] = useState(artisan?.socialLinksVisible?.facebook ?? true);
+  const [slvTiktok, setSlvTiktok] = useState(artisan?.socialLinksVisible?.tiktok ?? true);
+  const [slvYoutube, setSlvYoutube] = useState(artisan?.socialLinksVisible?.youtube ?? true);
+  const [slvWebsite, setSlvWebsite] = useState(artisan?.socialLinksVisible?.website ?? true);
   const [metaTitle, setMetaTitle] = useState(artisan?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(artisan?.metaDescription ?? "");
   const [isFeatured, setIsFeatured] = useState(artisan?.isFeatured ?? false);
@@ -179,6 +187,14 @@ export default function ArtisanForm({ artisan }: Props) {
         instagram: featuredInstagram.filter(Boolean),
         tiktok: featuredTiktok.filter(Boolean),
         displayCount,
+      },
+      showGallery,
+      socialLinksVisible: {
+        instagram: slvInstagram,
+        facebook: slvFacebook,
+        tiktok: slvTiktok,
+        youtube: slvYoutube,
+        website: slvWebsite,
       },
       socialLinks: {
         instagram: socialInstagram || undefined,
@@ -335,7 +351,13 @@ export default function ArtisanForm({ artisan }: Props) {
 
             {/* Gallery */}
             <div style={sectionCard}>
-              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Photo Gallery</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0 }}>Photo Gallery</h2>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#5a4a38" }}>
+                  <input type="checkbox" checked={showGallery} onChange={e => setShowGallery(e.target.checked)} />
+                  Show on profile
+                </label>
+              </div>
               {images.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
                   {images.map((img, idx) => (
@@ -367,15 +389,21 @@ export default function ArtisanForm({ artisan }: Props) {
             <div style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Social Links</h2>
               {[
-                { label: "Instagram", value: socialInstagram, set: setSocialInstagram, placeholder: "https://instagram.com/..." },
-                { label: "Facebook", value: socialFacebook, set: setSocialFacebook, placeholder: "https://facebook.com/..." },
-                { label: "TikTok", value: socialTiktok, set: setSocialTiktok, placeholder: "https://tiktok.com/@..." },
-                { label: "YouTube", value: socialYoutube, set: setSocialYoutube, placeholder: "https://youtube.com/..." },
-                { label: "Website", value: socialWebsite, set: setSocialWebsite, placeholder: "https://..." },
-              ].map(({ label, value, set, placeholder }) => (
+                { label: "Instagram", value: socialInstagram, set: setSocialInstagram, placeholder: "https://instagram.com/...", visible: slvInstagram, setVisible: setSlvInstagram },
+                { label: "Facebook", value: socialFacebook, set: setSocialFacebook, placeholder: "https://facebook.com/...", visible: slvFacebook, setVisible: setSlvFacebook },
+                { label: "TikTok", value: socialTiktok, set: setSocialTiktok, placeholder: "https://tiktok.com/@...", visible: slvTiktok, setVisible: setSlvTiktok },
+                { label: "YouTube", value: socialYoutube, set: setSocialYoutube, placeholder: "https://youtube.com/...", visible: slvYoutube, setVisible: setSlvYoutube },
+                { label: "Website", value: socialWebsite, set: setSocialWebsite, placeholder: "https://...", visible: slvWebsite, setVisible: setSlvWebsite },
+              ].map(({ label, value, set, placeholder, visible, setVisible }) => (
                 <div key={label} style={{ marginBottom: 12 }}>
-                  <label style={labelStyle}>{label}</label>
-                  <input value={value} onChange={e => set(e.target.value)} style={inputStyle} placeholder={placeholder} type="url" />
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <label style={{ ...labelStyle, margin: 0 }}>{label}</label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12, color: visible ? "#27ae60" : "#9a876e" }}>
+                      <input type="checkbox" checked={visible} onChange={e => setVisible(e.target.checked)} />
+                      {visible ? "Visible on profile" : "Hidden"}
+                    </label>
+                  </div>
+                  <input value={value} onChange={e => set(e.target.value)} style={{ ...inputStyle, opacity: visible ? 1 : 0.5 }} placeholder={placeholder} type="url" />
                 </div>
               ))}
             </div>

@@ -41,6 +41,8 @@ export async function POST(request: NextRequest) {
         letterToBuyer: body.letterToBuyer ?? null,
         socialLinks: body.socialLinks ?? null,
         featuredPosts: body.featuredPosts ?? null,
+        showGallery: body.showGallery ?? true,
+        socialLinksVisible: body.socialLinksVisible ?? null,
         metaTitle: body.metaTitle ?? null,
         metaDescription: body.metaDescription ?? null,
         isFeatured: body.isFeatured ?? false,
