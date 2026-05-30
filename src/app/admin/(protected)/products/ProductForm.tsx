@@ -645,16 +645,7 @@ export default function ProductForm({ product }: ProductFormProps) {
               />
             </div>
             <div style={fieldGroup}>
-              <Label>About this Piece</Label>
-              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "0 0 8px" }}>
-                Product-specific story — how this piece was made, what inspired it. The artisan&apos;s full biography lives on their <a href="/admin/artisans" style={{ color: "#8B6914" }}>Artisan Profile</a>.
-              </p>
-              <RichTextEditor
-                value={story}
-                onChange={setStory}
-                placeholder="What makes this piece special — the technique, the materials, the inspiration..."
-                minHeight={120}
-              />
+
             </div>
           </div>
 

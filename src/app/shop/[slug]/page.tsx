@@ -310,7 +310,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   const TABS = [
     { id: "description" as const, label: "Description", show: !!product.description },
-    { id: "story" as const, label: "About this Piece", show: !!product.story },
     { id: "details" as const, label: "Materials & Details", show: true },
   ].filter(t => t.show);
 
@@ -962,11 +961,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     ? <div className="rte-content" dangerouslySetInnerHTML={{ __html: product.description }} />
                     : <p style={{ whiteSpace: "pre-wrap" }}>{product.description}</p>
                 )}
-                {activeTab === "story" && product.story && (
-                  product.story.startsWith("<")
-                    ? <div className="rte-content" style={{ fontStyle: "italic" }} dangerouslySetInnerHTML={{ __html: product.story }} />
-                    : <p style={{ whiteSpace: "pre-wrap", fontStyle: "italic" }}>{product.story}</p>
-                )}
+                
                 {activeTab === "details" && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {product.materialsUsed.length > 0 && (
