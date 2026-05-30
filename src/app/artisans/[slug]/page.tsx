@@ -133,9 +133,11 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
-            marginTop: artisan.avatarUrl ? -48 : 0,
+            marginTop: artisan.avatarUrl ? -64 : 0,
             paddingTop: artisan.avatarUrl ? 0 : 40,
             marginBottom: 48,
+            position: "relative",
+            zIndex: 2,
           }}>
             {artisan.avatarUrl && (
               <div style={{
