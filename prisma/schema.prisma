@@ -577,6 +577,7 @@ model Artisan {
   practicingSince Int?
   letterToBuyer   String?
   socialLinks     Json?
+  featuredPosts   Json?           // { instagram: string[], tiktok: string[], displayCount: number }
   metaTitle       String?
   metaDescription String?
   isFeatured      Boolean              @default(false)

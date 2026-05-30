@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
         practicingSince: body.practicingSince ? parseInt(body.practicingSince) : null,
         letterToBuyer: body.letterToBuyer ?? null,
         socialLinks: body.socialLinks ?? null,
+        featuredPosts: body.featuredPosts ?? null,
         metaTitle: body.metaTitle ?? null,
         metaDescription: body.metaDescription ?? null,
         isFeatured: body.isFeatured ?? false,

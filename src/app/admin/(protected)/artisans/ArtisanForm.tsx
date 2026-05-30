@@ -21,6 +21,7 @@ export interface ArtisanData {
   practicingSince?: number | null;
   letterToBuyer?: string;
   socialLinks?: { instagram?: string; facebook?: string; tiktok?: string; youtube?: string; website?: string } | null;
+  featuredPosts?: { instagram?: string[]; tiktok?: string[]; displayCount?: number } | null;
   metaTitle?: string;
   metaDescription?: string;
   isFeatured?: boolean;
@@ -77,6 +78,9 @@ export default function ArtisanForm({ artisan }: Props) {
   const [socialTiktok, setSocialTiktok] = useState(artisan?.socialLinks?.tiktok ?? "");
   const [socialYoutube, setSocialYoutube] = useState(artisan?.socialLinks?.youtube ?? "");
   const [socialWebsite, setSocialWebsite] = useState(artisan?.socialLinks?.website ?? "");
+  const [featuredInstagram, setFeaturedInstagram] = useState<string[]>(artisan?.featuredPosts?.instagram ?? []);
+  const [featuredTiktok, setFeaturedTiktok] = useState<string[]>(artisan?.featuredPosts?.tiktok ?? []);
+  const [displayCount, setDisplayCount] = useState(artisan?.featuredPosts?.displayCount ?? 6);
   const [metaTitle, setMetaTitle] = useState(artisan?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(artisan?.metaDescription ?? "");
   const [isFeatured, setIsFeatured] = useState(artisan?.isFeatured ?? false);
@@ -171,6 +175,11 @@ export default function ArtisanForm({ artisan }: Props) {
       originCountry, city, region, craft,
       practicingSince: practicingSince || null,
       letterToBuyer,
+      featuredPosts: {
+        instagram: featuredInstagram.filter(Boolean),
+        tiktok: featuredTiktok.filter(Boolean),
+        displayCount,
+      },
       socialLinks: {
         instagram: socialInstagram || undefined,
         facebook: socialFacebook || undefined,
@@ -369,6 +378,53 @@ export default function ArtisanForm({ artisan }: Props) {
                   <input value={value} onChange={e => set(e.target.value)} style={inputStyle} placeholder={placeholder} type="url" />
                 </div>
               ))}
+            </div>
+
+            {/* Featured Social Posts */}
+            <div style={sectionCard}>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 8px" }}>Featured Posts</h2>
+              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 16px" }}>
+                Paste Instagram or TikTok post URLs to display as a beautiful grid on the artisan&apos;s profile. One URL per line.
+              </p>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>Instagram Post URLs</label>
+                <textarea
+                  value={featuredInstagram.join("\n")}
+                  onChange={e => setFeaturedInstagram(e.target.value.split("\n").map(s => s.trim()).filter(Boolean))}
+                  style={{ ...inputStyle, minHeight: 80, resize: "vertical", fontFamily: "monospace", fontSize: 12 }}
+                  placeholder="https://www.instagram.com/p/ABC123/&#10;https://www.instagram.com/p/DEF456/"
+                />
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "4px 0 0" }}>
+                  {featuredInstagram.filter(Boolean).length} URL{featuredInstagram.filter(Boolean).length !== 1 ? "s" : ""} added
+                  {featuredInstagram.filter(Boolean).length > 0 && " · Requires Facebook App Token in Vercel env (FACEBOOK_APP_TOKEN) for thumbnails"}
+                </p>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelStyle}>TikTok Post URLs</label>
+                <textarea
+                  value={featuredTiktok.join("\n")}
+                  onChange={e => setFeaturedTiktok(e.target.value.split("\n").map(s => s.trim()).filter(Boolean))}
+                  style={{ ...inputStyle, minHeight: 80, resize: "vertical", fontFamily: "monospace", fontSize: 12 }}
+                  placeholder="https://www.tiktok.com/@username/video/123456/"
+                />
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "4px 0 0" }}>
+                  {featuredTiktok.filter(Boolean).length} URL{featuredTiktok.filter(Boolean).length !== 1 ? "s" : ""} added · TikTok thumbnails work without any token
+                </p>
+              </div>
+              <div>
+                <label style={labelStyle}>Posts to display</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={displayCount}
+                  onChange={e => setDisplayCount(Math.max(1, Math.min(24, parseInt(e.target.value) || 6)))}
+                  style={{ ...inputStyle, width: 80 }}
+                />
+                <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", marginLeft: 8 }}>
+                  max 24
+                </span>
+              </div>
             </div>
 
             {/* SEO */}

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import Image from "next/image";
 import ProductCard from "@/components/ProductCard";
+import ArtisanSocialPosts from "@/components/ArtisanSocialPosts";
 import type { Metadata } from "next";
 
 interface PageProps {
@@ -244,6 +245,23 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
             </div>
           </section>
         )}
+
+        {/* Featured Social Posts */}
+        {(() => {
+          const fp = artisan.featuredPosts as { instagram?: string[]; tiktok?: string[]; displayCount?: number } | null;
+          const igUrls = fp?.instagram ?? [];
+          const ttUrls = fp?.tiktok ?? [];
+          const count = fp?.displayCount ?? 6;
+          if (igUrls.length === 0 && ttUrls.length === 0) return null;
+          return (
+            <ArtisanSocialPosts
+              instagramUrls={igUrls}
+              tiktokUrls={ttUrls}
+              displayCount={count}
+              artisanName={artisan.name}
+            />
+          );
+        })()}
 
         {/* Their Work */}
         {activeProducts.length > 0 && (
