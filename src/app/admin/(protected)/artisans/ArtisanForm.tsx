@@ -166,7 +166,6 @@ export default function ArtisanForm({ artisan }: Props) {
     hero: !!heroImageUrl,
     avatar: !!avatarUrl,
     story: story.replace(/<[^>]+>/g, "").trim().length > 50,
-    gallery: images.length >= 1,
     city: !!city,
   };
   const checklistPassed = Object.values(checklist).every(Boolean);
@@ -567,8 +566,7 @@ export default function ArtisanForm({ artisan }: Props) {
                 { label: "Hero image", done: checklist.hero },
                 { label: "Portrait photo", done: checklist.avatar },
                 { label: "Story written", done: checklist.story },
-                { label: "Gallery photo", done: checklist.gallery },
-                { label: "City / origin set", done: checklist.city },
+{ label: "City / origin set", done: checklist.city },
               ].map(({ label, done }) => (
                 <div key={label} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <span style={{ fontSize: 14, color: done ? "#27ae60" : "#c9b99a" }}>{done ? "✓" : "○"}</span>
