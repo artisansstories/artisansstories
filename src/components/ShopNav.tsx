@@ -87,8 +87,8 @@ export default function ShopNav() {
       <div style={{
         maxWidth: 1280,
         margin: "0 auto",
-        padding: "0 20px",
-        height: 68,
+        padding: "8px 20px",
+        minHeight: 80,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
