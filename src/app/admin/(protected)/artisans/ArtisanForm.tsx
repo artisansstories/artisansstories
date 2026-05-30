@@ -23,6 +23,7 @@ export interface ArtisanData {
   socialLinks?: { instagram?: string; facebook?: string; tiktok?: string; youtube?: string; website?: string } | null;
   featuredPosts?: { instagram?: string[]; tiktok?: string[]; displayCount?: number } | null;
   showGallery?: boolean;
+  socialEmbedCode?: string | null;
   socialLinksVisible?: { instagram?: boolean; facebook?: boolean; tiktok?: boolean; youtube?: boolean; website?: boolean } | null;
   metaTitle?: string;
   metaDescription?: string;
@@ -84,6 +85,7 @@ export default function ArtisanForm({ artisan }: Props) {
   const [featuredTiktok, setFeaturedTiktok] = useState<string[]>(artisan?.featuredPosts?.tiktok ?? []);
   const [displayCount, setDisplayCount] = useState(artisan?.featuredPosts?.displayCount ?? 6);
   const [showGallery, setShowGallery] = useState(artisan?.showGallery ?? true);
+  const [socialEmbedCode, setSocialEmbedCode] = useState(artisan?.socialEmbedCode ?? "");
   const [slvInstagram, setSlvInstagram] = useState(artisan?.socialLinksVisible?.instagram ?? true);
   const [slvFacebook, setSlvFacebook] = useState(artisan?.socialLinksVisible?.facebook ?? true);
   const [slvTiktok, setSlvTiktok] = useState(artisan?.socialLinksVisible?.tiktok ?? true);
@@ -189,6 +191,7 @@ export default function ArtisanForm({ artisan }: Props) {
         displayCount,
       },
       showGallery,
+      socialEmbedCode: socialEmbedCode || null,
       socialLinksVisible: {
         instagram: slvInstagram,
         facebook: slvFacebook,
@@ -353,10 +356,29 @@ export default function ArtisanForm({ artisan }: Props) {
             <div style={sectionCard}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0 }}>Photo Gallery</h2>
-                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#5a4a38" }}>
-                  <input type="checkbox" checked={showGallery} onChange={e => setShowGallery(e.target.checked)} />
-                  Show on profile
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowGallery(!showGallery)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    background: showGallery ? "rgba(39,174,96,0.08)" : "rgba(154,135,110,0.1)",
+                    border: `1px solid ${showGallery ? "rgba(39,174,96,0.3)" : "#e0d5c5"}`,
+                    borderRadius: 6, padding: "4px 12px", cursor: "pointer",
+                    fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 600,
+                    color: showGallery ? "#1a8a4a" : "#9a876e",
+                  }}
+                >
+                  {showGallery ? (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+                    </svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>
+                    </svg>
+                  )}
+                  {showGallery ? "Shown on profile" : "Hidden from profile"}
+                </button>
               </div>
               {images.length > 0 && (
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
@@ -398,14 +420,67 @@ export default function ArtisanForm({ artisan }: Props) {
                 <div key={label} style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                     <label style={{ ...labelStyle, margin: 0 }}>{label}</label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 12, color: visible ? "#27ae60" : "#9a876e" }}>
-                      <input type="checkbox" checked={visible} onChange={e => setVisible(e.target.checked)} />
-                      {visible ? "Visible on profile" : "Hidden"}
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setVisible(!visible)}
+                      title={visible ? "Shown on profile — click to hide" : "Hidden from profile — click to show"}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 5,
+                        background: visible ? "rgba(39,174,96,0.08)" : "rgba(154,135,110,0.1)",
+                        border: `1px solid ${visible ? "rgba(39,174,96,0.3)" : "#e0d5c5"}`,
+                        borderRadius: 6, padding: "3px 9px", cursor: "pointer",
+                        fontFamily: "'Inter', sans-serif", fontSize: 11, fontWeight: 600,
+                        color: visible ? "#1a8a4a" : "#9a876e",
+                      }}
+                    >
+                      {visible ? (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      ) : (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>
+                        </svg>
+                      )}
+                      {visible ? "Shown" : "Hidden"}
+                    </button>
                   </div>
-                  <input value={value} onChange={e => set(e.target.value)} style={{ ...inputStyle, opacity: visible ? 1 : 0.5 }} placeholder={placeholder} type="url" />
+                  <input value={value} onChange={e => set(e.target.value)} style={{ ...inputStyle, opacity: visible ? 1 : 0.45 }} placeholder={placeholder} type="url" />
                 </div>
               ))}
+            </div>
+
+            {/* Auto Social Feed — embed code */}
+            <div style={sectionCard}>
+              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 8px" }}>
+                Auto Social Feed
+              </h2>
+              <div style={{ background: "rgba(139,105,20,0.06)", border: "1px solid rgba(139,105,20,0.2)", borderRadius: 8, padding: "12px 14px", marginBottom: 16 }}>
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, color: "#5a4a38", margin: "0 0 6px" }}>
+                  ✨ Recommended: Behold.so (free, auto-updates)
+                </p>
+                <ol style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#6b5540", margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
+                  <li>Go to <strong>behold.so</strong> → Sign up free</li>
+                  <li>Connect Instagram account → Create a feed</li>
+                  <li>Customize: grid layout, number of posts, style</li>
+                  <li>Copy the embed code → paste below</li>
+                </ol>
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "8px 0 0" }}>
+                  Any widget embed code works — Behold, Elfsight, Curator.io, etc. Posts auto-update without touching the site.
+                </p>
+              </div>
+              <label style={labelStyle}>Embed Code</label>
+              <textarea
+                value={socialEmbedCode}
+                onChange={e => setSocialEmbedCode(e.target.value)}
+                style={{ ...inputStyle, minHeight: 100, resize: "vertical", fontFamily: "monospace", fontSize: 11 }}
+                placeholder={`<div id="behold-widget" ...></div>\n<script ...></script>`}
+              />
+              {socialEmbedCode && (
+                <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#27ae60", margin: "6px 0 0" }}>
+                  ✓ Embed code saved — will render on profile below the gallery
+                </p>
+              )}
             </div>
 
             {/* Featured Social Posts */}

@@ -579,6 +579,7 @@ model Artisan {
   socialLinks     Json?
   featuredPosts      Json?        // { instagram: string[], tiktok: string[], displayCount: number }
   showGallery        Boolean           @default(true)
+  socialEmbedCode    String?           // Paste embed code from Behold.so or similar
   socialLinksVisible Json?             // { instagram: bool, facebook: bool, tiktok: bool, youtube: bool, website: bool }
   metaTitle          String?
   metaDescription String?

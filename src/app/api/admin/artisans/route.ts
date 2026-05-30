@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
         socialLinks: body.socialLinks ?? null,
         featuredPosts: body.featuredPosts ?? null,
         showGallery: body.showGallery ?? true,
+        socialEmbedCode: body.socialEmbedCode ?? null,
         socialLinksVisible: body.socialLinksVisible ?? null,
         metaTitle: body.metaTitle ?? null,
         metaDescription: body.metaDescription ?? null,
