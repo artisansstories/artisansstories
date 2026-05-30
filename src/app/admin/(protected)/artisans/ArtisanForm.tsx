@@ -424,7 +424,8 @@ export default function ArtisanForm({ artisan }: Props) {
                 />
                 <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "4px 0 0" }}>
                   {featuredInstagram.filter(Boolean).length} URL{featuredInstagram.filter(Boolean).length !== 1 ? "s" : ""} added
-                  {featuredInstagram.filter(Boolean).length > 0 && " · Requires Facebook App Token in Vercel env (FACEBOOK_APP_TOKEN) for thumbnails"}
+                  {" · "}<strong>Post URLs</strong> (instagram.com/p/... or /reel/...) show native embeds.
+                  Profile URLs (instagram.com/username) show a follow button.
                 </p>
               </div>
               <div style={{ marginBottom: 14 }}>
