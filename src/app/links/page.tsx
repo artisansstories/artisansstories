@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import TrackedLink from "@/components/TrackedLink";
 
 // Force dynamic rendering - links can change anytime
 export const dynamic = 'force-dynamic';
@@ -111,25 +112,17 @@ export default async function LinktreePage() {
         )}
 
         {/* Links */}
-        <div className="space-y-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {links.map((link) => (
-            <a
+            <TrackedLink
               key={link.id}
+              linkId={link.id}
               href={link.url}
-              target="_blank"
-              rel="noopener noreferrer"
-
-              className="block w-full p-4 rounded-lg text-center font-medium transition-transform hover:scale-105 shadow-md"
-              style={{
-                backgroundColor: settings.buttonColor,
-                color: "#ffffff",
-              }}
-            >
-              <div className="text-lg">{link.title}</div>
-              {link.description && (
-                <div className="text-sm opacity-90 mt-1">{link.description}</div>
-              )}
-            </a>
+              buttonColor={settings.buttonColor}
+              icon={link.icon}
+              title={link.title}
+              description={link.description}
+            />
           ))}
         </div>
 

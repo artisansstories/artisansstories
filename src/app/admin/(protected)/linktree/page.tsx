@@ -427,17 +427,26 @@ export default function LinkTreeAdmin() {
   const [editingLink, setEditingLink] = useState<Link | null>(null);
   const [showNewLinkForm, setShowNewLinkForm] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [analytics, setAnalytics] = useState<{
+    totalAllTime: number;
+    linkClicks: Array<{ id: string; title: string; icon: string; clicks: string; recent_clicks: string }>;
+    dailyTotals: Array<{ date: string; clicks: string }>;
+    recentLog: Array<{ id: string; clickedAt: string; linkTitle: string; linkIcon: string; referrer: string | null }>;
+  } | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
-      const [settingsRes, linksRes] = await Promise.all([
+      const [settingsRes, linksRes, analyticsRes] = await Promise.all([
         fetch("/api/admin/linktree/settings"),
         fetch("/api/admin/linktree/links"),
+        fetch("/api/admin/linktree/analytics"),
       ]);
       const settingsData = await settingsRes.json();
       const linksData = await linksRes.json();
+      const analyticsData = await analyticsRes.json().catch(() => null);
+      if (analyticsData && !analyticsData.error) setAnalytics(analyticsData);
       if (settingsData.settings) setSettings(settingsData.settings);
       setLinks(linksData.links || []);
     } catch (error) {
@@ -849,12 +858,69 @@ export default function LinkTreeAdmin() {
             </div>
           </div>
 
-          {/* ── Right column: phone preview ─────────────────────────────────── */}
-          <div style={{ flex: 1, minWidth: 0, position: "sticky", top: 24 }}>
-            <div style={{ marginBottom: 12, textAlign: "center" }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live Preview</span>
+          {/* ── Right column: analytics + phone preview ───────────────────── */}
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Analytics Panel */}
+            {analytics && (
+              <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: C.textDark }}>📊 Click Analytics</span>
+                  <span style={{ fontSize: 12, color: C.textLight }}>{analytics.totalAllTime} total clicks</span>
+                </div>
+
+                {/* Per-link counts */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                  {analytics.linkClicks.length === 0 ? (
+                    <p style={{ fontSize: 12, color: C.textLight, textAlign: "center", padding: "8px 0" }}>No clicks yet</p>
+                  ) : analytics.linkClicks.map(lk => (
+                    <div key={lk.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {lk.icon && <span style={{ fontSize: 14 }}>{lk.icon}</span>}
+                      <span style={{ flex: 1, fontSize: 12, color: C.textDark, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lk.title}</span>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "rgba(139,105,20,0.1)", color: C.gold, fontWeight: 600 }}>
+                          {lk.clicks} total
+                        </span>
+                        <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#f0ece6", color: C.textMid }}>
+                          {lk.recent_clicks} this week
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Recent click log */}
+                {analytics.recentLog.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Recent Activity</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto" }}>
+                      {analytics.recentLog.map(log => (
+                        <div key={log.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: C.textMid }}>
+                          <span style={{ flexShrink: 0 }}>{log.linkIcon ?? "🔗"}</span>
+                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.linkTitle}</span>
+                          <span style={{ flexShrink: 0, color: C.textLight }}>
+                            {new Date(log.clickedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          {log.referrer && (
+                            <span style={{ flexShrink: 0, color: C.textLight, maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={log.referrer}>
+                              ← {log.referrer.replace(/https?:\/\/(www\.)?/, "").split("/")[0]}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Phone preview */}
+            <div style={{ position: "sticky", top: 24 }}>
+              <div style={{ marginBottom: 12, textAlign: "center" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: C.textLight, textTransform: "uppercase", letterSpacing: "0.08em" }}>Live Preview</span>
+              </div>
+              <PhonePreview settings={settings} links={links} />
             </div>
-            <PhonePreview settings={settings} links={links} />
           </div>
         </div>
       </div>

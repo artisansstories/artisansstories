@@ -627,3 +627,28 @@ model ProductArtisan {
 
   @@id([productId, artisanId])
 }
+
+// ─── LINK TREE ─────────────────────────────────────────────────────────────────
+// NOTE: Managed via raw SQL — schema declaration for documentation only.
+
+model LinkTreeSettings {
+  id              String   @id @default("singleton")
+  title           String   @default("Link Hub")
+  description     String?
+  logoUrl         String?
+  backgroundStyle String?  @default("warm")
+  buttonStyle     String?  @default("rounded")
+  primaryColor    String?  @default("#8B6914")
+  updatedAt       DateTime @updatedAt
+}
+
+model LinkTreeLink {
+  id          String   @id @default(cuid())
+  title       String
+  url         String
+  description String?
+  icon        String?
+  isEnabled   Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
