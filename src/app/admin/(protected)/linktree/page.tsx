@@ -1,8 +1,110 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import Image from "next/image";
+
+// ─── Icon Picker ─────────────────────────────────────────────────────────────
+const ICON_GROUPS = [
+  { label: "Store & Shop", icons: ["🛍️","🛒","🏪","💰","💳","🎁","📦","🏷️","💎","✨"] },
+  { label: "Social & Connect", icons: ["📱","💬","📸","🎥","🎵","🎶","📣","📢","🔔","📧"] },
+  { label: "Artisan & Craft", icons: ["🧵","✂️","🧶","🪡","🎨","🖌️","🪢","💍","📿","🌸"] },
+  { label: "Nature & Place", icons: ["🌍","🌎","🌱","🌿","🍃","🌺","⭐","🌟","💫","🕊️"] },
+  { label: "Actions & Links", icons: ["🔗","👉","▶️","📖","📝","📌","🗓️","🏠","ℹ️","❤️"] },
+];
+
+function IconPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [activeGroup, setActiveGroup] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: "100%", padding: "9px 12px", border: "1.5px solid #e0d5c5",
+          borderRadius: 8, background: "#faf7f2", cursor: "pointer",
+          fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#3a2e24",
+          textAlign: "left", display: "flex", alignItems: "center", gap: 8,
+        }}
+      >
+        {value ? (
+          <><span style={{ fontSize: 20 }}>{value}</span><span style={{ color: "#9a876e", fontSize: 12 }}>Click to change</span></>
+        ) : (
+          <span style={{ color: "#c9b99a" }}>Choose an icon…</span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 200,
+          background: "#fff", border: "1.5px solid #e0d5c5", borderRadius: 12,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.14)", width: 300, overflow: "hidden",
+        }}>
+          {/* Group tabs */}
+          <div style={{ display: "flex", borderBottom: "1px solid #f0ece4", overflowX: "auto" }}>
+            {ICON_GROUPS.map((g, i) => (
+              <button
+                key={g.label}
+                type="button"
+                onClick={() => setActiveGroup(i)}
+                style={{
+                  padding: "8px 10px", border: "none", background: activeGroup === i ? "#faf7f2" : "transparent",
+                  borderBottom: activeGroup === i ? "2px solid #8B6914" : "2px solid transparent",
+                  cursor: "pointer", fontFamily: "'Inter', sans-serif", fontSize: 10, fontWeight: 600,
+                  color: activeGroup === i ? "#8B6914" : "#9a876e", whiteSpace: "nowrap",
+                }}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+          {/* Icons grid */}
+          <div style={{ padding: 12, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+            {ICON_GROUPS[activeGroup].icons.map(icon => (
+              <button
+                key={icon}
+                type="button"
+                onClick={() => { onChange(icon); setOpen(false); }}
+                style={{
+                  fontSize: 22, padding: 8, border: "1.5px solid",
+                  borderColor: value === icon ? "#8B6914" : "transparent",
+                  borderRadius: 8, background: value === icon ? "rgba(139,105,20,0.08)" : "transparent",
+                  cursor: "pointer", transition: "background 0.1s",
+                }}
+                onMouseEnter={e => { if (value !== icon) (e.currentTarget as HTMLElement).style.background = "#f5f0e8"; }}
+                onMouseLeave={e => { if (value !== icon) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                title={icon}
+              >
+                {icon}
+              </button>
+            ))}
+          </div>
+          {/* Custom input fallback */}
+          <div style={{ padding: "8px 12px 12px", borderTop: "1px solid #f0ece4" }}>
+            <input
+              type="text"
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              placeholder="Or type any emoji…"
+              style={{ width: "100%", padding: "6px 10px", border: "1px solid #e0d5c5", borderRadius: 6, fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#3a2e24", boxSizing: "border-box" }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Palette ────────────────────────────────────────────────────────────────
 const C = {
@@ -164,7 +266,7 @@ function LinkForm({
           </div>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.textMid, marginBottom: 4 }}>Icon / Emoji</label>
-            <input type="text" value={icon} onChange={(e) => setIcon(e.target.value)} style={inputStyle} placeholder="e.g. 🛍️" />
+            <IconPicker value={icon} onChange={setIcon} />
           </div>
         </div>
         <div>
