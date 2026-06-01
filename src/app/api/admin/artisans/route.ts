@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
         isFeatured: body.isFeatured ?? false,
       },
     });
+    revalidatePath("/artisans");
+    revalidatePath("/");
     return NextResponse.json({ artisan });
   } catch (err) {
     console.error("[POST /api/admin/artisans]", err);

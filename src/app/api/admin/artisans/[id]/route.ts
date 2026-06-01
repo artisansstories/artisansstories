@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdminSession } from "@/lib/admin-auth";
 
@@ -81,6 +82,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       where: { id },
       include: { images: { orderBy: { position: "asc" } }, products: true },
     });
+
+    // Bust Next.js cache so changes show immediately on the live site
+    revalidatePath("/artisans");
+    if (updated?.slug) revalidatePath(`/artisans/${updated.slug}`);
+    revalidatePath("/");
+
     return NextResponse.json({ artisan: updated });
   } catch (err) {
     console.error("[PUT /api/admin/artisans/[id]]", err);
