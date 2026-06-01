@@ -168,8 +168,8 @@ export default function ArtisanForm({ artisan }: Props) {
   };
   const checklistPassed = Object.values(checklist).every(Boolean);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent | React.MouseEvent) {
+    e?.preventDefault();
     if (status === "ACTIVE" && !checklistPassed) {
       showToast("Complete the profile checklist before publishing", true);
       return;
@@ -230,7 +230,7 @@ export default function ArtisanForm({ artisan }: Props) {
               View Profile ↗
             </a>
           )}
-          <button onClick={handleSubmit} disabled={saving} style={{ padding: "10px 24px", background: saving ? "#c9b99a" : "#8B6914", border: "none", borderRadius: 8, color: "#fff", fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}>
+          <button type="button" onClick={handleSubmit} disabled={saving} style={{ padding: "10px 24px", background: saving ? "#c9b99a" : "#8B6914", border: "none", borderRadius: 8, color: "#fff", fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer" }}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -313,6 +313,7 @@ export default function ArtisanForm({ artisan }: Props) {
                 <input
                   value={storyLabel}
                   onChange={e => setStoryLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }}
                   style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0, border: "none", borderBottom: "1.5px dashed #c9b99a", outline: "none", background: "transparent", padding: "0 0 2px", width: "auto", minWidth: 120 }}
                   placeholder="Their Story"
                 />
