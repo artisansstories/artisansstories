@@ -24,3 +24,21 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ── Rich Text Editor / rendered story content ─────────────────────────────── */
+.rte-content { outline: none; font-family: 'Inter', sans-serif; font-size: 14px; color: #3a2e24; line-height: 1.7; }
+.rte-content p { margin: 0 0 0.75em; }
+.rte-content p:last-child { margin-bottom: 0; }
+.rte-content h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.3em; font-weight: 600; color: #2a1f14; margin: 0.8em 0 0.4em; }
+.rte-content h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.1em; font-weight: 600; color: #2a1f14; margin: 0.7em 0 0.3em; }
+.rte-content ul { padding-left: 1.4em; margin: 0.5em 0; list-style-type: disc; }
+.rte-content ol { padding-left: 1.4em; margin: 0.5em 0; list-style-type: decimal; }
+.rte-content li { margin-bottom: 0.25em; display: list-item; }
+.rte-content strong { font-weight: 600; color: #2a1f14; }
+.rte-content em { font-style: italic; }
+.rte-content blockquote { border-left: 3px solid #8B6914; margin: 0.75em 0; padding: 0.5em 1em; color: #7a6a55; background: rgba(139,105,20,0.04); border-radius: 0 6px 6px 0; }
+.rte-content a.rte-link { color: #8B6914; text-decoration: underline; }
+.tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #bba98a; pointer-events: none; float: left; height: 0; font-style: italic; }
+
+/* Profile page story — larger font than admin editor */
+.rte-content-display { font-size: 16px; line-height: 1.8; }

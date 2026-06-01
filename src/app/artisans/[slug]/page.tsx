@@ -210,8 +210,8 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
                 {(artisan as unknown as { storyLabel?: string | null }).storyLabel || "Their Story"}
               </h2>
               <div
-                className="rte-content"
-                style={{ fontFamily: "'Inter', sans-serif", fontSize: 16, color: "#5a4a38", lineHeight: 1.8 }}
+                className="rte-content rte-content-display"
+                style={{ color: "#5a4a38" }}
                 dangerouslySetInnerHTML={{ __html: artisan.story }}
               />
             </section>
