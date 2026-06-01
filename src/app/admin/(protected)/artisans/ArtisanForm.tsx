@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import dynamic from "next/dynamic";
+
+const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { ssr: false });
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -72,9 +75,7 @@ export default function ArtisanForm({ artisan }: Props) {
   const [avatarUrl, setAvatarUrl] = useState(artisan?.avatarUrl ?? "");
   const [originCountry, setOriginCountry] = useState(artisan?.originCountry ?? "El Salvador");
   const [city, setCity] = useState(artisan?.city ?? "");
-  const [region, setRegion] = useState(artisan?.region ?? "");
   const [craft, setCraft] = useState(artisan?.craft ?? "");
-  const [practicingSince, setPracticingSince] = useState(artisan?.practicingSince ? String(artisan.practicingSince) : "");
   const [letterToBuyer, setLetterToBuyer] = useState(artisan?.letterToBuyer ?? "");
   const [socialInstagram, setSocialInstagram] = useState(artisan?.socialLinks?.instagram ?? "");
   const [socialFacebook, setSocialFacebook] = useState(artisan?.socialLinks?.facebook ?? "");
@@ -177,8 +178,7 @@ export default function ArtisanForm({ artisan }: Props) {
       name, slug: slug || autoSlug(name), status, tagline, quote, story,
       heroImageUrl: heroImageUrl || null,
       avatarUrl: avatarUrl || null,
-      originCountry, city, region, craft,
-      practicingSince: practicingSince || null,
+      originCountry, city, craft,
       letterToBuyer,
       showGallery,
       socialLinksVisible: {
@@ -269,16 +269,7 @@ export default function ArtisanForm({ artisan }: Props) {
                   <input value={city} onChange={e => setCity(e.target.value)} style={inputStyle} placeholder="San Salvador" />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={labelStyle}>Region / State</label>
-                  <input value={region} onChange={e => setRegion(e.target.value)} style={inputStyle} placeholder="Cabañas" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Practicing Since (year)</label>
-                  <input value={practicingSince} onChange={e => setPracticingSince(e.target.value)} style={inputStyle} placeholder="2002" type="number" min="1900" max="2099" />
-                </div>
-              </div>
+
             </div>
 
             {/* Hero Image */}
@@ -317,13 +308,24 @@ export default function ArtisanForm({ artisan }: Props) {
 
             {/* Story */}
             <div style={sectionCard}>
-              <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Their Story</h2>
-              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 10px" }}>Supports HTML. Paste markdown-style content or write directly. This is the main narrative shown on their profile page.</p>
-              <textarea
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12 }}>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0 }}>Their Story</h2>
+                {!story && (
+                  <button
+                    type="button"
+                    onClick={() => setStory(`<p>${name || "This artisan"} has been crafting handmade goods for over two decades, pouring generations of tradition into every piece.</p>\n<p>Each creation begins with carefully selected materials, shaped by hands that have mastered the craft through years of dedication.</p>\n<p>Their work reflects the rich cultural heritage of El Salvador — vibrant, enduring, and made with heart.</p>`)}
+                    style={{ flexShrink: 0, padding: "6px 12px", background: "rgba(139,105,20,0.08)", border: "1px solid rgba(139,105,20,0.3)", borderRadius: 6, color: "#8B6914", fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    ✦ Seed suggestion
+                  </button>
+                )}
+              </div>
+              <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 10px" }}>The main narrative shown on their profile page. Supports bold, lists, headings, and more.</p>
+              <RichTextEditor
                 value={story}
-                onChange={e => setStory(e.target.value)}
-                style={{ ...inputStyle, minHeight: 200, resize: "vertical", lineHeight: 1.6 }}
+                onChange={setStory}
                 placeholder="Rosa Maria has been crafting wire-wrapped jewelry for over two decades..."
+                minHeight={220}
               />
             </div>
 
