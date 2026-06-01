@@ -65,7 +65,11 @@ export default function RichTextEditor({
   const [showMarkdownInput, setShowMarkdownInput] = useState(false);
   const [mdText, setMdText] = useState("");
 
-  const internalChange = useRef(false);
+  // Tracks the exact HTML we last emitted to the parent via onChange.
+  // When the `value` prop comes back matching this, it's just the parent
+  // echoing our own edit — so we must NOT reset the editor. We only call
+  // setContent for genuine external changes (seed button, form reset).
+  const lastEmitted = useRef<string>(resolvedValue);
 
   const editor = useEditor({
     extensions: [
@@ -75,22 +79,20 @@ export default function RichTextEditor({
     ],
     content: resolvedValue || "",
     onUpdate: ({ editor }) => {
-      internalChange.current = true;
-      const html = editor.getHTML();
-      onChange(html === "<p></p>" ? "" : html);
+      const raw = editor.getHTML();
+      const html = raw === "<p></p>" ? "" : raw;
+      lastEmitted.current = html;
+      onChange(html);
     },
   });
 
-  // Only sync external value changes (e.g. seed button, form reset) — never when the editor itself typed
+  // Sync external value changes (seed button, form reset) into the editor.
+  // Skip when the incoming value is just the parent echoing back our own
+  // last-emitted edit — that prevents resetting the editor while typing.
   useEffect(() => {
     if (!editor) return;
-    if (internalChange.current) {
-      internalChange.current = false;
-      return;
-    }
-    const current = editor.getHTML();
-    const normalized = current === "<p></p>" ? "" : current;
-    if (resolvedValue !== current && resolvedValue !== normalized) {
+    if (resolvedValue !== lastEmitted.current) {
+      lastEmitted.current = resolvedValue;
       editor.commands.setContent(resolvedValue || "");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -100,6 +102,7 @@ export default function RichTextEditor({
     if (!mdText.trim() || !editor) return;
     const { marked } = await import("marked");
     const html = await marked(mdText, { breaks: true });
+    lastEmitted.current = html;
     editor.commands.setContent(html);
     onChange(html);
     setMdText("");
