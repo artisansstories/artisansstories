@@ -31,6 +31,7 @@ export interface ArtisanData {
   metaTitle?: string;
   metaDescription?: string;
   isFeatured?: boolean;
+  storyLabel?: string | null;
   images?: ArtisanImageData[];
 }
 
@@ -71,7 +72,7 @@ export default function ArtisanForm({ artisan }: Props) {
   const [tagline, setTagline] = useState(artisan?.tagline ?? "");
   const [quote, setQuote] = useState(artisan?.quote ?? "");
   const [story, setStory] = useState(artisan?.story ?? "");
-  const [storyLabel, setStoryLabel] = useState("Their Story");
+  const [storyLabel, setStoryLabel] = useState(artisan?.storyLabel ?? "Their Story");
   const [heroImageUrl, setHeroImageUrl] = useState(artisan?.heroImageUrl ?? "");
   const [avatarUrl, setAvatarUrl] = useState(artisan?.avatarUrl ?? "");
   const [originCountry, setOriginCountry] = useState(artisan?.originCountry ?? "El Salvador");
@@ -198,6 +199,7 @@ export default function ArtisanForm({ artisan }: Props) {
         youtube: socialYoutube || undefined,
         website: socialWebsite || undefined,
       },
+      storyLabel: storyLabel || "Their Story",
       metaTitle, metaDescription, isFeatured,
       images: images.map((img, i) => ({ ...img, position: i })),
     };

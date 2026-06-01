@@ -207,7 +207,7 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
           {artisan.story && (
             <section style={{ marginBottom: 64 }}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "clamp(24px, 4vw, 36px)", fontWeight: 600, color: "#3a2e24", marginBottom: 20 }}>
-                Their Story
+                {(artisan as unknown as { storyLabel?: string | null }).storyLabel || "Their Story"}
               </h2>
               <div
                 className="rte-content"

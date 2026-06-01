@@ -568,6 +568,7 @@ model Artisan {
   tagline         String?
   quote           String?
   story           String?
+  storyLabel      String?           // Editable heading for the story section (default: "Their Story")
   heroImageUrl    String?
   avatarUrl       String?
   originCountry   String               @default("El Salvador")

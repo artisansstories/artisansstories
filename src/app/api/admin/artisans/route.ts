@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
         showGallery: body.showGallery ?? true,
         socialEmbedCode: body.socialEmbedCode ?? null,
         socialLinksVisible: body.socialLinksVisible ?? null,
+        storyLabel: body.storyLabel ?? null,
         metaTitle: body.metaTitle ?? null,
         metaDescription: body.metaDescription ?? null,
         isFeatured: body.isFeatured ?? false,

@@ -40,6 +40,7 @@ export default async function EditArtisanPage({ params }: PageProps) {
     metaTitle: artisan.metaTitle ?? undefined,
     metaDescription: artisan.metaDescription ?? undefined,
     isFeatured: artisan.isFeatured,
+    storyLabel: (artisan as unknown as { storyLabel?: string | null }).storyLabel ?? null,
     images: artisan.images.map((img) => ({
       id: img.id,
       url: img.url,
