@@ -71,6 +71,7 @@ export default function ArtisanForm({ artisan }: Props) {
   const [tagline, setTagline] = useState(artisan?.tagline ?? "");
   const [quote, setQuote] = useState(artisan?.quote ?? "");
   const [story, setStory] = useState(artisan?.story ?? "");
+  const [storyLabel, setStoryLabel] = useState("Their Story");
   const [heroImageUrl, setHeroImageUrl] = useState(artisan?.heroImageUrl ?? "");
   const [avatarUrl, setAvatarUrl] = useState(artisan?.avatarUrl ?? "");
   const [originCountry, setOriginCountry] = useState(artisan?.originCountry ?? "El Salvador");
@@ -309,7 +310,12 @@ export default function ArtisanForm({ artisan }: Props) {
             {/* Story */}
             <div style={sectionCard}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12 }}>
-                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0 }}>Their Story</h2>
+                <input
+                  value={storyLabel}
+                  onChange={e => setStoryLabel(e.target.value)}
+                  style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0, border: "none", borderBottom: "1.5px dashed #c9b99a", outline: "none", background: "transparent", padding: "0 0 2px", width: "auto", minWidth: 120 }}
+                  placeholder="Their Story"
+                />
                 {!story && (
                   <button
                     type="button"
@@ -380,12 +386,6 @@ export default function ArtisanForm({ artisan }: Props) {
                         <button type="button" onClick={() => setImages(prev => prev.filter((_, i) => i !== idx))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
                       </div>
                       <div style={{ padding: "6px 8px" }}>
-                        <select value={img.category ?? "GALLERY"} onChange={e => setImages(prev => { const n = [...prev]; n[idx] = { ...n[idx], category: e.target.value }; return n; })} style={{ width: "100%", fontSize: 10, border: "1px solid #ede8df", borderRadius: 4, padding: "2px 4px", fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>
-                          <option value="GALLERY">Gallery</option>
-                          <option value="WORKSHOP">Workshop</option>
-                          <option value="PROCESS">Process</option>
-                          <option value="PORTRAIT">Portrait</option>
-                        </select>
                         <input value={img.caption ?? ""} onChange={e => setImages(prev => { const n = [...prev]; n[idx] = { ...n[idx], caption: e.target.value }; return n; })} placeholder="Caption…" style={{ width: "100%", fontSize: 10, border: "1px solid #ede8df", borderRadius: 4, padding: "2px 4px", fontFamily: "'Inter', sans-serif", boxSizing: "border-box" }} />
                       </div>
                     </div>
