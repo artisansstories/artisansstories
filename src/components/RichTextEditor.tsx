@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -65,6 +65,8 @@ export default function RichTextEditor({
   const [showMarkdownInput, setShowMarkdownInput] = useState(false);
   const [mdText, setMdText] = useState("");
 
+  const internalChange = useRef(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -73,14 +75,19 @@ export default function RichTextEditor({
     ],
     content: resolvedValue || "",
     onUpdate: ({ editor }) => {
+      internalChange.current = true;
       const html = editor.getHTML();
       onChange(html === "<p></p>" ? "" : html);
     },
   });
 
-  // Sync external value changes (e.g. when form resets)
+  // Only sync external value changes (e.g. seed button, form reset) — never when the editor itself typed
   useEffect(() => {
     if (!editor) return;
+    if (internalChange.current) {
+      internalChange.current = false;
+      return;
+    }
     const current = editor.getHTML();
     const normalized = current === "<p></p>" ? "" : current;
     if (resolvedValue !== current && resolvedValue !== normalized) {
