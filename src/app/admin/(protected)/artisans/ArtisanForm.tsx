@@ -170,7 +170,9 @@ export default function ArtisanForm({ artisan }: Props) {
 
   async function handleSubmit(e?: React.FormEvent | React.MouseEvent) {
     e?.preventDefault();
-    if (status === "ACTIVE" && !checklistPassed) {
+    // Only block if actively switching TO active from draft (not already-active edits)
+    const wasAlreadyActive = artisan?.status === "ACTIVE";
+    if (status === "ACTIVE" && !wasAlreadyActive && !checklistPassed) {
       showToast("Complete the profile checklist before publishing", true);
       return;
     }
@@ -460,8 +462,8 @@ export default function ArtisanForm({ artisan }: Props) {
               <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: "#2a1f14", margin: "0 0 14px" }}>Status</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {(["DRAFT", "ACTIVE"] as const).map((s) => (
-                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 10, cursor: s === "ACTIVE" && !checklistPassed ? "not-allowed" : "pointer", opacity: s === "ACTIVE" && !checklistPassed ? 0.5 : 1 }}>
-                    <input type="radio" name="status" value={s} checked={status === s} onChange={() => { if (s === "ACTIVE" && !checklistPassed) { showToast("Complete the checklist to publish", true); return; } setStatus(s); }} />
+                  <label key={s} style={{ display: "flex", alignItems: "center", gap: 10, cursor: s === "ACTIVE" && !checklistPassed && artisan?.status !== "ACTIVE" ? "not-allowed" : "pointer", opacity: s === "ACTIVE" && !checklistPassed && artisan?.status !== "ACTIVE" ? 0.5 : 1 }}>
+                    <input type="radio" name="status" value={s} checked={status === s} onChange={() => { if (s === "ACTIVE" && !checklistPassed && artisan?.status !== "ACTIVE") { showToast("Complete the checklist to publish", true); return; } setStatus(s); }} />
                     <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500, color: "#3a2e24" }}>
                       {s === "DRAFT" ? "Draft" : "Active (Published)"}
                     </span>
