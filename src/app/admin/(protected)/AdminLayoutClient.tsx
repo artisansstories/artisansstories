@@ -144,7 +144,7 @@ export function AdminLayoutClient({
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ padding: "20px 16px 12px", borderBottom: "1px solid #ede8df" }}>
-          <Image src="/logo-color.png" alt="Artisans' Stories" width={160} height={43} style={{ width: 140, height: "auto" }} unoptimized />
+          <Image src="/logo-color.png" alt="Artisans' Stories" width={320} height={86} style={{ width: 280, height: "auto" }} unoptimized />
           <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 6 }}>Admin Panel</p>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
