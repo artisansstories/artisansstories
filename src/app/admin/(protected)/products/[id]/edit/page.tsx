@@ -12,18 +12,23 @@ export default async function EditProductPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const product = await prisma.product.findUnique({
-    where: { id },
-    include: {
-      categories: { include: { category: true } },
-      images: { orderBy: { position: "asc" } },
-      variants: {
-        orderBy: { position: "asc" },
-        include: { inventory: true },
+  const [product, artisans] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id },
+      include: {
+        categories: { include: { category: true } },
+        images: { orderBy: { position: "asc" } },
+        variants: { orderBy: { position: "asc" }, include: { inventory: true } },
+        options: { orderBy: { position: "asc" } },
+        artisans: { include: { artisan: { select: { id: true, name: true } } } },
       },
-      options: { orderBy: { position: "asc" } },
-    },
-  });
+    }),
+    prisma.artisan.findMany({
+      where: { status: "ACTIVE" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!product) notFound();
 
@@ -41,6 +46,7 @@ export default async function EditProductPage({ params }: PageProps) {
     categoryIds: product.categories.map((c) => c.categoryId),
     tags: product.tags,
     artisanName: product.artisanName ?? "",
+    artisanId: product.artisans?.[0]?.artisan?.id ?? null,
     originCountry: product.originCountry,
     materialsUsed: product.materialsUsed,
     requiresShipping: product.requiresShipping,
@@ -83,5 +89,5 @@ export default async function EditProductPage({ params }: PageProps) {
     })),
   };
 
-  return <EditProductClient product={serialized} />;
+  return <EditProductClient product={serialized} artisans={artisans} />;
 }

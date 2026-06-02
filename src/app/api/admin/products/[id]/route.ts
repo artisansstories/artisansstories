@@ -68,6 +68,7 @@ export async function PUT(
       categoryIds?: string[];
       tags?: string[];
       artisanName?: string;
+      artisanId?: string | null;
       originCountry?: string;
       materialsUsed?: string[];
       requiresShipping?: boolean;
@@ -120,7 +121,7 @@ export async function PUT(
     if (body.costPrice !== undefined) updateData.costPrice = body.costPrice;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.tags !== undefined) updateData.tags = body.tags;
-    if (body.artisanName !== undefined) updateData.artisanName = body.artisanName;
+    // artisanId handled via join table below; artisanName kept as denorm cache
     if (body.originCountry !== undefined) updateData.originCountry = body.originCountry;
     if (body.materialsUsed !== undefined) updateData.materialsUsed = body.materialsUsed;
     if (body.requiresShipping !== undefined) updateData.requiresShipping = body.requiresShipping;
@@ -133,6 +134,19 @@ export async function PUT(
     if (body.seoTitle !== undefined) updateData.seoTitle = body.seoTitle;
     if (body.seoDescription !== undefined) updateData.seoDescription = body.seoDescription;
     if (body.isFeatured !== undefined) updateData.isFeatured = body.isFeatured;
+    // Update artisan link (ProductArtisan join table)
+    if (body.artisanId !== undefined) {
+      await prisma.productArtisan.deleteMany({ where: { productId: id } });
+      if (body.artisanId) {
+        await prisma.productArtisan.create({ data: { productId: id, artisanId: body.artisanId } });
+        // Backfill denormalized artisanName for backward compat
+        const artisan = await prisma.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
+        if (artisan) updateData.artisanName = artisan.name;
+      } else {
+        updateData.artisanName = null;
+      }
+    }
+
     // Update categories if provided
     if (body.categoryIds !== undefined) {
       updateData.categories = {

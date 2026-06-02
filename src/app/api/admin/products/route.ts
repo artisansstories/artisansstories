@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       categoryIds?: string[];
       tags?: string[];
       artisanName?: string;
+      artisanId?: string | null;
       originCountry?: string;
       materialsUsed?: string[];
       requiresShipping?: boolean;
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
         costPrice: body.costPrice,
         status: body.status ?? ProductStatus.DRAFT,
         tags: body.tags ?? [],
-        artisanName: body.artisanName,
+        artisanName: body.artisanName, // kept for backward compat; overwritten below if artisanId provided
         originCountry: body.originCountry ?? "El Salvador",
         materialsUsed: body.materialsUsed ?? [],
         requiresShipping: body.requiresShipping ?? true,
@@ -206,6 +207,12 @@ export async function POST(request: NextRequest) {
         options: true,
       },
     });
+    // Link artisan via join table if provided
+    if (body.artisanId) {
+      await prisma.productArtisan.create({ data: { productId: product.id, artisanId: body.artisanId } });
+      const artisan = await prisma.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
+      if (artisan) await prisma.product.update({ where: { id: product.id }, data: { artisanName: artisan.name } });
+    }
     return NextResponse.json({ product }, { status: 201 });
   } catch (err) {
     console.error("POST /api/admin/products error:", err);

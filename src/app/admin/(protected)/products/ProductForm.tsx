@@ -51,6 +51,7 @@ export interface ProductData {
   categoryIds: string[];
   tags: string[];
   artisanName?: string;
+  artisanId?: string | null;
   originCountry: string;
   materialsUsed: string[];
   requiresShipping: boolean;
@@ -73,8 +74,14 @@ interface CategoryOption {
   name: string;
 }
 
+interface ArtisanOption {
+  id: string;
+  name: string;
+}
+
 interface ProductFormProps {
   product?: ProductData;
+  artisans?: ArtisanOption[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -182,7 +189,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 
-export default function ProductForm({ product }: ProductFormProps) {
+export default function ProductForm({ product, artisans = [] }: ProductFormProps) {
   const router = useRouter();
   const isEdit = !!product?.id;
 
@@ -221,7 +228,7 @@ export default function ProductForm({ product }: ProductFormProps) {
   const [categoryIds, setCategoryIds] = useState<string[]>(product?.categoryIds ?? []);
   const [allCategories, setAllCategories] = useState<CategoryOption[]>([]);
   const [tags, setTags] = useState<string[]>(product?.tags ?? []);
-  const [artisanName, setArtisanName] = useState(product?.artisanName ?? "");
+  const [artisanId, setArtisanId] = useState<string>(product?.artisanId ?? "");
   const [originCountry, setOriginCountry] = useState(product?.originCountry ?? "El Salvador");
   const [materialsUsed, setMaterialsUsed] = useState<string[]>(product?.materialsUsed ?? []);
 
@@ -322,7 +329,7 @@ export default function ProductForm({ product }: ProductFormProps) {
       fd.append("file", file);
       // Pass product context for AI alt text generation
       if (name) fd.append("productName", name);
-      if (artisanName) fd.append("artisanName", artisanName);
+      if (artisanId) fd.append("artisanId", artisanId);
       // Hint: first selected variant value (e.g. color being uploaded)
       const firstOption = options[0];
       if (firstOption?.name && firstOption?.values?.length > 0) {
@@ -354,7 +361,7 @@ export default function ProductForm({ product }: ProductFormProps) {
     } finally {
       setUploadingImages((prev) => prev.filter((id) => id !== tempId));
     }
-  }, [name, artisanName, options]);
+  }, [name, artisanId, options]);
 
   function handleFilesSelected(files: FileList) {
     Array.from(files).forEach((file) => {
@@ -463,7 +470,7 @@ export default function ProductForm({ product }: ProductFormProps) {
         status: overrideStatus ?? status,
         categoryIds,
         tags,
-        artisanName: artisanName || undefined,
+        artisanId: artisanId || null,
         originCountry: originCountry || "El Salvador",
         materialsUsed,
         requiresShipping,
@@ -1084,8 +1091,37 @@ export default function ProductForm({ product }: ProductFormProps) {
               <TagInput values={tags} onChange={setTags} placeholder="Add tag..." />
             </div>
             <div style={fieldGroup}>
-              <Label>Artisan Name</Label>
-              <input type="text" value={artisanName} onChange={(e) => setArtisanName(e.target.value)} placeholder="e.g. María López" style={inputStyle} />
+              <Label>Artisan</Label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <select
+                  value={artisanId}
+                  onChange={e => setArtisanId(e.target.value)}
+                  style={{ ...inputStyle, flex: 1, cursor: "pointer" }}
+                >
+                  <option value="">— None —</option>
+                  {artisans.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <a
+                  href="/admin/artisans/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ flexShrink: 0, padding: "9px 14px", border: "1.5px solid #8B6914", borderRadius: 8, color: "#8B6914", fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 500, textDecoration: "none", whiteSpace: "nowrap" }}
+                >
+                  + New
+                </a>
+              </div>
+              {artisanId && (
+                <a
+                  href={`/admin/artisans/${artisanId}/edit`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ marginTop: 4, display: "inline-block", fontSize: 12, color: "#8B6914", textDecoration: "underline", fontFamily: "'Inter', sans-serif" }}
+                >
+                  Edit artisan profile ↗
+                </a>
+              )}
             </div>
             <div style={fieldGroup}>
               <Label>Origin Country</Label>
