@@ -26,6 +26,7 @@ interface StoreSettings {
   googleAnalyticsId: string | null;
   lowStockThreshold: number;
   lowStockAlertEmail: string | null;
+  adminLogoSize: number;
   orderNotificationEmail: string | null;
 }
 
@@ -102,6 +103,7 @@ export default function SettingsPage() {
     orderNotificationEmail: "",
     lowStockAlertEmail: "",
     lowStockThreshold: 5,
+    adminLogoSize: 280,
     metaTitle: "",
     metaDescription: "",
     googleAnalyticsId: "",
@@ -206,7 +208,24 @@ export default function SettingsPage() {
         <h2 style={SECTION_TITLE}>General</h2>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Store Name</label>
-          <input style={INPUT_STYLE} value={settings.storeName ?? ""} onChange={(e) => update("storeName", e.target.value)} />
+          <input style={INPUT_STYLE} value={settings.storeName ?? ""} onChange={(e) => update("storeName", e.target.value)} placeholder="Artisans Stories" />
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <label style={LABEL_STYLE}>Admin Logo Size (px)</label>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <input
+              style={{ ...INPUT_STYLE, width: 100 }}
+              type="number"
+              min={80}
+              max={600}
+              step={20}
+              value={settings.adminLogoSize ?? 280}
+              onChange={(e) => update("adminLogoSize", parseInt(e.target.value, 10) || 280)}
+            />
+            <span style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter',sans-serif" }}>
+              {settings.adminLogoSize ?? 280}px — controls logo width in the admin sidebar
+            </span>
+          </div>
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Store Description</label>

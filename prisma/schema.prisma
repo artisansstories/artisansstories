@@ -35,6 +35,7 @@ model StoreSettings {
   lowStockThreshold     Int      @default(5)
   lowStockAlertEmail    String?
   orderNotificationEmail String?
+  adminLogoSize         Int      @default(280)   // px width of logo in admin sidebar
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
