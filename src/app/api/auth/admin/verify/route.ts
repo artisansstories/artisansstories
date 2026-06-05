@@ -2,18 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createAdminSession } from "@/lib/admin-auth";
 
-const ALLOWED_EMAILS = [
-  "anna@artisansstories.com",
-  "wayne@artisansstories.com",
-  "wayne@greenbowtie.com",
-];
-
-const NAME_MAP: Record<string, string> = {
-  "anna@artisansstories.com": "Anna Kool",
-  "wayne@artisansstories.com": "Wayne Kool",
-  "wayne@greenbowtie.com": "Wayne Kool",
-};
-
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
   const token = request.nextUrl.searchParams.get("token");
@@ -36,7 +24,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/admin/login?error=used`);
   }
 
-  if (!ALLOWED_EMAILS.includes(record.email)) {
+  // Verify still active in DB
+  const adminUser = await prisma.adminUser.findUnique({ where: { email: record.email } });
+  if (!adminUser || !adminUser.isActive) {
     return NextResponse.redirect(`${siteUrl}/admin/login?error=unauthorized`);
   }
 
@@ -47,10 +37,10 @@ export async function GET(request: NextRequest) {
   });
 
   await createAdminSession({
-    id: record.email,
-    email: record.email,
-    name: NAME_MAP[record.email] ?? record.email,
-    role: "SUPER_ADMIN",
+    id: adminUser.id,
+    email: adminUser.email,
+    name: adminUser.name,
+    role: adminUser.role,
   });
 
   return NextResponse.redirect(`${siteUrl}/admin`);

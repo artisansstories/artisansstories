@@ -5,12 +5,6 @@ import crypto from "crypto";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const ALLOWED_EMAILS = [
-  "anna@artisansstories.com",
-  "wayne@artisansstories.com",
-  "wayne@greenbowtie.com",
-];
-
 function adminMagicLinkEmail(magicLink: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -65,8 +59,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid email required" }, { status: 400 });
     }
 
-    // Always return success to avoid leaking which emails are allowed
-    if (!ALLOWED_EMAILS.includes(email)) {
+    // Check DB — always return success to avoid leaking which emails are allowed
+    const adminUser = await prisma.adminUser.findUnique({ where: { email } });
+    if (!adminUser || !adminUser.isActive) {
       return NextResponse.json({ success: true });
     }
 
