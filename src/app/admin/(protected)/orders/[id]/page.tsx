@@ -379,7 +379,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [showRefundDialog, setShowRefundDialog] = useState(false);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
+  const [refunding, setRefunding] = useState(false);
   const [actionMsg, setActionMsg] = useState("");
+  const [actionError, setActionError] = useState("");
   const [resending, setResending] = useState(false);
 
   async function fetchOrder() {
@@ -418,22 +423,58 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   async function handleCancel() {
     if (!order || !cancelReason.trim()) return;
     setCancelling(true);
+    setActionError("");
     try {
       const res = await fetch(`/api/admin/orders/${order.id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: cancelReason }),
       });
+      const data = await res.json() as { error?: string; refunded?: boolean };
       if (!res.ok) {
-        const data = await res.json() as { error?: string };
-        setActionMsg(data.error ?? "Failed to cancel order");
+        setActionError(data.error ?? "Failed to cancel order");
         return;
       }
       setShowCancelDialog(false);
       setCancelReason("");
+      setActionMsg(data.refunded
+        ? "Order cancelled and full refund issued to customer."
+        : "Order cancelled successfully."
+      );
+      setTimeout(() => setActionMsg(""), 5000);
       fetchOrder();
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleRefund() {
+    if (!order) return;
+    setRefunding(true);
+    setActionError("");
+    try {
+      const amountCents = refundAmount
+        ? Math.round(parseFloat(refundAmount) * 100)
+        : undefined;
+      const res = await fetch(`/api/admin/orders/${order.id}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amountCents, reason: refundReason || "Admin initiated" }),
+      });
+      const data = await res.json() as { error?: string; amount?: number };
+      if (!res.ok) {
+        setActionError(data.error ?? "Failed to issue refund");
+        return;
+      }
+      setShowRefundDialog(false);
+      setRefundAmount("");
+      setRefundReason("");
+      const refundedAmt = data.amount ? (data.amount / 100).toFixed(2) : "";
+      setActionMsg(`Refund of $${refundedAmt} issued successfully.`);
+      setTimeout(() => setActionMsg(""), 5000);
+      fetchOrder();
+    } finally {
+      setRefunding(false);
     }
   }
 
@@ -547,6 +588,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       {actionMsg && (
         <div style={{ padding: "10px 16px", background: "#f0faf0", border: "1px solid #86efac", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#15803d", fontFamily: "'Inter', sans-serif" }}>
           {actionMsg}
+        </div>
+      )}
+      {actionError && (
+        <div style={{ padding: "10px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, marginBottom: 16, fontSize: 13, color: "#b91c1c", fontFamily: "'Inter', sans-serif" }}>
+          {actionError}
         </div>
       )}
 
@@ -743,26 +789,52 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           </Card>
 
-          {/* Danger Zone */}
+          {/* Refund + Cancel */}
           {order.status !== "CANCELLED" && order.status !== "REFUNDED" && (
             <div className="no-print" style={{ background: "#fff", border: "1px solid #fecaca", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
               <div style={{ padding: "16px 20px", borderBottom: "1px solid #fecaca", background: "#fef2f2" }}>
                 <h2 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#b91c1c", fontFamily: "'Inter', sans-serif", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                  Danger Zone
+                  Refund &amp; Cancellation
                 </h2>
               </div>
-              <div style={{ padding: 20 }}>
-                <p style={{ margin: "0 0 14px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
-                  Cancelling this order cannot be undone. If the order is paid via Stripe, the payment intent will be voided.
-                </p>
-                <button
-                  onClick={() => setShowCancelDialog(true)}
-                  style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fef2f2"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
-                >
-                  Cancel Order
-                </button>
+              <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+
+                {/* Refund */}
+                {["PAID", "PARTIALLY_REFUNDED"].includes(order.financialStatus) && (
+                  <div style={{ paddingBottom: 16, borderBottom: "1px solid #fecaca" }}>
+                    <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Issue Refund</p>
+                    <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
+                      Sends money back to the customer&apos;s original payment method. You can refund the full amount or a partial amount. Does not cancel the order.
+                    </p>
+                    <button
+                      onClick={() => setShowRefundDialog(true)}
+                      style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fef2f2"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+                    >
+                      Issue Refund
+                    </button>
+                  </div>
+                )}
+
+                {/* Cancel */}
+                <div>
+                  <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Cancel Order</p>
+                  <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
+                    {order.financialStatus === "PAID"
+                      ? "Cancels the order AND automatically issues a full refund to the customer. Cannot be undone."
+                      : "Cancels the order. Cannot be undone."}
+                  </p>
+                  <button
+                    onClick={() => setShowCancelDialog(true)}
+                    style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fef2f2"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+                  >
+                    Cancel Order
+                  </button>
+                </div>
+
               </div>
             </div>
           )}
@@ -804,6 +876,61 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
         </div>
       </div>
+
+      {/* Refund Dialog */}
+      {showRefundDialog && order && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 440, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 700, color: "#3a2e24", fontFamily: "'Cormorant Garamond', serif" }}>Issue Refund</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
+              Full order total: <strong>{formatPrice(order.total)}</strong>. Leave amount blank to refund the full amount.
+            </p>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "#7a6852", fontFamily: "'Inter', sans-serif", marginBottom: 5 }}>Refund Amount (optional)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                max={(order.total / 100).toFixed(2)}
+                value={refundAmount}
+                onChange={e => setRefundAmount(e.target.value)}
+                placeholder={`${(order.total / 100).toFixed(2)} (full refund)`}
+                style={{ width: "100%", height: 38, padding: "0 12px", border: "1px solid #e0d5c5", borderRadius: 8, fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "#7a6852", fontFamily: "'Inter', sans-serif", marginBottom: 5 }}>Reason (optional)</label>
+              <input
+                type="text"
+                value={refundReason}
+                onChange={e => setRefundReason(e.target.value)}
+                placeholder="e.g. Customer requested, damaged item..."
+                style={{ width: "100%", height: 38, padding: "0 12px", border: "1px solid #e0d5c5", borderRadius: 8, fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", boxSizing: "border-box" }}
+              />
+            </div>
+            {actionError && (
+              <p style={{ fontSize: 13, color: "#b91c1c", fontFamily: "'Inter', sans-serif", margin: "0 0 12px" }}>{actionError}</p>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => { setShowRefundDialog(false); setRefundAmount(""); setRefundReason(""); setActionError(""); }}
+                style={btnBase}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRefund}
+                disabled={refunding}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: refunding ? "#fca5a5" : "#b91c1c", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: refunding ? "not-allowed" : "pointer" }}
+              >
+                {refunding ? "Processing..." : refundAmount ? `Refund $${parseFloat(refundAmount || "0").toFixed(2)}` : "Refund Full Amount"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Dialog */}
       {showCancelDialog && (
