@@ -46,5 +46,8 @@ export async function GET(request: NextRequest) {
     lastName: customer.lastName,
   });
 
-  return NextResponse.redirect(new URL("/account", request.url));
+  // Support redirect param for deep-linking (e.g. straight to order page from confirmation email)
+  const redirectTo = searchParams.get("redirect");
+  const safePath = redirectTo && redirectTo.startsWith("/") ? redirectTo : "/account";
+  return NextResponse.redirect(new URL(safePath, request.url));
 }

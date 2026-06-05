@@ -4,6 +4,7 @@ const StripeSDK = require("stripe");
 import { prisma } from "@/lib/prisma";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
 import { Resend } from "resend";
+import crypto from "crypto";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-27.acacia" }) as any;
@@ -267,6 +268,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Generate pre-auth magic link for "View Your Order" CTA (7 day expiry)
+    let viewOrderUrl: string | undefined;
+    try {
+      const mlToken = crypto.randomBytes(32).toString("hex");
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+      await prisma.magicLinkToken.create({
+        data: {
+          token: mlToken,
+          email,
+          type: "CUSTOMER",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      });
+      viewOrderUrl = `${siteUrl}/api/auth/customer/verify?token=${encodeURIComponent(mlToken)}&redirect=${encodeURIComponent(`/account/orders/${order.orderNumber}`)}`;
+    } catch (mlErr) {
+      console.error("Failed to create magic link token for confirmation email:", mlErr);
+    }
+
     // Send confirmation email
     const emailItems = items.map((item) => {
       const variant = variants.find((v) => v.id === item.variantId);
@@ -300,6 +319,7 @@ export async function POST(request: NextRequest) {
           discountTotal,
           total,
           shippingAddress,
+          viewOrderUrl,
         }),
       });
     } catch (emailErr) {

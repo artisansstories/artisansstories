@@ -16,6 +16,7 @@ interface OrderEmailData {
   taxTotal: number;
   discountTotal: number;
   total: number;
+  viewOrderUrl?: string;
   shippingAddress: {
     firstName: string;
     lastName: string;
@@ -43,6 +44,7 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
     subtotal,
     shippingTotal,
     taxTotal,
+    viewOrderUrl,
     discountTotal,
     total,
     shippingAddress,
@@ -198,13 +200,11 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
               <p style="margin: 0 0 16px; font-size: 14px; color: #7a6852;">
                 Track your order or view your order history anytime:
               </p>
-              <a href="https://artisansstories.com/account/orders/${orderNumber}"
+              <a href="${viewOrderUrl || `https://artisansstories.com/account/orders/${orderNumber}`}"
                 style="display: inline-block; padding: 14px 32px; background: #8B6914; color: #ffffff; font-size: 14px; font-weight: 600; text-decoration: none; border-radius: 8px; letter-spacing: 0.03em; font-family: 'Helvetica Neue', Arial, sans-serif;">
                 View Your Order
               </a>
-              <p style="margin: 12px 0 0; font-size: 12px; color: #9a876e;">
-                You'll be asked to verify your email — we'll send a quick magic link, no password needed.
-              </p>
+              ${!viewOrderUrl ? `<p style="margin: 12px 0 0; font-size: 12px; color: #9a876e;">You'll be asked to verify your email — we'll send a quick magic link, no password needed.</p>` : ''}
             </td>
           </tr>
 
