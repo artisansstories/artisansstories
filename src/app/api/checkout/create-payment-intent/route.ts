@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
         customer_details: {
           address: {
             line1: shippingAddress.address1,
-            line2: shippingAddress.address2 || "",
+            ...(shippingAddress.address2 ? { line2: shippingAddress.address2 } : {}),
             city: shippingAddress.city,
             state: shippingAddress.stateCode,
             postal_code: shippingAddress.zip,
