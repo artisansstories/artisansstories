@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { orderShippedHtml } from "@/lib/emails/order-shipped";
 import Stripe from "stripe";
+import crypto from "crypto";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", { apiVersion: "2025-01-27.acacia" });
 interface FulfillBody {
@@ -87,6 +88,25 @@ export async function POST(
           image: (snapshot?.image as string) ?? undefined,
         };
       });
+
+      // Generate pre-auth magic link for shipped email (7 day expiry)
+      let viewOrderUrl: string | undefined;
+      try {
+        const mlToken = crypto.randomBytes(32).toString("hex");
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+        await prisma.magicLinkToken.create({
+          data: {
+            token: mlToken,
+            email: order.email,
+            type: "CUSTOMER",
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          },
+        });
+        viewOrderUrl = `${siteUrl}/api/auth/customer/verify?token=${encodeURIComponent(mlToken)}&redirect=${encodeURIComponent('/account/orders/' + order.orderNumber)}`;
+      } catch (mlErr) {
+        console.error("Failed to create magic link for shipped email:", mlErr);
+      }
+
       try {
         await resend.emails.send({
           from: process.env.RESEND_FROM ?? "hello@artisansstories.com",
@@ -100,6 +120,7 @@ export async function POST(
             trackingUrl: body.trackingUrl,
             estimatedDelivery: body.estimatedDelivery,
             items: emailItems,
+            viewOrderUrl,
           }),
         });
       } catch (emailErr) {

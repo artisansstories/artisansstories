@@ -20,6 +20,14 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }
   REFUNDED:   { label: 'Refunded',   bg: '#f5f5ff', color: '#5040c0' },
 };
 
+const FINANCIAL_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
+  AUTHORIZED:         { label: 'Payment Authorized', bg: '#f3f0ff', color: '#6d28d9' },
+  PAID:               { label: 'Paid', bg: '#ecfdf5', color: '#0d6e3f' },
+  REFUNDED:           { label: 'Refunded', bg: '#f5f5ff', color: '#5040c0' },
+  PARTIALLY_REFUNDED: { label: 'Partially Refunded', bg: '#f5f5ff', color: '#5040c0' },
+  VOIDED:             { label: 'Payment Voided', bg: '#f5f5f5', color: '#6b7280' },
+};
+
 type TimelineStep = {
   key: string;
   label: string;
@@ -81,6 +89,9 @@ export default async function OrderDetailPage({
   }
 
   const statusCfg = STATUS_CONFIG[order.status] ?? { label: order.status, bg: '#f5f5f5', color: '#666' };
+  const financialCfg = FINANCIAL_CONFIG[order.financialStatus];
+  const isRefunded = ['REFUNDED', 'PARTIALLY_REFUNDED'].includes(order.financialStatus);
+  const isAuthorized = order.financialStatus === 'AUTHORIZED';
   const shippingAddress = order.shippingAddress as Record<string, string>;
 
   // Can request return if DELIVERED and within 30 days
@@ -131,21 +142,59 @@ export default async function OrderDetailPage({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span style={{
-            padding: '5px 14px',
-            borderRadius: 20,
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: "'Inter',sans-serif",
-            background: statusCfg.bg,
-            color: statusCfg.color,
+            padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+            fontFamily: "'Inter',sans-serif", background: statusCfg.bg, color: statusCfg.color,
           }}>
             {statusCfg.label}
           </span>
+          {financialCfg && (
+            <span style={{
+              padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              fontFamily: "'Inter',sans-serif", background: financialCfg.bg, color: financialCfg.color,
+            }}>
+              {financialCfg.label}
+            </span>
+          )}
           <span style={{ fontSize: 18, fontWeight: 700, color: '#8B6914', fontFamily: "'Inter',sans-serif" }}>
             {formatPrice(order.total)}
           </span>
         </div>
       </div>
+
+      {/* Authorized notice */}
+      {isAuthorized && (
+        <div style={{
+          background: '#f3f0ff', borderRadius: 12, border: '1px solid rgba(109,40,217,0.2)',
+          padding: '14px 20px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6d28d9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <p style={{ fontSize: 13, color: '#6d28d9', fontFamily: "'Inter',sans-serif", margin: 0 }}>
+            Your card has been authorized but <strong>not yet charged</strong>. Payment will be collected when your order ships.
+          </p>
+        </div>
+      )}
+
+      {/* Refund notice */}
+      {isRefunded && (
+        <div style={{
+          background: '#f5f5ff', borderRadius: 12, border: '1px solid rgba(80,64,192,0.2)',
+          padding: '14px 20px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5040c0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-3.67" />
+          </svg>
+          <p style={{ fontSize: 13, color: '#5040c0', fontFamily: "'Inter',sans-serif", margin: 0 }}>
+            {order.financialStatus === 'REFUNDED'
+              ? `A full refund of ${formatPrice(order.total)} has been issued to your original payment method. It typically appears within 2–5 business days.`
+              : `A partial refund has been issued to your original payment method. It typically appears within 2–5 business days.`
+            }
+          </p>
+        </div>
+      )}
 
       {/* Status timeline */}
       <div style={{

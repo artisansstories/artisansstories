@@ -13,6 +13,7 @@ interface OrderShippedData {
   trackingUrl?: string;
   estimatedDelivery?: string;
   items: OrderShippedItem[];
+  viewOrderUrl?: string;
 }
 
 export function orderShippedHtml(data: OrderShippedData): string {
@@ -24,9 +25,11 @@ export function orderShippedHtml(data: OrderShippedData): string {
     trackingUrl,
     estimatedDelivery,
     items,
+    viewOrderUrl,
   } = data;
 
   const trackingLink = trackingUrl ?? "#";
+  const orderLink = viewOrderUrl ?? `https://artisansstories.com/account/orders/${orderNumber}`;
 
   const estimatedDeliveryFormatted = estimatedDelivery
     ? new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date(estimatedDelivery))
@@ -134,11 +137,15 @@ export function orderShippedHtml(data: OrderShippedData): string {
                 }
               </table>
 
-              <!-- Track button -->
+              <!-- Buttons -->
               <div style="margin-top: 20px; text-align: center;">
                 <a href="${trackingLink}" target="_blank"
-                  style="display: inline-block; background: linear-gradient(135deg, #8B6914 0%, #C9A84C 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 36px; border-radius: 8px; letter-spacing: 0.5px;">
+                  style="display: inline-block; background: linear-gradient(135deg, #8B6914 0%, #C9A84C 100%); color: #ffffff; text-decoration: none; font-size: 15px; font-weight: 600; padding: 14px 36px; border-radius: 8px; letter-spacing: 0.5px; margin: 0 6px 8px;">
                   Track Your Package
+                </a>
+                <a href="${orderLink}"
+                  style="display: inline-block; background: #fff; border: 1.5px solid #C9A84C; color: #8B6914; text-decoration: none; font-size: 15px; font-weight: 600; padding: 13px 28px; border-radius: 8px; letter-spacing: 0.5px; margin: 0 6px 8px;">
+                  View Order
                 </a>
               </div>
             </td>
