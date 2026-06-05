@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { orderShippedHtml } from "@/lib/emails/order-shipped";
+import Stripe from "stripe";
 const resend = new Resend(process.env.RESEND_API_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", { apiVersion: "2025-01-27.acacia" });
 interface FulfillBody {
   trackingCompany: string;
   trackingNumber: string;
@@ -51,10 +53,27 @@ export async function POST(
     // Check if all items are now fulfilled
     const updatedItems = await prisma.orderItem.findMany({ where: { orderId: id } });
     const allFulfilled = updatedItems.every((item) => item.fulfillmentStatus === "fulfilled");
+
+    // Capture payment if authorized (manual capture mode)
+    let newFinancialStatus = order.financialStatus;
+    if (allFulfilled && order.financialStatus === "AUTHORIZED" && order.stripePaymentIntentId) {
+      try {
+        await stripe.paymentIntents.capture(order.stripePaymentIntentId);
+        newFinancialStatus = "PAID";
+        console.log(`Captured payment for order ${order.orderNumber}`);
+      } catch (captureErr) {
+        // Log but don't block fulfillment — handle manually if needed
+        console.error("Failed to capture Stripe payment on fulfill:", captureErr);
+      }
+    }
+
     if (allFulfilled) {
       await prisma.order.update({
         where: { id },
-        data: { status: "FULFILLED" },
+        data: {
+          status: "FULFILLED",
+          financialStatus: newFinancialStatus,
+        },
       });
     }
     // Send shipped email

@@ -184,11 +184,12 @@ export async function POST(request: NextRequest) {
     // Calculate total
     const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal);
 
-    // Create Stripe PaymentIntent
+    // Create Stripe PaymentIntent (manual capture — charge only when shipped)
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
       currency: "usd",
       automatic_payment_methods: { enabled: true },
+      capture_method: "manual",
       metadata: {
         email,
         discountCode: validatedDiscountCode || "",

@@ -22,7 +22,10 @@ export async function POST(
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
     if (!["PAID", "PARTIALLY_REFUNDED"].includes(order.financialStatus)) {
-      return NextResponse.json({ error: "Order is not in a refundable state" }, { status: 400 });
+      const hint = order.financialStatus === "AUTHORIZED"
+        ? "Payment is authorized but not yet captured. Cancel the order to release the hold with no fees."
+        : "Order is not in a refundable state";
+      return NextResponse.json({ error: hint }, { status: 400 });
     }
 
     if (!order.stripePaymentIntentId) {

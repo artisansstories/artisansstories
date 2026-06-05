@@ -5,7 +5,7 @@ import { useState, useEffect, use } from "react";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OrderStatus = "PENDING" | "PROCESSING" | "FULFILLED" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "REFUNDED";
-type FinancialStatus = "PENDING" | "PAID" | "PARTIALLY_PAID" | "REFUNDED" | "PARTIALLY_REFUNDED" | "VOIDED";
+type FinancialStatus = "PENDING" | "AUTHORIZED" | "PAID" | "PARTIALLY_PAID" | "REFUNDED" | "PARTIALLY_REFUNDED" | "VOIDED";
 type FulfillmentStatus = "PENDING" | "OPEN" | "SUCCESS" | "CANCELLED" | "ERROR";
 
 interface OrderItem {
@@ -115,6 +115,7 @@ const ORDER_STATUS_STYLES: Record<OrderStatus, { bg: string; color: string }> = 
 
 const FINANCIAL_STATUS_STYLES: Record<FinancialStatus, { bg: string; color: string }> = {
   PENDING:            { bg: "#fef3c7", color: "#b45309" },
+  AUTHORIZED:         { bg: "#ede9fe", color: "#6d28d9" },
   PAID:               { bg: "#dcfce7", color: "#15803d" },
   PARTIALLY_PAID:     { bg: "#ecfdf5", color: "#059669" },
   REFUNDED:           { bg: "#fee2e2", color: "#b91c1c" },
@@ -800,6 +801,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
 
                 {/* Refund */}
+                {/* Only show refund for captured payments, not authorized-only */}
                 {["PAID", "PARTIALLY_REFUNDED"].includes(order.financialStatus) && (
                   <div style={{ paddingBottom: 16, borderBottom: "1px solid #fecaca" }}>
                     <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Issue Refund</p>
@@ -822,7 +824,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Cancel Order</p>
                   <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
                     {order.financialStatus === "PAID"
-                      ? "Cancels the order AND automatically issues a full refund to the customer. Cannot be undone."
+                      ? "Cancels the order AND automatically issues a full refund to the customer's card. Cannot be undone."
+                      : order.financialStatus === "AUTHORIZED"
+                      ? "Cancels the order and releases the hold on the customer's card. No money was ever charged — no fees owed. Cannot be undone."
                       : "Cancels the order. Cannot be undone."}
                   </p>
                   <button

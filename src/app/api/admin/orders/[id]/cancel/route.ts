@@ -31,18 +31,22 @@ export async function POST(
         const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
         const chargeId = pi.latest_charge as string;
         if (chargeId) {
-          await stripe.refunds.create({
-            charge: chargeId,
-            reason: "requested_by_customer",
-          });
+          await stripe.refunds.create({ charge: chargeId, reason: "requested_by_customer" });
           newFinancialStatus = "REFUNDED";
         }
       } catch (stripeErr) {
         console.error("Stripe refund error on cancel:", stripeErr);
-        // Don't block cancel if Stripe fails — log and continue
+      }
+    } else if (order.stripePaymentIntentId && order.financialStatus === "AUTHORIZED") {
+      // Authorized but not yet captured — cancel the hold (zero fee, no money moved)
+      try {
+        await stripe.paymentIntents.cancel(order.stripePaymentIntentId);
+        newFinancialStatus = "VOIDED";
+      } catch (stripeErr) {
+        console.error("Stripe cancel error on cancel:", stripeErr);
       }
     } else if (order.stripePaymentIntentId && order.financialStatus === "PENDING") {
-      // Payment not yet captured — void the intent
+      // Pre-payment void
       try {
         await stripe.paymentIntents.cancel(order.stripePaymentIntentId);
         newFinancialStatus = "VOIDED";

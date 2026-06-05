@@ -325,6 +325,7 @@ enum OrderStatus {
 
 enum FinancialStatus {
   PENDING
+  AUTHORIZED
   PAID
   PARTIALLY_PAID
   REFUNDED

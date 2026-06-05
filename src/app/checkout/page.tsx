@@ -478,7 +478,8 @@ function CheckoutForm({
         return;
       }
 
-      if (paymentIntent?.status !== "succeeded") {
+      // Accept both "succeeded" (immediate capture) and "requires_capture" (manual capture)
+      if (paymentIntent?.status !== "succeeded" && paymentIntent?.status !== "requires_capture") {
         setCheckoutError("Payment was not completed. Please try again.");
         setProcessing(false);
         return;

@@ -61,14 +61,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Verify the PaymentIntent exists and has status 'succeeded'
+    // Verify the PaymentIntent — accept 'succeeded' (immediate) or 'requires_capture' (manual capture)
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    if (paymentIntent.status !== "succeeded") {
+    const validStatuses = ["succeeded", "requires_capture"];
+    if (!validStatuses.includes(paymentIntent.status)) {
       return NextResponse.json(
         { error: `Payment not completed. Status: ${paymentIntent.status}` },
         { status: 400 }
       );
     }
+    const isAuthorizedOnly = paymentIntent.status === "requires_capture";
 
     // Check for duplicate order
     const existingOrder = await prisma.order.findFirst({
@@ -175,7 +177,7 @@ export async function POST(request: NextRequest) {
           currency: "usd",
           stripePaymentIntentId: paymentIntentId,
           discountCode: validatedDiscountCode || null,
-          financialStatus: "PAID",
+          financialStatus: isAuthorizedOnly ? "AUTHORIZED" : "PAID",
           status: "PROCESSING",
           items: {
             create: items.map((item) => {
