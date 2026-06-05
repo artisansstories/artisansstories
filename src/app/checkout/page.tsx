@@ -265,6 +265,7 @@ function CheckoutForm({
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
+  const [serverTaxTotal, setServerTaxTotal] = useState<number | null>(null);
 
   // PaymentRequest (Apple Pay / Google Pay)
   const [paymentRequest, setPaymentRequest] = useState<ReturnType<NonNullable<typeof stripe>["paymentRequest"]> | null>(null);
@@ -275,7 +276,9 @@ function CheckoutForm({
   const shippingTotal = discountType === "FREE_SHIPPING" ? 0 : (selectedRate?.price ?? 0);
   const effectiveDiscount = discountType === "FREE_SHIPPING" ? (selectedRate?.price ?? 0) : discountAmount;
   const taxableAmount = Math.max(0, subtotal - (discountType === "FREE_SHIPPING" ? 0 : discountAmount));
-  const taxTotal = Math.round(taxableAmount * 0.0825);
+  const estimatedTaxTotal = Math.round(taxableAmount * 0.0825);
+  // Use server-confirmed tax once PaymentIntent is created; fall back to estimate
+  const taxTotal = serverTaxTotal !== null ? serverTaxTotal : estimatedTaxTotal;
   const total = Math.max(0, subtotal - effectiveDiscount + shippingTotal + taxTotal);
 
   // Fetch shipping rates when country or subtotal changes
@@ -439,6 +442,11 @@ function CheckoutForm({
         setCheckoutError(piData.error || "Failed to initialize payment");
         setProcessing(false);
         return;
+      }
+
+      // Update displayed tax/total with server-confirmed values
+      if (typeof piData.taxTotal === "number") {
+        setServerTaxTotal(piData.taxTotal);
       }
 
       // Step 2: Confirm card payment

@@ -174,8 +174,9 @@ export async function POST(request: NextRequest) {
 
       taxTotal = taxCalculation.tax_amount_exclusive;
       taxCalculationId = taxCalculation.id;
-    } catch (taxErr) {
-      console.error("Stripe Tax calculation failed, proceeding with 0% tax:", taxErr);
+    } catch (taxErr: unknown) {
+      const errMsg = taxErr instanceof Error ? taxErr.message : JSON.stringify(taxErr);
+      console.error("Stripe Tax calculation failed, proceeding with 0% tax. Error:", errMsg);
       taxTotal = 0;
       taxCalculationId = "";
     }
