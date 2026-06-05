@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSession } from "@/lib/admin-auth";
 
-const ALLOWED_EMAILS = ["anna@artisansstories.com", "wayne@greenbowtie.com"];
+const ALLOWED_EMAILS = ["anna@artisansstories.com", "wayne@artisansstories.com"];
 
 export async function GET(req: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
