@@ -33,7 +33,31 @@ export async function GET(
       return NextResponse.json({ error: "Customer not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ customer });
+    // Compute live stats from actual orders (ignoring stale denormalized counters)
+    const cancelledStatuses = new Set(["CANCELLED", "REFUNDED"]);
+    const voidedFinancial = new Set(["VOIDED", "REFUNDED", "PARTIALLY_REFUNDED"]);
+
+    const activeOrders = customer.orders.filter(
+      (o) => !cancelledStatuses.has(o.status) && !voidedFinancial.has(o.financialStatus)
+    );
+    const cancelledOrders = customer.orders.filter(
+      (o) => cancelledStatuses.has(o.status) || voidedFinancial.has(o.financialStatus)
+    );
+
+    const netSpent = activeOrders.reduce((sum, o) => sum + o.total, 0);
+    const grossSpent = customer.orders.reduce((sum, o) => sum + o.total, 0);
+    const refundedAmount = cancelledOrders.reduce((sum, o) => sum + o.total, 0);
+
+    const liveStats = {
+      totalOrdersAll: customer.orders.length,
+      totalOrdersActive: activeOrders.length,
+      totalOrdersCancelled: cancelledOrders.length,
+      netSpent,
+      grossSpent,
+      refundedAmount,
+    };
+
+    return NextResponse.json({ customer, liveStats });
   } catch (error) {
     console.error("GET /api/admin/customers/[id] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

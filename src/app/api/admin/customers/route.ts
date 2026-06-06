@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
         { lastName: { contains: search, mode: "insensitive" } },
       ];
     }
-    const [customers, total] = await Promise.all([
+    const cancelledStatuses = ["CANCELLED", "REFUNDED"];
+    const voidedFinancial = ["VOIDED", "REFUNDED", "PARTIALLY_REFUNDED"];
+
+    const [rawCustomers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
         orderBy: { totalSpent: "desc" },
@@ -28,14 +31,38 @@ export async function GET(request: NextRequest) {
           email: true,
           firstName: true,
           lastName: true,
-          totalOrders: true,
-          totalSpent: true,
           lastOrderAt: true,
           createdAt: true,
+          orders: {
+            select: {
+              total: true,
+              status: true,
+              financialStatus: true,
+            },
+          },
         },
       }),
       prisma.customer.count({ where }),
     ]);
+
+    // Compute live stats per customer
+    const customers = rawCustomers.map((c) => {
+      const activeOrders = c.orders.filter(
+        (o) => !cancelledStatuses.includes(o.status) && !voidedFinancial.includes(o.financialStatus)
+      );
+      return {
+        id: c.id,
+        email: c.email,
+        firstName: c.firstName,
+        lastName: c.lastName,
+        lastOrderAt: c.lastOrderAt,
+        createdAt: c.createdAt,
+        totalOrders: activeOrders.length,
+        totalOrdersAll: c.orders.length,
+        totalSpent: activeOrders.reduce((sum, o) => sum + o.total, 0),
+      };
+    });
+
     return NextResponse.json({
       customers,
       total,

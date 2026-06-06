@@ -92,9 +92,19 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+interface LiveStats {
+  totalOrdersAll: number;
+  totalOrdersActive: number;
+  totalOrdersCancelled: number;
+  netSpent: number;
+  grossSpent: number;
+  refundedAmount: number;
+}
+
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -112,6 +122,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           setCustomer(data.customer);
           setNotes(data.customer.notes ?? "");
         }
+        if (data?.liveStats) setLiveStats(data.liveStats);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
@@ -181,18 +192,48 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 28 }}>
-        {[
-          { label: "Total Orders", value: String(customer.totalOrders) },
-          { label: "Total Spent", value: fmtMoney(customer.totalSpent) },
-          { label: "Last Order", value: fmtDate(customer.lastOrderAt) },
-          { label: "Marketing", value: customer.acceptsMarketing ? "Opted in" : "Opted out" },
-        ].map((s) => (
-          <div key={s.label} style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, padding: "16px 20px" }}>
-            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>{s.label}</p>
-            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 18, fontWeight: 700, color: "#3a2e24", margin: 0 }}>{s.value}</p>
-          </div>
-        ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 28 }}>
+        {/* Active Orders */}
+        <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, padding: "16px 20px" }}>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Active Orders</p>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 22, fontWeight: 700, color: "#3a2e24", margin: "0 0 4px" }}>
+            {liveStats ? liveStats.totalOrdersActive : "—"}
+          </p>
+          {liveStats && liveStats.totalOrdersCancelled > 0 && (
+            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, color: "#dc2626", margin: 0 }}>
+              {liveStats.totalOrdersCancelled} cancelled/refunded
+            </p>
+          )}
+        </div>
+
+        {/* Net Spent */}
+        <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, padding: "16px 20px" }}>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Net Spent</p>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 22, fontWeight: 700, color: "#3a2e24", margin: "0 0 4px" }}>
+            {liveStats ? fmtMoney(liveStats.netSpent) : "—"}
+          </p>
+          {liveStats && liveStats.refundedAmount > 0 && (
+            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, color: "#dc2626", margin: 0 }}>
+              {fmtMoney(liveStats.refundedAmount)} refunded
+            </p>
+          )}
+        </div>
+
+        {/* Last Order */}
+        <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, padding: "16px 20px" }}>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Last Order</p>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 22, fontWeight: 700, color: "#3a2e24", margin: 0 }}>
+            {fmtDate(customer.lastOrderAt)}
+          </p>
+        </div>
+
+        {/* Marketing */}
+        <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, padding: "16px 20px" }}>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Marketing</p>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 22, fontWeight: 700, color: customer.acceptsMarketing ? "#15803d" : "#6b7280", margin: 0 }}>
+            {customer.acceptsMarketing ? "Opted in" : "Opted out"}
+          </p>
+        </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20, alignItems: "start" }}>
