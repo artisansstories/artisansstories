@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/admin/inventory", label: "Inventory", icon: IconWarehouse, mobileShow: false },
   { href: "/admin/orders", label: "Orders", icon: IconShoppingBag, mobileShow: true },
   { href: "/admin/customers", label: "Customers", icon: IconUsers, mobileShow: false },
+  { href: "/admin/contact", label: "Inbox", icon: IconMail, mobileShow: false },
   { href: "/admin/returns", label: "Returns", icon: IconReturn, mobileShow: false },
   { href: "/admin/discounts", label: "Discounts", icon: IconPercent, mobileShow: false },
   { href: "/admin/shipping", label: "Shipping", icon: IconTruck, mobileShow: false },

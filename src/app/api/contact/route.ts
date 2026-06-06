@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { prisma } from "@/lib/prisma";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -32,6 +33,16 @@ export async function POST(request: NextRequest) {
         </div>
       `,
     });
+
+    // Save to database (non-blocking — don't fail the response if this errors)
+    await prisma.contactMessage.create({
+      data: {
+        name,
+        email,
+        subject: subject || "General Inquiry",
+        message,
+      },
+    }).catch((err: unknown) => console.error("Failed to save contact message to DB:", err));
 
     return NextResponse.json({ success: true });
   } catch (error) {
