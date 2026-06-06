@@ -7,40 +7,36 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─── STORE SETTINGS ─────────────────────────────────────────────────────────
-
 model StoreSettings {
-  id                    String   @id @default("singleton")
-  storeName             String   @default("Artisans Stories")
-  storeDescription      String?
-  storeLogo             String?
-  storeFavicon          String?
-  primaryColor          String   @default("#8B6914")
-  accentColor           String   @default("#C9A84C")
-  fontHeading           String   @default("Cormorant Garamond")
-  fontBody              String   @default("Inter")
-  contactEmail          String   @default("hello@artisansstories.com")
-  contactPhone          String?
-  returnPolicyDays      Int      @default(30)
-  returnPolicyText      String?
-  storeEnabled          Boolean  @default(false)
-  instagramUrl          String?
-  tiktokUrl             String?
-  facebookUrl           String?
-  pinterestUrl          String?
-  metaTitle             String?
-  metaDescription       String?
-  googleAnalyticsId     String?
-  facebookPixelId       String?
-  lowStockThreshold     Int      @default(5)
-  lowStockAlertEmail    String?
+  id                     String   @id @default("singleton")
+  storeName              String   @default("Artisans Stories")
+  storeDescription       String?
+  storeLogo              String?
+  storeFavicon           String?
+  primaryColor           String   @default("#8B6914")
+  accentColor            String   @default("#C9A84C")
+  fontHeading            String   @default("Cormorant Garamond")
+  fontBody               String   @default("Inter")
+  contactEmail           String   @default("hello@artisansstories.com")
+  contactPhone           String?
+  returnPolicyDays       Int      @default(30)
+  returnPolicyText       String?
+  storeEnabled           Boolean  @default(false)
+  instagramUrl           String?
+  tiktokUrl              String?
+  facebookUrl            String?
+  pinterestUrl           String?
+  metaTitle              String?
+  metaDescription        String?
+  googleAnalyticsId      String?
+  facebookPixelId        String?
+  lowStockThreshold      Int      @default(5)
+  lowStockAlertEmail     String?
   orderNotificationEmail String?
-  adminLogoSize         Int      @default(280)   // px width of logo in admin sidebar
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  adminLogoSize          Int      @default(280)
 }
-
-// ─── ADMIN USERS ────────────────────────────────────────────────────────────
 
 model AdminUser {
   id        String    @id @default(cuid())
@@ -48,18 +44,10 @@ model AdminUser {
   name      String
   role      AdminRole @default(EDITOR)
   isActive  Boolean   @default(true)
-  phone     String?   @unique
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+  phone     String?   @unique
 }
-
-enum AdminRole {
-  SUPER_ADMIN
-  ADMIN
-  EDITOR
-}
-
-// ─── MAGIC LINK TOKENS ───────────────────────────────────────────────────────
 
 model MagicLinkToken {
   id        String    @id @default(cuid())
@@ -74,13 +62,6 @@ model MagicLinkToken {
   @@index([token])
 }
 
-enum TokenType {
-  ADMIN
-  CUSTOMER
-}
-
-// ─── CATEGORIES ─────────────────────────────────────────────────────────────
-
 model Category {
   id          String            @id @default(cuid())
   slug        String            @unique
@@ -88,16 +69,14 @@ model Category {
   description String?
   imageUrl    String?
   parentId    String?
-  parent      Category?         @relation("CategoryTree", fields: [parentId], references: [id])
-  children    Category[]        @relation("CategoryTree")
   position    Int               @default(0)
   isActive    Boolean           @default(true)
-  products    ProductCategory[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  parent      Category?         @relation("CategoryTree", fields: [parentId], references: [id])
+  children    Category[]        @relation("CategoryTree")
+  products    ProductCategory[]
 }
-
-// ─── PRODUCTS ────────────────────────────────────────────────────────────────
 
 model Product {
   id               String            @id @default(cuid())
@@ -120,7 +99,6 @@ model Product {
   tags             String[]
   artisanName      String?
   originCountry    String            @default("El Salvador")
-  artisans         ProductArtisan[]
   materialsUsed    String[]
   isFeatured       Boolean           @default(false)
   isDigital        Boolean           @default(false)
@@ -130,27 +108,22 @@ model Product {
   seoTitle         String?
   seoDescription   String?
   totalSold        Int               @default(0)
-  categories       ProductCategory[]
-  variants         ProductVariant[]
-  images           ProductImage[]
-  options          ProductOption[]
-  orderItems       OrderItem[]
-  reviews          Review[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
-}
-
-enum ProductStatus {
-  DRAFT
-  ACTIVE
-  ARCHIVED
+  orderItems       OrderItem[]
+  artisans         ProductArtisan[]
+  categories       ProductCategory[]
+  images           ProductImage[]
+  options          ProductOption[]
+  variants         ProductVariant[]
+  reviews          Review[]
 }
 
 model ProductCategory {
   productId  String
   categoryId String
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([productId, categoryId])
 }
@@ -158,17 +131,16 @@ model ProductCategory {
 model ProductOption {
   id        String   @id @default(cuid())
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   name      String
   values    String[]
   position  Int      @default(0)
   createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ProductVariant {
   id              String         @id @default(cuid())
   productId       String
-  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
   name            String
   optionValues    Json
   sku             String?        @unique
@@ -179,19 +151,18 @@ model ProductVariant {
   stripeProductId String?
   stripePriceId   String?
   position        Int            @default(0)
-  images          ProductImage[]
-  inventory       Inventory?
-  orderItems      OrderItem[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  inventory       Inventory?
+  orderItems      OrderItem[]
+  images          ProductImage[]
+  product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model ProductImage {
   id        String          @id @default(cuid())
   productId String
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variantId String?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
   url       String
   urlThumb  String?
   urlMedium String?
@@ -202,34 +173,32 @@ model ProductImage {
   size      Int?
   isDefault Boolean         @default(false)
   createdAt DateTime        @default(now())
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
 }
-
-// ─── INVENTORY ───────────────────────────────────────────────────────────────
 
 model Inventory {
   id                String         @id @default(cuid())
   variantId         String         @unique
-  variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   quantity          Int            @default(0)
   reservedQuantity  Int            @default(0)
   lowStockThreshold Int            @default(5)
   trackedInventory  Boolean        @default(true)
   allowBackorder    Boolean        @default(false)
   updatedAt         DateTime       @updatedAt
+  variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   logs              InventoryLog[]
 }
 
 model InventoryLog {
   id          String    @id @default(cuid())
   inventoryId String
-  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   delta       Int
   reason      String
   note        String?
   createdAt   DateTime  @default(now())
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
 }
-
-// ─── CUSTOMERS ───────────────────────────────────────────────────────────────
 
 model Customer {
   id               String    @id @default(cuid())
@@ -243,18 +212,17 @@ model Customer {
   totalSpent       Int       @default(0)
   notes            String?
   tags             String[]
-  addresses        Address[]
-  orders           Order[]
-  reviews          Review[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   lastOrderAt      DateTime?
+  addresses        Address[]
+  orders           Order[]
+  reviews          Review[]
 }
 
 model Address {
   id          String      @id @default(cuid())
   customerId  String?
-  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: Cascade)
   type        AddressType @default(SHIPPING)
   firstName   String
   lastName    String
@@ -270,20 +238,13 @@ model Address {
   phone       String?
   isDefault   Boolean     @default(false)
   createdAt   DateTime    @default(now())
+  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
-
-enum AddressType {
-  SHIPPING
-  BILLING
-}
-
-// ─── ORDERS ──────────────────────────────────────────────────────────────────
 
 model Order {
   id                      String          @id @default(cuid())
   orderNumber             String          @unique
   customerId              String?
-  customer                Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
   status                  OrderStatus     @default(PENDING)
   financialStatus         FinancialStatus @default(PENDING)
   email                   String
@@ -298,7 +259,6 @@ model Order {
   currency                String          @default("usd")
   stripePaymentIntentId   String?
   stripeCheckoutSessionId String?
-  stripeTaxTransactionId  String?
   discountCode            String?
   customerNote            String?
   adminNote               String?
@@ -306,11 +266,297 @@ model Order {
   source                  OrderSource     @default(WEB)
   cancelledAt             DateTime?
   cancelReason            String?
-  items                   OrderItem[]
-  fulfillments            Fulfillment[]
-  returns                 Return[]
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
+  stripeTaxTransactionId  String?
+  fulfillments            Fulfillment[]
+  customer                Customer?       @relation(fields: [customerId], references: [id])
+  items                   OrderItem[]
+  returns                 Return[]
+}
+
+model OrderItem {
+  id                String          @id @default(cuid())
+  orderId           String
+  productId         String?
+  variantId         String?
+  title             String
+  variantTitle      String?
+  sku               String?
+  quantity          Int
+  price             Int
+  totalDiscount     Int             @default(0)
+  total             Int
+  productSnapshot   Json
+  requiresShipping  Boolean         @default(true)
+  fulfillmentStatus String?
+  createdAt         DateTime        @default(now())
+  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product?        @relation(fields: [productId], references: [id])
+  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+  returnItems       ReturnItem[]
+}
+
+model Fulfillment {
+  id                String            @id @default(cuid())
+  orderId           String
+  status            FulfillmentStatus @default(PENDING)
+  trackingCompany   String?
+  trackingNumber    String?
+  trackingUrl       String?
+  carrier           String?
+  service           String?
+  shippedAt         DateTime?
+  estimatedDelivery DateTime?
+  notifyCustomer    Boolean           @default(true)
+  items             Json
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Return {
+  id             String       @id @default(cuid())
+  orderId        String
+  status         ReturnStatus @default(REQUESTED)
+  customerNote   String?
+  adminNote      String?
+  refundAmount   Int?
+  restockItems   Boolean      @default(true)
+  stripeRefundId String?
+  requestedAt    DateTime     @default(now())
+  resolvedAt     DateTime?
+  updatedAt      DateTime     @updatedAt
+  order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  items          ReturnItem[]
+}
+
+model ReturnItem {
+  id          String       @id @default(cuid())
+  returnId    String
+  orderItemId String
+  quantity    Int
+  reason      ReturnReason
+  note        String?
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  return      Return       @relation(fields: [returnId], references: [id], onDelete: Cascade)
+}
+
+model Discount {
+  id                 String       @id @default(cuid())
+  code               String       @unique
+  type               DiscountType
+  value              Int
+  minimumOrderAmount Int?
+  appliesToAll       Boolean      @default(true)
+  productIds         String[]
+  categoryIds        String[]
+  usageLimit         Int?
+  usageCount         Int          @default(0)
+  perCustomerLimit   Int?
+  startsAt           DateTime?
+  endsAt             DateTime?
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+model ShippingZone {
+  id        String         @id @default(cuid())
+  name      String
+  countries String[]
+  regions   String[]
+  isActive  Boolean        @default(true)
+  position  Int            @default(0)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  rates     ShippingRate[]
+}
+
+model ShippingRate {
+  id        String        @id @default(cuid())
+  zoneId    String
+  name      String
+  condition RateCondition @default(FLAT)
+  minValue  Float?
+  maxValue  Float?
+  price     Int
+  isActive  Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  zone      ShippingZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id               String       @id @default(cuid())
+  productId        String
+  customerId       String?
+  orderId          String?
+  rating           Int
+  title            String?
+  body             String?
+  status           ReviewStatus @default(PENDING)
+  verifiedPurchase Boolean      @default(false)
+  helpfulCount     Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  customer         Customer?    @relation(fields: [customerId], references: [id])
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model WelcomeEmailTemplate {
+  id                   String   @id @default("welcome")
+  logoUrl              String?
+  headerBgColor        String?
+  cardBgColor          String?
+  greetingText         String?
+  greetingItalic       Boolean  @default(true)
+  bodyParagraph1       String?
+  bodyParagraph2       String?
+  bulletSectionTitle   String?
+  bullet1Label         String?
+  bullet1Text          String?
+  bullet2Label         String?
+  bullet2Text          String?
+  bullet3Label         String?
+  bullet3Text          String?
+  closingText          String?
+  signatureText        String?
+  signatureName        String?
+  signatureSubtitle    String?
+  avatarUrl            String?
+  instagramUrl         String?
+  tiktokUrl            String?
+  instagramButtonColor String?
+  tiktokButtonColor    String?
+  textColorDark        String?
+  textColorMedium      String?
+  textColorLight       String?
+  accentColor          String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  bodyHtml             String?
+  socialLinks          Json?
+  signatureData        Json?
+}
+
+model Artisan {
+  id                 String           @id @default(cuid())
+  slug               String           @unique
+  name               String
+  status             ArtisanStatus    @default(DRAFT)
+  tagline            String?
+  quote              String?
+  story              String?
+  heroImageUrl       String?
+  avatarUrl          String?
+  originCountry      String           @default("El Salvador")
+  city               String?
+  region             String?
+  craft              String?
+  practicingSince    Int?
+  letterToBuyer      String?
+  socialLinks        Json?
+  metaTitle          String?
+  metaDescription    String?
+  isFeatured         Boolean          @default(false)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  featuredPosts      Json?
+  showGallery        Boolean          @default(true)
+  socialLinksVisible Json?
+  socialEmbedCode    String?
+  igAccessToken      String?
+  igTokenExpiry      DateTime?
+  igUserId           String?
+  storyLabel         String?
+  images             ArtisanImage[]
+  products           ProductArtisan[]
+}
+
+model ArtisanImage {
+  id        String               @id @default(cuid())
+  artisanId String
+  url       String
+  urlThumb  String?
+  urlMedium String?
+  altText   String?
+  caption   String?
+  category  ArtisanImageCategory @default(GALLERY)
+  position  Int                  @default(0)
+  createdAt DateTime             @default(now())
+  artisan   Artisan              @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+}
+
+model ProductArtisan {
+  productId String
+  artisanId String
+  artisan   Artisan @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([productId, artisanId])
+}
+
+model LinkTreeSettings {
+  id              String    @id @default("singleton")
+  title           String    @default("Link Hub")
+  description     String?
+  logoUrl         String?
+  backgroundStyle String?   @default("warm")
+  buttonStyle     String?   @default("rounded")
+  primaryColor    String?   @default("#8B6914")
+  updatedAt       DateTime? @default(now()) @updatedAt @db.Timestamp(6)
+  isEnabled       Boolean?  @default(false)
+  profileName     String?   @default("Artisans Stories")
+  profileBio      String?
+  profileImageUrl String?
+  backgroundColor String?   @default("#FFFBF0")
+  buttonColor     String?   @default("#8B6914")
+  textColor       String?   @default("#1F2937")
+}
+
+model LinkTreeLink {
+  id               String             @id @default(cuid())
+  title            String
+  url              String
+  description      String?
+  icon             String?
+  isEnabled        Boolean?           @default(true)
+  sortOrder        Int?               @default(0)
+  updatedAt        DateTime?          @default(now()) @updatedAt @db.Timestamp(6)
+  clicks           Int?               @default(0)
+  LinkTreeClickLog LinkTreeClickLog[]
+}
+
+model LinkTreeClickLog {
+  id           String       @id
+  linkId       String
+  clickedAt    DateTime?    @default(now()) @db.Timestamp(6)
+  userAgent    String?
+  referrer     String?
+  ip           String?
+  LinkTreeLink LinkTreeLink @relation(fields: [linkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+}
+
+enum TokenType {
+  ADMIN
+  CUSTOMER
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
 }
 
 enum OrderStatus {
@@ -339,72 +585,12 @@ enum OrderSource {
   IMPORT
 }
 
-model OrderItem {
-  id                String          @id @default(cuid())
-  orderId           String
-  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId         String?
-  product           Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
-  variantId         String?
-  variant           ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
-  title             String
-  variantTitle      String?
-  sku               String?
-  quantity          Int
-  price             Int
-  totalDiscount     Int             @default(0)
-  total             Int
-  productSnapshot   Json
-  requiresShipping  Boolean         @default(true)
-  fulfillmentStatus String?
-  returnItems       ReturnItem[]
-  createdAt         DateTime        @default(now())
-}
-
-// ─── FULFILLMENTS ────────────────────────────────────────────────────────────
-
-model Fulfillment {
-  id                String            @id @default(cuid())
-  orderId           String
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  status            FulfillmentStatus @default(PENDING)
-  trackingCompany   String?
-  trackingNumber    String?
-  trackingUrl       String?
-  carrier           String?
-  service           String?
-  shippedAt         DateTime?
-  estimatedDelivery DateTime?
-  notifyCustomer    Boolean           @default(true)
-  items             Json
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-}
-
 enum FulfillmentStatus {
   PENDING
   OPEN
   SUCCESS
   CANCELLED
   ERROR
-}
-
-// ─── RETURNS ─────────────────────────────────────────────────────────────────
-
-model Return {
-  id             String       @id @default(cuid())
-  orderId        String
-  order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  status         ReturnStatus @default(REQUESTED)
-  customerNote   String?
-  adminNote      String?
-  refundAmount   Int?
-  restockItems   Boolean      @default(true)
-  stripeRefundId String?
-  items          ReturnItem[]
-  requestedAt    DateTime     @default(now())
-  resolvedAt     DateTime?
-  updatedAt      DateTime     @updatedAt
 }
 
 enum ReturnStatus {
@@ -415,17 +601,6 @@ enum ReturnStatus {
   REFUNDED
 }
 
-model ReturnItem {
-  id          String       @id @default(cuid())
-  returnId    String
-  return      Return       @relation(fields: [returnId], references: [id], onDelete: Cascade)
-  orderItemId String
-  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  quantity    Int
-  reason      ReturnReason
-  note        String?
-}
-
 enum ReturnReason {
   DEFECTIVE
   WRONG_ITEM
@@ -434,58 +609,10 @@ enum ReturnReason {
   OTHER
 }
 
-// ─── DISCOUNTS ───────────────────────────────────────────────────────────────
-
-model Discount {
-  id                 String       @id @default(cuid())
-  code               String       @unique
-  type               DiscountType
-  value              Int
-  minimumOrderAmount Int?
-  appliesToAll       Boolean      @default(true)
-  productIds         String[]
-  categoryIds        String[]
-  usageLimit         Int?
-  usageCount         Int          @default(0)
-  perCustomerLimit   Int?
-  startsAt           DateTime?
-  endsAt             DateTime?
-  isActive           Boolean      @default(true)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-}
-
 enum DiscountType {
   PERCENTAGE
   FIXED_AMOUNT
   FREE_SHIPPING
-}
-
-// ─── SHIPPING ────────────────────────────────────────────────────────────────
-
-model ShippingZone {
-  id        String         @id @default(cuid())
-  name      String
-  countries String[]
-  regions   String[]
-  rates     ShippingRate[]
-  isActive  Boolean        @default(true)
-  position  Int            @default(0)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
-}
-
-model ShippingRate {
-  id        String        @id @default(cuid())
-  zoneId    String
-  zone      ShippingZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
-  name      String
-  condition RateCondition @default(FLAT)
-  minValue  Float?
-  maxValue  Float?
-  price     Int
-  isActive  Boolean       @default(true)
-  createdAt DateTime      @default(now())
 }
 
 enum RateCondition {
@@ -495,105 +622,10 @@ enum RateCondition {
   FREE
 }
 
-// ─── REVIEWS ─────────────────────────────────────────────────────────────────
-
-model Review {
-  id               String       @id @default(cuid())
-  productId        String
-  product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
-  customerId       String?
-  customer         Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  orderId          String?
-  rating           Int
-  title            String?
-  body             String?
-  status           ReviewStatus @default(PENDING)
-  verifiedPurchase Boolean      @default(false)
-  helpfulCount     Int          @default(0)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-}
-
 enum ReviewStatus {
   PENDING
   APPROVED
   REJECTED
-}
-
-// ─── EMAIL TEMPLATE ───────────────────────────────────────────────────────────
-// NOTE: Table is created/managed via raw SQL migrations, not prisma db push.
-// This model declaration exists only for prisma generate type safety.
-
-model WelcomeEmailTemplate {
-  id                  String   @id @default("welcome")
-  logoUrl             String?
-  headerBgColor       String?
-  cardBgColor         String?
-  greetingText        String?
-  greetingItalic      Boolean  @default(true)
-  bodyParagraph1      String?
-  bodyParagraph2      String?
-  bulletSectionTitle  String?
-  bullet1Label        String?
-  bullet1Text         String?
-  bullet2Label        String?
-  bullet2Text         String?
-  bullet3Label        String?
-  bullet3Text         String?
-  closingText         String?
-  signatureText       String?
-  signatureName       String?
-  signatureSubtitle   String?
-  avatarUrl           String?
-  instagramUrl        String?
-  tiktokUrl           String?
-  instagramButtonColor String?
-  tiktokButtonColor   String?
-  textColorDark       String?
-  textColorMedium     String?
-  textColorLight      String?
-  accentColor         String?
-  bodyHtml            String?
-  socialLinks         Json?
-  signatureData       Json?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-}
-
-// ─── ARTISANS ────────────────────────────────────────────────────────────────
-
-model Artisan {
-  id              String               @id @default(cuid())
-  slug            String               @unique
-  name            String
-  status          ArtisanStatus        @default(DRAFT)
-  tagline         String?
-  quote           String?
-  story           String?
-  storyLabel      String?           // Editable heading for the story section (default: "Their Story")
-  heroImageUrl    String?
-  avatarUrl       String?
-  originCountry   String               @default("El Salvador")
-  city            String?
-  region          String?
-  craft           String?
-  practicingSince Int?
-  letterToBuyer   String?
-  socialLinks     Json?
-  featuredPosts      Json?        // { instagram: string[], tiktok: string[], displayCount: number }
-  showGallery        Boolean           @default(true)
-  socialEmbedCode    String?           // Legacy embed code field
-  igUserId           String?           // Instagram user ID (from Graph API OAuth)
-  igAccessToken      String?           // Instagram long-lived access token
-  igTokenExpiry      DateTime?         // Token expiry (refresh before this)
-  socialLinksVisible Json?             // { instagram: bool, facebook: bool, tiktok: bool, youtube: bool, website: bool }
-  metaTitle          String?
-  metaDescription String?
-  isFeatured      Boolean              @default(false)
-  images          ArtisanImage[]
-  products        ProductArtisan[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
 }
 
 enum ArtisanStatus {
@@ -601,57 +633,9 @@ enum ArtisanStatus {
   ACTIVE
 }
 
-model ArtisanImage {
-  id        String               @id @default(cuid())
-  artisanId String
-  artisan   Artisan              @relation(fields: [artisanId], references: [id], onDelete: Cascade)
-  url       String
-  urlThumb  String?
-  urlMedium String?
-  altText   String?
-  caption   String?
-  category  ArtisanImageCategory @default(GALLERY)
-  position  Int                  @default(0)
-  createdAt DateTime             @default(now())
-}
-
 enum ArtisanImageCategory {
   GALLERY
   WORKSHOP
   PROCESS
   PORTRAIT
-}
-
-model ProductArtisan {
-  productId String
-  artisanId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  artisan   Artisan @relation(fields: [artisanId], references: [id], onDelete: Cascade)
-
-  @@id([productId, artisanId])
-}
-
-// ─── LINK TREE ─────────────────────────────────────────────────────────────────
-// NOTE: Managed via raw SQL — schema declaration for documentation only.
-
-model LinkTreeSettings {
-  id              String   @id @default("singleton")
-  title           String   @default("Link Hub")
-  description     String?
-  logoUrl         String?
-  backgroundStyle String?  @default("warm")
-  buttonStyle     String?  @default("rounded")
-  primaryColor    String?  @default("#8B6914")
-  updatedAt       DateTime @updatedAt
-}
-
-model LinkTreeLink {
-  id          String   @id @default(cuid())
-  title       String
-  url         String
-  description String?
-  icon        String?
-  isEnabled   Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  updatedAt   DateTime @updatedAt
 }
