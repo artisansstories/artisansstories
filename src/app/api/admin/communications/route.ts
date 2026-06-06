@@ -43,14 +43,17 @@ export async function GET(request: NextRequest) {
 
       prisma.contactMessage.count({ where: { status: "UNREAD" } }),
 
+      // Exclude CONTACT_INBOUND and CONTACT_REPLY from email log —
+      // those are already represented as ContactMessage conversation threads.
       includeTransactional
         ? prisma.emailLog.findMany({
+            where: { type: { notIn: ["CONTACT_INBOUND", "CONTACT_REPLY"] } },
             orderBy: { createdAt: "desc" },
           })
         : Promise.resolve([]),
 
       includeTransactional
-        ? prisma.emailLog.count()
+        ? prisma.emailLog.count({ where: { type: { notIn: ["CONTACT_INBOUND", "CONTACT_REPLY"] } } })
         : Promise.resolve(0),
     ]);
 
