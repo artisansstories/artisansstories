@@ -650,6 +650,7 @@ model ContactMessage {
   notes     String?
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
+  replies   ContactReply[]
 }
 
 enum ContactMessageStatus {
@@ -657,4 +658,19 @@ enum ContactMessageStatus {
   READ
   REPLIED
   ARCHIVED
+}
+
+model ContactReply {
+  id               String         @id @default(cuid())
+  contactMessageId String
+  body             String
+  direction        ReplyDirection @default(OUTBOUND)
+  senderName       String         @default("Artisans' Stories")
+  createdAt        DateTime       @default(now())
+  contactMessage   ContactMessage @relation(fields: [contactMessageId], references: [id], onDelete: Cascade)
+}
+
+enum ReplyDirection {
+  OUTBOUND
+  INBOUND
 }

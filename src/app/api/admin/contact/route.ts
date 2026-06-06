@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
+        include: { replies: { orderBy: { createdAt: "asc" } } },
       }),
       prisma.contactMessage.count({ where }),
       prisma.contactMessage.count({ where: { status: "UNREAD" } }),
