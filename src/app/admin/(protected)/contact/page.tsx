@@ -74,7 +74,6 @@ export default function ContactInboxPage() {
   const [activeTab, setActiveTab] = useState("ALL");
   const [unreadCount, setUnreadCount] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
@@ -144,26 +143,11 @@ export default function ContactInboxPage() {
     } finally { setSendingReply(false); }
   }
 
-  async function saveNotes(id: string) {
-    const notes = editingNotes[id] ?? "";
-    setSavingId(id);
-    try {
-      const res = await fetch(`/api/admin/contact/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes }),
-      });
-      if (res.ok) {
-        setMessages(prev => prev.map(m => m.id === id ? { ...m, notes } : m));
-      }
-    } finally { setSavingId(null); }
-  }
-
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 30, fontWeight: 600, color: "#3a2e24", margin: "0 0 4px" }}>
-          Contact Inbox
+          Correspondence
         </h1>
         <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 14, color: "#9a876e", margin: 0 }}>
           {total} conversation{total !== 1 ? "s" : ""}
@@ -367,23 +351,7 @@ export default function ContactInboxPage() {
                         )}
                       </div>
 
-                      {/* Notes */}
-                      <div style={{ padding: "0 20px 20px", borderTop: "1px solid #f5f0e8", paddingTop: 16 }}>
-                        <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>Internal Notes</p>
-                        <textarea
-                          value={editingNotes[msg.id] ?? msg.notes ?? ""}
-                          onChange={e => setEditingNotes(prev => ({ ...prev, [msg.id]: e.target.value }))}
-                          rows={2}
-                          placeholder="Add internal notes (not visible to customer)…"
-                          style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid #e0d5c5", fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#3a2e24", background: "#fefcf9", resize: "vertical", outline: "none", boxSizing: "border-box" }}
-                        />
-                        {editingNotes[msg.id] !== undefined && editingNotes[msg.id] !== (msg.notes ?? "") && (
-                          <button onClick={() => saveNotes(msg.id)} disabled={savingId === msg.id}
-                            style={{ marginTop: 6, padding: "6px 14px", borderRadius: 8, border: "none", background: "#8B6914", color: "#fff", fontFamily: "'Inter',sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                            {savingId === msg.id ? "Saving…" : "Save Notes"}
-                          </button>
-                        )}
-                      </div>
+
                     </div>
                   )}
                 </div>
