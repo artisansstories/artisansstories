@@ -1,12 +1,18 @@
 import { getAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { AdminLayoutClient } from "./AdminLayoutClient";
+import { redirect } from "next/navigation";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const [session, settings] = await Promise.all([
     getAdminSession(),
     prisma.storeSettings.findUnique({ where: { id: "singleton" }, select: { storeName: true, adminLogoSize: true } }).catch(() => null),
   ]);
+
+  if (!session) {
+    redirect("/admin/login");
+  }
+
   return (
     <AdminLayoutClient
       session={session}
