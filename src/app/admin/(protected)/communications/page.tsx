@@ -13,9 +13,9 @@ interface ContactMessage {
   status: ContactStatus; createdAt: string; replies: ContactReply[];
 }
 
-type EmailLogType = "ORDER_CONFIRMATION" | "ORDER_SHIPPED" | "MAGIC_LINK_CUSTOMER" | "MAGIC_LINK_ADMIN" |
-  "CONTACT_INBOUND" | "CONTACT_REPLY" | "RETURN_REQUEST" | "RETURN_APPROVED" | "RETURN_REJECTED" |
-  "REFUND_ISSUED" | "SUBSCRIBE_WELCOME" | "SYSTEM";
+type EmailLogType = "ORDER_CONFIRMATION" | "ORDER_CANCELLED" | "ORDER_REFUNDED" | "ORDER_SHIPPED" |
+  "MAGIC_LINK_CUSTOMER" | "MAGIC_LINK_ADMIN" | "CONTACT_INBOUND" | "CONTACT_REPLY" |
+  "RETURN_REQUEST" | "RETURN_APPROVED" | "RETURN_REJECTED" | "REFUND_ISSUED" | "SUBSCRIBE_WELCOME" | "SYSTEM";
 
 interface EmailLog {
   id: string; type: EmailLogType; direction: "OUTBOUND" | "INBOUND";
@@ -48,7 +48,9 @@ const CONV_STATUS: Record<ContactStatus, { bg: string; color: string; label: str
 
 const EMAIL_TYPE: Record<string, { label: string; color: string; bg: string }> = {
   ORDER_CONFIRMATION:  { label: "Order Confirmation",  color: "#15803d", bg: "#dcfce7" },
-  ORDER_SHIPPED:       { label: "Order Shipped",        color: "#0284c7", bg: "#f0f9ff" },
+  ORDER_CANCELLED:     { label: "Order Cancelled",     color: "#dc2626", bg: "#fef2f2" },
+  ORDER_REFUNDED:      { label: "Refund Issued",       color: "#6b21a8", bg: "#faf5ff" },
+  ORDER_SHIPPED:       { label: "Order Shipped",       color: "#0284c7", bg: "#f0f9ff" },
   MAGIC_LINK_CUSTOMER: { label: "Sign-in Link",         color: "#7c3aed", bg: "#f5f3ff" },
   MAGIC_LINK_ADMIN:    { label: "Admin Sign-in",        color: "#9a3412", bg: "#fff7ed" },
   CONTACT_INBOUND:     { label: "Contact Form",         color: "#d97706", bg: "#fffbeb" },

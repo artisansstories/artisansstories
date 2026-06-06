@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
+import { Resend } from "resend";
+import { logEmail } from "@/lib/email-log";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
   apiVersion: "2025-01-27.acacia",
@@ -64,6 +68,33 @@ export async function POST(
           : `Refund issued: ${body.reason ?? "Admin initiated"} (${new Date().toLocaleDateString()})`,
       },
     });
+
+    // Send refund notification email
+    try {
+      const refundAmt = refund.amount;
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/></head><body style="margin:0;padding:0;background:#f5f0e8;font-family:'Helvetica Neue',Arial,sans-serif;">
+<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f0e8;padding:32px 16px;"><tr><td align="center">
+<table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">
+<tr><td style="padding:32px 40px 20px;text-align:center;border-bottom:1px solid #ede8df;">
+<img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="240" style="display:block;margin:0 auto;width:240px;max-width:80%;height:auto;"/></td></tr>
+<tr><td style="padding:36px 40px;text-align:center;">
+<h2 style="margin:0 0 12px;font-size:24px;color:#3a2e24;font-weight:700;">Refund Issued</h2>
+<p style="margin:0 0 20px;font-size:15px;color:#7a6852;">A refund of <strong>$${(refundAmt / 100).toFixed(2)}</strong> has been issued for order <strong>${order.orderNumber}</strong>.</p>
+<p style="margin:0;font-size:13px;color:#9a876e;">Refunds typically appear within 5–10 business days. Questions? <a href="mailto:hello@artisansstories.com" style="color:#8B6914;">hello@artisansstories.com</a></p>
+</td></tr>
+<tr><td style="padding:20px 40px;background:#3a2e24;text-align:center;"><p style="margin:0;font-size:11px;color:rgba(255,255,255,0.4);">&copy; ${new Date().getFullYear()} Artisans' Stories</p></td></tr>
+</table></td></tr></table></body></html>`;
+      const emailResult = await resend.emails.send({
+        from: "Artisans' Stories <hello@artisansstories.com>",
+        to: order.email,
+        replyTo: "hello@artisansstories.com",
+        subject: `Refund issued for order ${order.orderNumber}`,
+        html,
+      });
+      await logEmail({ type: "ORDER_REFUNDED", toEmail: order.email, subject: `Refund issued for order ${order.orderNumber}`, bodyHtml: html, resendId: emailResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+    } catch (emailErr) {
+      console.error("Failed to send refund email:", emailErr);
+    }
 
     return NextResponse.json({
       success: true,

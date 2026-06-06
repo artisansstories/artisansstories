@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 
 export type EmailLogType =
   | "ORDER_CONFIRMATION"
+  | "ORDER_CANCELLED"
+  | "ORDER_REFUNDED"
   | "ORDER_SHIPPED"
   | "MAGIC_LINK_CUSTOMER"
   | "MAGIC_LINK_ADMIN"
