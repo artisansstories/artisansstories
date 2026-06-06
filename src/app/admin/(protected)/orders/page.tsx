@@ -103,6 +103,8 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [checkingTracking, setCheckingTracking] = useState(false);
+  const [trackingResult, setTrackingResult] = useState<{ checked: number; delivered: number; message: string } | null>(null);
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -140,6 +142,21 @@ export default function OrdersPage() {
     const t = setTimeout(() => fetchOrders(1), search ? 350 : 0);
     return () => clearTimeout(t);
   }, [fetchOrders, search]);
+
+  async function handleCheckTracking() {
+    setCheckingTracking(true);
+    setTrackingResult(null);
+    try {
+      const res = await fetch("/api/admin/orders/check-tracking", { method: "POST" });
+      const data = await res.json() as { checked: number; delivered: number; message: string };
+      setTrackingResult(data);
+      if (data.delivered > 0) fetchOrders(page);
+    } catch {
+      setTrackingResult({ checked: 0, delivered: 0, message: "Error checking tracking" });
+    } finally {
+      setCheckingTracking(false);
+    }
+  }
 
   function handleExportCsv() {
     const params = new URLSearchParams();
@@ -206,6 +223,38 @@ export default function OrdersPage() {
           </svg>
           Export CSV
         </button>
+
+        {/* Check Tracking button */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <button
+            onClick={handleCheckTracking}
+            disabled={checkingTracking}
+            title="Check USPS/UPS for delivery status on all shipped orders"
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 18px", borderRadius: 8,
+              border: "1px solid #e0d5c5",
+              background: checkingTracking ? "#faf7f2" : "#fff",
+              color: "#3a2e24", fontSize: 13, fontWeight: 500,
+              fontFamily: "'Inter', sans-serif",
+              cursor: checkingTracking ? "not-allowed" : "pointer",
+              opacity: checkingTracking ? 0.7 : 1,
+            }}
+            onMouseEnter={e => { if (!checkingTracking) (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
+            onMouseLeave={e => { if (!checkingTracking) (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ animation: checkingTracking ? "spin 1s linear infinite" : "none" }}>
+              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+            </svg>
+            {checkingTracking ? "Checking…" : "Check Tracking"}
+          </button>
+          {trackingResult && (
+            <p style={{ fontSize: 11, color: trackingResult.delivered > 0 ? "#15803d" : "#9a876e", fontFamily: "'Inter', sans-serif", margin: 0 }}>
+              {trackingResult.message} ({trackingResult.checked} checked)
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
