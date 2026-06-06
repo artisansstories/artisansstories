@@ -38,7 +38,7 @@ export default function ShopFooter() {
   return (
     <footer style={{ background: "#3a2e24", color: "#e8dcc8", marginTop: "auto" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 24px 32px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 32, marginBottom: 40 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 28, marginBottom: 40 }}>
           <div>
             <Image src="/logo-color.png" alt="Artisans' Stories" width={420} height={114}
               style={{ width: 390, maxWidth: "90vw", height: "auto", filter: "brightness(0) invert(1) sepia(1) saturate(0.5) brightness(1.2)", marginBottom: 16 }}
@@ -49,7 +49,7 @@ export default function ShopFooter() {
             </p>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "8px 20px" }}>
             {FOOTER_LINKS.map(link => (
               <Link key={link.href} href={link.href}
                 style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#c9b99a", textDecoration: "none", transition: "color 0.15s" }}
@@ -59,7 +59,7 @@ export default function ShopFooter() {
             ))}
           </div>
 
-          <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
             {[
               { href: INSTAGRAM_URL, icon: <IconInstagram size={18} />, label: "Instagram" },
               { href: TIKTOK_URL, icon: <IconTikTok size={18} />, label: "TikTok" },
