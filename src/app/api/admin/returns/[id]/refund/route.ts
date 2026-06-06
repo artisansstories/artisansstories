@@ -14,7 +14,7 @@ export async function POST(
     
     const { id } = await params;
     const body = await request.json() as { amount: number; restock: boolean };
-    if (!body.amount || body.amount <= 0) {
+    if (body.amount === undefined || body.amount === null || body.amount < 0) {
       return NextResponse.json({ error: "Invalid refund amount" }, { status: 400 });
     }
     const ret = await prisma.return.findUnique({
@@ -54,10 +54,12 @@ export async function POST(
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
         apiVersion: "2025-01-27.acacia",
       });
-      const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
-      const chargeId = pi.latest_charge as string;
-      const refund = await stripe.refunds.create({ charge: chargeId, amount: body.amount });
-      stripeRefundId = refund.id;
+      if (body.amount > 0) {
+        const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
+        const chargeId = pi.latest_charge as string;
+        const refund = await stripe.refunds.create({ charge: chargeId, amount: body.amount });
+        stripeRefundId = refund.id;
+      }
     }
     const isPartial = body.amount < order.total;
     const newFinancialStatus = isPartial ? "PARTIALLY_REFUNDED" : "REFUNDED";

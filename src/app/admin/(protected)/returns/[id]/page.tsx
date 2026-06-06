@@ -287,7 +287,7 @@ export default function ReturnDetailPage() {
   async function handleRefund() {
     if (!ret) return;
     const amountCents = Math.round(parseFloat(refundAmount) * 100);
-    if (isNaN(amountCents) || amountCents <= 0) {
+    if (isNaN(amountCents) || amountCents < 0) {
       setActionError("Please enter a valid refund amount.");
       return;
     }
