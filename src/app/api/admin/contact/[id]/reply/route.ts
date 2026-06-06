@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json() as { replyText: string };
+
+    if (!body.replyText?.trim()) {
+      return NextResponse.json({ error: "Reply text is required" }, { status: 400 });
+    }
+
+    const contactMsg = await prisma.contactMessage.findUnique({ where: { id } });
+    if (!contactMsg) {
+      return NextResponse.json({ error: "Message not found" }, { status: 404 });
+    }
+
+    // Send reply via Resend
+    await resend.emails.send({
+      from: "Artisans' Stories <hello@artisansstories.com>",
+      to: [contactMsg.email],
+      replyTo: "anna@artisansstories.com",
+      subject: `Re: ${contactMsg.subject}`,
+      html: `
+        <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
+          <div style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:24px 40px;text-align:center;">
+            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="200" style="display:block;margin:0 auto;width:200px;max-width:100%;height:auto;background:#fff;border-radius:8px;padding:10px 20px;" />
+          </div>
+          <div style="padding:32px 40px;">
+            <p style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;color:#3a2e24;margin:0 0 8px;">Hi ${contactMsg.name},</p>
+            <div style="font-size:15px;color:#3a2e24;line-height:1.7;white-space:pre-wrap;margin:16px 0 24px;">${body.replyText.trim()}</div>
+            <div style="border-top:1px solid #ede8df;padding-top:20px;margin-top:24px;">
+              <p style="font-size:13px;color:#9a876e;margin:0 0 4px;">Warmly,</p>
+              <p style="font-size:14px;font-weight:600;color:#3a2e24;margin:0;">Anna · Artisans' Stories</p>
+            </div>
+          </div>
+          <div style="padding:16px 40px;background:#3a2e24;text-align:center;">
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.4);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+          </div>
+        </div>
+        <div style="margin-top:32px;padding:20px;background:#f5f5f5;border-radius:8px;font-family:Inter,sans-serif;">
+          <p style="font-size:11px;color:#999;margin:0 0 8px;text-transform:uppercase;letter-spacing:0.05em;">Original message from ${contactMsg.name}</p>
+          <p style="font-size:13px;color:#666;line-height:1.6;white-space:pre-wrap;margin:0;">${contactMsg.message}</p>
+        </div>
+      `,
+      text: `Hi ${contactMsg.name},\n\n${body.replyText.trim()}\n\nWarmly,\nAnna · Artisans' Stories\n\n---\nOriginal message:\n${contactMsg.message}`,
+    });
+
+    // Mark as REPLIED in DB
+    const updated = await prisma.contactMessage.update({
+      where: { id },
+      data: { status: "REPLIED" },
+    });
+
+    return NextResponse.json({ success: true, message: updated });
+  } catch (error) {
+    console.error("POST /api/admin/contact/[id]/reply error:", error);
+    return NextResponse.json({ error: "Failed to send reply" }, { status: 500 });
+  }
+}

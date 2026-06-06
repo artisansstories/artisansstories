@@ -54,6 +54,10 @@ export default function ContactInboxPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingNotes, setEditingNotes] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replySuccess, setReplySuccess] = useState<string | null>(null);
 
   const fetchMessages = useCallback(async () => {
     setLoading(true);
@@ -94,6 +98,28 @@ export default function ContactInboxPage() {
         if (status === "READ") setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } finally { setSavingId(null); }
+  }
+
+  async function sendReply(msg: ContactMessage) {
+    const text = replyText[msg.id]?.trim();
+    if (!text) return;
+    setSendingReply(true);
+    try {
+      const res = await fetch(`/api/admin/contact/${msg.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replyText: text }),
+      });
+      if (res.ok) {
+        setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, status: "REPLIED" } : m));
+        setReplyingId(null);
+        setReplyText(prev => ({ ...prev, [msg.id]: "" }));
+        setReplySuccess(msg.id);
+        setTimeout(() => setReplySuccess(null), 3000);
+      }
+    } finally {
+      setSendingReply(false);
+    }
   }
 
   async function saveNotes(id: string) {
@@ -216,13 +242,12 @@ export default function ContactInboxPage() {
 
                       {/* Action buttons */}
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-                        <a
-                          href={`mailto:${msg.email}?subject=Re: ${encodeURIComponent(msg.subject)}`}
-                          onClick={() => updateStatus(msg.id, "REPLIED")}
-                          style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "#8B6914", color: "#fff", fontFamily: "'Inter',sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+                        <button
+                          onClick={() => setReplyingId(replyingId === msg.id ? null : msg.id)}
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: replyingId === msg.id ? "#5a3e0a" : "#8B6914", color: "#fff", fontFamily: "'Inter',sans-serif", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
                         >
-                          ✉ Reply via Email
-                        </a>
+                          ✉ {replyingId === msg.id ? "Cancel Reply" : "Reply"}
+                        </button>
                         {msg.status !== "REPLIED" && (
                           <button
                             onClick={() => updateStatus(msg.id, "REPLIED")}
@@ -251,6 +276,36 @@ export default function ContactInboxPage() {
                           </button>
                         )}
                       </div>
+
+                      {/* Inline reply composer */}
+                      {replyingId === msg.id && (
+                        <div style={{ background: "#f0f9f4", border: "1px solid #bbf7d0", borderRadius: 10, padding: "14px 16px", marginBottom: 16 }}>
+                          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 8px" }}>
+                            Replying to {msg.name} &lt;{msg.email}&gt;
+                          </p>
+                          <textarea
+                            value={replyText[msg.id] ?? ""}
+                            onChange={e => setReplyText(prev => ({ ...prev, [msg.id]: e.target.value }))}
+                            rows={5}
+                            placeholder="Type your reply here…"
+                            style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #86efac", fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#3a2e24", background: "#fff", resize: "vertical", outline: "none", boxSizing: "border-box" }}
+                            autoFocus
+                          />
+                          <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
+                            <button
+                              onClick={() => sendReply(msg)}
+                              disabled={sendingReply || !replyText[msg.id]?.trim()}
+                              style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: sendingReply || !replyText[msg.id]?.trim() ? "#c8a84c" : "#8B6914", color: "#fff", fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: 600, cursor: sendingReply || !replyText[msg.id]?.trim() ? "not-allowed" : "pointer", opacity: sendingReply || !replyText[msg.id]?.trim() ? 0.7 : 1 }}
+                            >
+                              {sendingReply ? "Sending…" : "Send Reply"}
+                            </button>
+                            <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, color: "#6b7280" }}>Sends from hello@artisansstories.com</span>
+                          </div>
+                          {replySuccess === msg.id && (
+                            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#15803d", margin: "8px 0 0", fontWeight: 500 }}>✓ Reply sent successfully</p>
+                          )}
+                        </div>
+                      )}
 
                       {/* Notes */}
                       <div>
