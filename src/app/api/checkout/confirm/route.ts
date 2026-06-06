@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const StripeSDK = require("stripe");
 import { prisma } from "@/lib/prisma";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
+import { logEmail } from "@/lib/email-log";
 import { Resend } from "resend";
 import crypto from "crypto";
 
@@ -307,7 +308,7 @@ export async function POST(request: NextRequest) {
     });
 
     try {
-      await resend.emails.send({
+      const confirmResult = await resend.emails.send({
         from: process.env.RESEND_FROM!,
         to: email,
         subject: `Order Confirmed — ${orderNumber}`,
@@ -324,9 +325,9 @@ export async function POST(request: NextRequest) {
           viewOrderUrl,
         }),
       });
+      await logEmail({ type: "ORDER_CONFIRMATION", toEmail: email, subject: `Order Confirmed — ${orderNumber}`, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     } catch (emailErr) {
       console.error("Failed to send confirmation email:", emailErr);
-      // Don't fail the order if email fails
     }
 
     return NextResponse.json({

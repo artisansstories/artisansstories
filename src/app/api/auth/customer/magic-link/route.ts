@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -102,12 +103,13 @@ export async function POST(request: NextRequest) {
     const magicLink = `${siteUrl}/api/auth/customer/verify?token=${encodeURIComponent(token)}`;
     const fromEmail = process.env.RESEND_FROM ?? "hello@artisansstories.com";
 
-    await resend.emails.send({
+    const mlResult = await resend.emails.send({
       from: `Artisans' Stories <${fromEmail}>`,
       to: [normalizedEmail],
       subject: "Your Artisans' Stories sign-in link",
       html: customerMagicLinkEmail(magicLink),
     });
+    await logEmail({ type: "MAGIC_LINK_CUSTOMER", toEmail: normalizedEmail, subject: "Your Artisans' Stories sign-in link", resendId: mlResult.data?.id, relatedType: "CUSTOMER" });
 
     return NextResponse.json({ success: true, message: "Check your email for a sign-in link." });
   } catch (err) {

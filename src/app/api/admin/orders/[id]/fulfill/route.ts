@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { orderShippedHtml } from "@/lib/emails/order-shipped";
+import { logEmail } from "@/lib/email-log";
 import Stripe from "stripe";
 import crypto from "crypto";
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -108,7 +109,7 @@ export async function POST(
       }
 
       try {
-        await resend.emails.send({
+        const shipResult = await resend.emails.send({
           from: process.env.RESEND_FROM ?? "hello@artisansstories.com",
           to: order.email,
           subject: `Your order ${order.orderNumber} has shipped!`,
@@ -123,6 +124,7 @@ export async function POST(
             viewOrderUrl,
           }),
         });
+        await logEmail({ type: "ORDER_SHIPPED", toEmail: order.email, subject: `Your order ${order.orderNumber} has shipped!`, resendId: shipResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
       } catch (emailErr) {
         console.error("Failed to send shipped email:", emailErr);
       }

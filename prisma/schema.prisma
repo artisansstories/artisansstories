@@ -674,3 +674,36 @@ enum ReplyDirection {
   OUTBOUND
   INBOUND
 }
+
+model EmailLog {
+  id           String        @id @default(cuid())
+  type         EmailLogType
+  direction    EmailDirection @default(OUTBOUND)
+  toEmail      String
+  fromEmail    String        @default("hello@artisansstories.com")
+  subject      String
+  resendId     String?
+  relatedId    String?
+  relatedType  String?
+  createdAt    DateTime      @default(now())
+}
+
+enum EmailLogType {
+  ORDER_CONFIRMATION
+  ORDER_SHIPPED
+  MAGIC_LINK_CUSTOMER
+  MAGIC_LINK_ADMIN
+  CONTACT_INBOUND
+  CONTACT_REPLY
+  RETURN_REQUEST
+  RETURN_APPROVED
+  RETURN_REJECTED
+  REFUND_ISSUED
+  SUBSCRIBE_WELCOME
+  SYSTEM
+}
+
+enum EmailDirection {
+  OUTBOUND
+  INBOUND
+}

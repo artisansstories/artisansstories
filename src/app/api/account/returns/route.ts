@@ -3,6 +3,7 @@ import { getAccountSession } from '@/lib/account-session';
 import { prisma } from '@/lib/prisma';
 import { Resend } from 'resend';
 import { ReturnReason } from '@prisma/client';
+import { logEmail } from '@/lib/email-log';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -74,7 +75,7 @@ export async function POST(request: NextRequest) {
       .map(ri => `<li>${ri.quantity}x ${ri.orderItem.title} — ${ri.reason}${ri.note ? ` (${ri.note})` : ''}</li>`)
       .join('');
 
-    await resend.emails.send({
+    const returnReqResult = await resend.emails.send({
       from: `Artisans' Stories <${fromEmail}>`,
       to: [notifyEmail],
       subject: `New Return Request — Order ${order.orderNumber}`,
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
         </div>
       `,
     }).catch(err => console.error('Return notification email error:', err));
+    await logEmail({ type: 'RETURN_REQUEST', direction: 'INBOUND', toEmail: notifyEmail, fromEmail: session.email, subject: `New Return Request — Order ${order.orderNumber}`, resendId: returnReqResult?.data?.id, relatedId: returnRequest.id, relatedType: 'RETURN' });
 
     return NextResponse.json({ return: returnRequest }, { status: 201 });
   } catch (err) {

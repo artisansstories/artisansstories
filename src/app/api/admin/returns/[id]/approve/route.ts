@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { returnApprovedHtml } from "@/lib/emails/return-approved";
+import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
   _request: NextRequest,
@@ -30,7 +31,7 @@ export async function POST(
       where: { id },
       data: { status: "APPROVED" },
     });
-    await resend.emails.send({
+    const approveResult = await resend.emails.send({
       from: process.env.RESEND_FROM!,
       to: ret.order.email,
       subject: "Your return has been approved — Artisans' Stories",
@@ -45,6 +46,7 @@ export async function POST(
         })),
       }),
     });
+    await logEmail({ type: "RETURN_APPROVED", toEmail: ret.order.email, subject: "Your return has been approved — Artisans' Stories", resendId: approveResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
     return NextResponse.json({ return: updated });
   } catch (err) {
     console.error("POST /api/admin/returns/[id]/approve error:", err);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
+import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -32,7 +33,7 @@ export async function POST(
     });
 
     // Send via Resend
-    await resend.emails.send({
+    const replyResult = await resend.emails.send({
       from: "Artisans' Stories <hello@artisansstories.com>",
       to: [contactMsg.email],
       replyTo: "anna@artisansstories.com",
@@ -63,6 +64,8 @@ export async function POST(
       `,
       text: `Hi ${contactMsg.name},\n\n${body.replyText.trim()}\n\nWarmly,\nAnna · Artisans' Stories\n\n---\nOriginal message:\n${contactMsg.message}`,
     });
+
+    await logEmail({ type: "CONTACT_REPLY", toEmail: contactMsg.email, subject: `Re: ${contactMsg.subject}`, resendId: replyResult.data?.id, relatedId: id, relatedType: "CONTACT" });
 
     // Mark as REPLIED
     const updated = await prisma.contactMessage.update({

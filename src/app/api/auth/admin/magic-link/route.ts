@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -91,13 +92,14 @@ export async function POST(request: NextRequest) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
     const magicLink = `${siteUrl}/api/auth/admin/verify?token=${encodeURIComponent(token)}`;
 
-    await resend.emails.send({
+    const adminMlResult = await resend.emails.send({
       from: `Artisans' Stories <${process.env.RESEND_FROM ?? "hello@artisansstories.com"}>`,
       to: [email],
       subject: "Your Artisans' Stories admin sign-in link",
       html: adminMagicLinkEmail(magicLink),
     });
 
+    await logEmail({ type: "MAGIC_LINK_ADMIN", toEmail: email, subject: "Your Artisans' Stories admin sign-in link", resendId: adminMlResult.data?.id, relatedType: "ADMIN" });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Admin magic link error:", err);

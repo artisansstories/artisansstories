@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { refundIssuedHtml } from "@/lib/emails/refund-issued";
+import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
   request: NextRequest,
@@ -88,7 +89,7 @@ export async function POST(
         }
       }
     }
-    await resend.emails.send({
+    const refundResult = await resend.emails.send({
       from: process.env.RESEND_FROM!,
       to: order.email,
       subject: "Your refund has been issued — Artisans' Stories",
@@ -103,6 +104,7 @@ export async function POST(
         })),
       }),
     });
+    await logEmail({ type: "REFUND_ISSUED", toEmail: order.email, subject: "Your refund has been issued — Artisans' Stories", resendId: refundResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
     return NextResponse.json({ return: updated });
   } catch (err) {
     console.error("POST /api/admin/returns/[id]/refund error:", err);

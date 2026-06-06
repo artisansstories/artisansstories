@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
+import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
   _request: NextRequest,
@@ -37,7 +38,7 @@ export async function POST(
         image: (snapshot?.image as string) ?? undefined,
       };
     });
-    await resend.emails.send({
+    const resendResult = await resend.emails.send({
       from: process.env.RESEND_FROM ?? "hello@artisansstories.com",
       to: order.email,
       subject: `Order Confirmed — ${order.orderNumber}`,
@@ -53,6 +54,7 @@ export async function POST(
         shippingAddress,
       }),
     });
+    await logEmail({ type: "ORDER_CONFIRMATION", toEmail: order.email, subject: `Order Confirmed — ${order.orderNumber}`, resendId: resendResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/admin/orders/[id]/resend-email error:", err);

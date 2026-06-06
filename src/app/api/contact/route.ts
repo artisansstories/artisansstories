@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name, email, and message are required" }, { status: 400 });
     }
 
-    await resend.emails.send({
+    const contactNotifyResult = await resend.emails.send({
       from: "Artisans' Stories <hello@artisansstories.com>",
       to: "anna@artisansstories.com",
       replyTo: email,
@@ -43,6 +44,8 @@ export async function POST(request: NextRequest) {
         message,
       },
     }).catch((err: unknown) => console.error("Failed to save contact message to DB:", err));
+    // Log inbound contact as email log entry
+    await logEmail({ type: "CONTACT_INBOUND", direction: "INBOUND", toEmail: "anna@artisansstories.com", fromEmail: email, subject: subject || "General Inquiry", resendId: contactNotifyResult.data?.id, relatedType: "CONTACT" });
 
     return NextResponse.json({ success: true });
   } catch (error) {

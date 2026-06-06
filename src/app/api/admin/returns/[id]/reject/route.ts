@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { Resend } from "resend";
 import { returnRejectedHtml } from "@/lib/emails/return-rejected";
+import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
   request: NextRequest,
@@ -38,7 +39,7 @@ export async function POST(
         resolvedAt: new Date(),
       },
     });
-    await resend.emails.send({
+    const rejectResult = await resend.emails.send({
       from: process.env.RESEND_FROM!,
       to: ret.order.email,
       subject: "Update on your return request — Artisans' Stories",
@@ -53,6 +54,7 @@ export async function POST(
         })),
       }),
     });
+    await logEmail({ type: "RETURN_REJECTED", toEmail: ret.order.email, subject: "Update on your return request — Artisans' Stories", resendId: rejectResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
     return NextResponse.json({ return: updated });
   } catch (err) {
     console.error("POST /api/admin/returns/[id]/reject error:", err);
