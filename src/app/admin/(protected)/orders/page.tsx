@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OrderStatus = "PENDING" | "PROCESSING" | "FULFILLED" | "SHIPPED" | "DELIVERED" | "CANCELLED" | "REFUNDED";
-type FinancialStatus = "PENDING" | "PAID" | "PARTIALLY_PAID" | "REFUNDED" | "PARTIALLY_REFUNDED" | "VOIDED";
+type FinancialStatus = "PENDING" | "AUTHORIZED" | "PAID" | "PARTIALLY_PAID" | "REFUNDED" | "PARTIALLY_REFUNDED" | "VOIDED";
 
 interface Order {
   id: string;
@@ -43,6 +43,7 @@ const ORDER_STATUS_STYLES: Record<OrderStatus, { bg: string; color: string }> = 
 
 const FINANCIAL_STATUS_STYLES: Record<FinancialStatus, { bg: string; color: string }> = {
   PENDING:           { bg: "#fef3c7", color: "#b45309" },
+  AUTHORIZED:        { bg: "#ede9fe", color: "#6d28d9" },
   PAID:              { bg: "#dcfce7", color: "#15803d" },
   PARTIALLY_PAID:    { bg: "#ecfdf5", color: "#059669" },
   REFUNDED:          { bg: "#fee2e2", color: "#b91c1c" },
@@ -50,8 +51,11 @@ const FINANCIAL_STATUS_STYLES: Record<FinancialStatus, { bg: string; color: stri
   VOIDED:            { bg: "#f3f4f6", color: "#6b7280" },
 };
 
+// Fallback so an unknown status can never crash the page again
+const FALLBACK_BADGE = { bg: "#f3f4f6", color: "#6b7280" };
+
 function StatusBadge({ status }: { status: OrderStatus }) {
-  const s = ORDER_STATUS_STYLES[status];
+  const s = ORDER_STATUS_STYLES[status] ?? FALLBACK_BADGE;
   return (
     <span style={{
       display: "inline-block", padding: "2px 10px", borderRadius: 100,
@@ -64,7 +68,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
 }
 
 function FinancialBadge({ status }: { status: FinancialStatus }) {
-  const s = FINANCIAL_STATUS_STYLES[status];
+  const s = FINANCIAL_STATUS_STYLES[status] ?? FALLBACK_BADGE;
   const label = status.replace(/_/g, " ").charAt(0) + status.replace(/_/g, " ").slice(1).toLowerCase();
   return (
     <span style={{
