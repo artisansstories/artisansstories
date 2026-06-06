@@ -124,7 +124,8 @@ export async function POST(
             viewOrderUrl,
           }),
         });
-        await logEmail({ type: "ORDER_SHIPPED", toEmail: order.email, subject: `Your order ${order.orderNumber} has shipped!`, resendId: shipResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+        const shippedHtml = orderShippedHtml({ orderNumber: order.orderNumber, email: order.email, trackingCompany: body.trackingCompany, trackingNumber: body.trackingNumber, trackingUrl: body.trackingUrl, estimatedDelivery: body.estimatedDelivery, items: emailItems, viewOrderUrl });
+        await logEmail({ type: "ORDER_SHIPPED", toEmail: order.email, subject: `Your order ${order.orderNumber} has shipped!`, bodyHtml: shippedHtml, resendId: shipResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
       } catch (emailErr) {
         console.error("Failed to send shipped email:", emailErr);
       }

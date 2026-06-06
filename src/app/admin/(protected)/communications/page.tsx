@@ -331,7 +331,7 @@ export default function CommunicationsPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ borderBottom: "1px solid #ede8df" }}>
-                      {["Type", "To / From", "Subject", "Related", "Date"].map(h => (
+                      {["Type", "To / From", "Subject", "Related", "Date", ""].map(h => (
                         <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
@@ -358,6 +358,13 @@ export default function CommunicationsPage() {
                           ) : <span style={{ color: "#d0c8bc" }}>—</span>}
                         </td>
                         <td style={{ padding: "11px 14px", fontFamily: "'Inter',sans-serif", fontSize: 11, color: "#9a876e", whiteSpace: "nowrap" }}>{fmtDate(log.createdAt)}</td>
+                        <td style={{ padding: "11px 14px" }}>
+                          <Link href={`/admin/communications/email/${log.id}`}
+                            style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#8B6914", fontWeight: 500, textDecoration: "none", whiteSpace: "nowrap" }}
+                          >
+                            View →
+                          </Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

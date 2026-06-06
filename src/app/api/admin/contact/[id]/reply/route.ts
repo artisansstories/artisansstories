@@ -65,7 +65,10 @@ export async function POST(
       text: `Hi ${contactMsg.name},\n\n${body.replyText.trim()}\n\nWarmly,\nAnna · Artisans' Stories\n\n---\nOriginal message:\n${contactMsg.message}`,
     });
 
-    await logEmail({ type: "CONTACT_REPLY", toEmail: contactMsg.email, subject: `Re: ${contactMsg.subject}`, resendId: replyResult.data?.id, relatedId: id, relatedType: "CONTACT" });
+    const replyBodyHtml = replyResult.data ? (replyResult as { data?: { html?: string } }).data?.html ?? null : null;
+    // Build body from the sent html (extract from request since Resend doesn't return body)
+    const contactReplyHtml = `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;"><p><strong>To:</strong> ${contactMsg.name} &lt;${contactMsg.email}&gt;</p><p><strong>Subject:</strong> Re: ${contactMsg.subject}</p><hr/><p style="white-space:pre-wrap;">${body.replyText.trim()}</p></div>`;
+    await logEmail({ type: "CONTACT_REPLY", toEmail: contactMsg.email, subject: `Re: ${contactMsg.subject}`, bodyHtml: replyBodyHtml ?? contactReplyHtml, resendId: replyResult.data?.id, relatedId: id, relatedType: "CONTACT" });
 
     // Mark as REPLIED
     const updated = await prisma.contactMessage.update({

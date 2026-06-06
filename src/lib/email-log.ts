@@ -19,6 +19,7 @@ export interface LogEmailParams {
   toEmail: string;
   fromEmail?: string;
   subject: string;
+  bodyHtml?: string;
   resendId?: string;
   relatedId?: string;
   relatedType?: string;
@@ -37,6 +38,7 @@ export async function logEmail(params: LogEmailParams): Promise<void> {
         toEmail: params.toEmail,
         fromEmail: params.fromEmail ?? "hello@artisansstories.com",
         subject: params.subject,
+        bodyHtml: params.bodyHtml ?? null,
         resendId: params.resendId ?? null,
         relatedId: params.relatedId ?? null,
         relatedType: params.relatedType ?? null,

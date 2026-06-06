@@ -347,7 +347,8 @@ export async function POST(request: NextRequest) {
           viewOrderUrl,
         }),
       });
-      await logEmail({ type: "ORDER_CONFIRMATION", toEmail: email, subject: `Order Confirmed — ${orderNumber}`, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+      const confirmHtml = orderConfirmationHtml({ orderNumber, email, items: emailItems, subtotal, shippingTotal, taxTotal, discountTotal, total, shippingAddress, viewOrderUrl });
+      await logEmail({ type: "ORDER_CONFIRMATION", toEmail: email, subject: `Order Confirmed — ${orderNumber}`, bodyHtml: confirmHtml, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     } catch (emailErr) {
       console.error("Failed to send confirmation email:", emailErr);
     }
