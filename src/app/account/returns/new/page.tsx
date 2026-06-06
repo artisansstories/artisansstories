@@ -286,10 +286,11 @@ function NewReturnForm() {
 
               {/* Selected item controls */}
               {isSelected && (
-                <div style={{ marginTop: 14, marginLeft: 36, display: "flex", flexDirection: "column", gap: 12 }}>
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                <div style={{ marginTop: 14, marginLeft: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+                  <style>{`.return-item-controls{display:flex;gap:12px;flex-direction:column}@media(min-width:480px){.return-item-controls{flex-direction:row;align-items:flex-end}}`}</style>
+                  <div className="return-item-controls">
                     {/* Quantity */}
-                    <div style={{ flex: "0 0 auto" }}>
+                    <div style={{ flex: "0 0 auto", minWidth: 0 }}>
                       <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b5540", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
                         Qty to Return
                       </label>
@@ -318,7 +319,7 @@ function NewReturnForm() {
                     </div>
 
                     {/* Reason */}
-                    <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b5540", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
                         Reason
                       </label>
@@ -366,14 +367,14 @@ function NewReturnForm() {
           value={customerNote}
           onChange={e => setCustomerNote(e.target.value)}
           placeholder="e.g. The clasp broke on first wear, here are the details..."
-          rows={3}
+          rows={4}
           style={{
             width: "100%",
             padding: "12px 16px",
             borderRadius: 10,
             border: "1.5px solid #e0d5c5",
             background: "#fff",
-            fontSize: 14,
+            fontSize: 15,
             color: "#3a2e24",
             fontFamily: "'Inter',sans-serif",
             resize: "vertical",
@@ -385,18 +386,21 @@ function NewReturnForm() {
       </div>
 
       {/* Submit */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+      <style>{`.return-actions{display:flex;flex-direction:column;gap:10px}@media(min-width:480px){.return-actions{flex-direction:row;justify-content:flex-end}}`}</style>
+      <div className="return-actions">
         <a
           href={`/account/orders/${order.orderNumber}`}
           style={{
-            padding: "12px 24px",
+            padding: "14px 24px",
             borderRadius: 10,
             border: "1.5px solid #e0d5c5",
             color: "#6b5540",
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: 500,
             fontFamily: "'Inter',sans-serif",
             textDecoration: "none",
+            textAlign: "center",
+            display: "block",
           }}
         >
           Cancel
@@ -405,9 +409,10 @@ function NewReturnForm() {
           type="submit"
           disabled={submitting || Object.keys(selectedItems).length === 0}
           style={{
-            padding: "12px 28px",
+            padding: "14px 28px",
             borderRadius: 10,
             border: "none",
+            width: "100%",
             background: submitting || Object.keys(selectedItems).length === 0
               ? "#c8a84c"
               : "linear-gradient(135deg, #8B6914 0%, #C9A84C 100%)",
