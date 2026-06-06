@@ -4,8 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
-  CardElement,
-  PaymentRequestButtonElement,
+  PaymentElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
@@ -504,9 +503,6 @@ function CheckoutForm({
     e.preventDefault();
     if (!stripe || !elements) return;
 
-    const cardElement = elements.getElement(CardElement);
-    if (!cardElement) return;
-
     setProcessing(true);
     setCheckoutError("");
 
@@ -554,12 +550,13 @@ function CheckoutForm({
       let confirmedPaymentIntentId: string = piData.paymentIntentId;
 
       if (!piData.freeOrder) {
-        // Step 2: Confirm card payment
-        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-          piData.clientSecret,
-          {
-            payment_method: {
-              card: cardElement,
+        // Step 2: Confirm payment via PaymentElement (handles cards, Link, Apple Pay, Google Pay)
+        const { error: stripeError } = await stripe.confirmPayment({
+          elements: elements!,
+          clientSecret: piData.clientSecret,
+          confirmParams: {
+            return_url: `${window.location.origin}/checkout/success?order=pending`,
+            payment_method_data: {
               billing_details: {
                 name: `${form.firstName} ${form.lastName}`,
                 email: form.email,
@@ -574,8 +571,9 @@ function CheckoutForm({
                 },
               },
             },
-          }
-        );
+          },
+          redirect: "if_required",
+        });
 
         if (stripeError) {
           setCheckoutError(stripeError.message || "Payment failed. Please try again.");
@@ -583,14 +581,15 @@ function CheckoutForm({
           return;
         }
 
-        // Accept both "succeeded" (immediate capture) and "requires_capture" (manual capture)
-        if (paymentIntent?.status !== "succeeded" && paymentIntent?.status !== "requires_capture") {
-          setCheckoutError("Payment was not completed. Please try again.");
+        // After confirmPayment with redirect:"if_required", retrieve the PI to get its ID and status
+        const retrieveRes = await fetch(`/api/checkout/retrieve-payment-intent?clientSecret=${encodeURIComponent(piData.clientSecret)}`);
+        const retrieveData = await retrieveRes.json();
+        if (!retrieveData.paymentIntentId) {
+          setCheckoutError("Could not verify payment. Please contact support.");
           setProcessing(false);
           return;
         }
-
-        confirmedPaymentIntentId = paymentIntent.id;
+        confirmedPaymentIntentId = retrieveData.paymentIntentId;
       }
 
       // Step 3: Confirm order
@@ -730,36 +729,7 @@ function CheckoutForm({
             )}
           </div>
 
-          {/* Express Checkout */}
-          {canMakePayment && paymentRequest && (
-            <div
-              style={{
-                background: "#ffffff",
-                border: "1px solid #ede8df",
-                borderRadius: 12,
-                padding: 24,
-              }}
-            >
-              <SectionHeader number={1} title="Express Checkout" />
-              <PaymentRequestButtonElement
-                options={{ paymentRequest, style: { paymentRequestButton: { theme: "dark", height: "48px" } } }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  margin: "16px 0 0",
-                  color: "#9a876e",
-                  fontSize: 13,
-                }}
-              >
-                <div style={{ flex: 1, height: 1, background: "#ede8df" }} />
-                or pay with card
-                <div style={{ flex: 1, height: 1, background: "#ede8df" }} />
-              </div>
-            </div>
-          )}
+
 
           {/* Contact */}
           <div
@@ -770,7 +740,7 @@ function CheckoutForm({
               padding: 24,
             }}
           >
-            <SectionHeader number={canMakePayment ? 2 : 1} title="Contact Information" />
+            <SectionHeader number={1} title="Contact Information" />
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <Input
                 label="Email"
@@ -820,7 +790,7 @@ function CheckoutForm({
               padding: 24,
             }}
           >
-            <SectionHeader number={canMakePayment ? 3 : 2} title="Shipping Address" />
+            <SectionHeader number={2} title="Shipping Address" />
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 <Input
@@ -914,7 +884,7 @@ function CheckoutForm({
               padding: 24,
             }}
           >
-            <SectionHeader number={canMakePayment ? 4 : 3} title="Shipping Method" />
+            <SectionHeader number={3} title="Shipping Method" />
             {loadingRates ? (
               <p style={{ fontSize: 14, color: "#9a876e" }}>Loading shipping options...</p>
             ) : shippingRates.length === 0 ? (
@@ -969,31 +939,22 @@ function CheckoutForm({
               padding: 24,
             }}
           >
-            <SectionHeader number={canMakePayment ? 5 : 4} title="Payment" />
+            <SectionHeader number={4} title="Payment" />
 
-            <div
-              style={{
-                border: "1.5px solid #C9A84C",
-                borderRadius: 8,
-                padding: "14px 16px",
-                background: "#fdfcf8",
-              }}
-            >
-              <CardElement
-                options={{
-                  style: {
-                    base: {
-                      fontSize: "16px",
-                      color: "#3a2e24",
-                      fontFamily: "'Inter', sans-serif",
-                      "::placeholder": { color: "#9a876e" },
-                      iconColor: "#8B6914",
-                    },
-                    invalid: { color: "#c0392b", iconColor: "#c0392b" },
+            <PaymentElement
+              options={{
+                layout: "tabs",
+                paymentMethodOrder: ["apple_pay", "google_pay", "link", "card"],
+                fields: {
+                  billingDetails: {
+                    name: "never",
+                    email: "never",
+                    phone: "never",
+                    address: "never",
                   },
-                }}
-              />
-            </div>
+                },
+              }}
+            />
 
             <div
               style={{
@@ -1409,6 +1370,10 @@ export default function CheckoutPage() {
     <Elements
       stripe={stripePromise}
       options={{
+        mode: "payment",
+        currency: "usd",
+        amount: Math.max(100, subtotal), // placeholder; actual amount set on PI creation
+        capture_method: "manual",
         appearance: {
           theme: "stripe",
           variables: {
