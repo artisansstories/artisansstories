@@ -40,8 +40,8 @@ export default function ShopFooter() {
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 24px 32px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 32, marginBottom: 40 }}>
           <div>
-            <Image src="/logo-color.png" alt="Artisans' Stories" width={140} height={38}
-              style={{ width: 130, height: "auto", filter: "brightness(0) invert(1) sepia(1) saturate(0.5) brightness(1.2)", marginBottom: 12 }}
+            <Image src="/logo-color.png" alt="Artisans' Stories" width={420} height={114}
+              style={{ width: 390, maxWidth: "90vw", height: "auto", filter: "brightness(0) invert(1) sepia(1) saturate(0.5) brightness(1.2)", marginBottom: 16 }}
               unoptimized
             />
             <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 15, color: "#c9b99a", margin: 0, fontStyle: "italic" }}>
