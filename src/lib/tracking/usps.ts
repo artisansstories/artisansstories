@@ -1,7 +1,11 @@
 /**
- * USPS Tracking API
- * Register at: https://registration.shippingapis.com/
- * Set env var: USPS_USER_ID
+ * USPS Tracking API (new OAuth2 platform, effective Jan 2026)
+ * Register at: https://cop.usps.com (USPS Customer Onboarding Portal)
+ * Steps: Create USPS Business Account → Create App → get Consumer Key + Secret
+ * Set env vars: USPS_CLIENT_ID, USPS_CLIENT_SECRET
+ *
+ * Docs: https://developers.usps.com/api/81 (OAuth)
+ *       https://developers.usps.com/apis (Tracking API)
  */
 
 export interface TrackingResult {
@@ -11,58 +15,106 @@ export interface TrackingResult {
   deliveredAt?: Date;
 }
 
-export async function checkUSPS(trackingNumber: string): Promise<TrackingResult> {
-  const userId = process.env.USPS_USER_ID;
-  if (!userId) {
-    return { trackingNumber, status: "unknown", description: "USPS_USER_ID not configured" };
+let uspsTokenCache: { token: string; expiresAt: number } | null = null;
+
+async function getUSPSToken(): Promise<string | null> {
+  if (uspsTokenCache && Date.now() < uspsTokenCache.expiresAt) {
+    return uspsTokenCache.token;
   }
 
-  const xml = `<TrackFieldRequest USERID="${userId}"><TrackID ID="${trackingNumber}"></TrackID></TrackFieldRequest>`;
-  const url = `https://secure.shippingapis.com/ShippingAPI.dll?API=TrackV2&XML=${encodeURIComponent(xml)}`;
+  const clientId = process.env.USPS_CLIENT_ID;
+  const clientSecret = process.env.USPS_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
 
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    const text = await res.text();
+    const res = await fetch("https://apis.usps.com/oauth2/v3/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: clientSecret,
+      }).toString(),
+      signal: AbortSignal.timeout(10000),
+    });
 
-    // Parse delivery status from XML response
-    // Extract latest event description (simplified parse)
-    const eventTimeMatch = text.match(/<EventTime>(.*?)<\/EventTime>/);
-    const eventDescMatch = text.match(/<Event>(.*?)<\/Event>/);    const eventMatch: [string, string, string] | null = eventTimeMatch && eventDescMatch
-      ? [text, eventTimeMatch[1], eventDescMatch[1]] as [string, string, string]
-      : null;
-    const statusEvent = eventMatch?.[2]?.toLowerCase() ?? "";
+    const data = await res.json() as { access_token?: string; expires_in?: number };
+    if (!data.access_token) return null;
 
-    if (text.includes("<Error>")) {
-      const errMsg = text.match(/<Description>(.*?)<\/Description>/)?.[1] ?? "Unknown error";
-      return { trackingNumber, status: "unknown", description: `USPS error: ${errMsg}` };
+    uspsTokenCache = {
+      token: data.access_token,
+      expiresAt: Date.now() + ((data.expires_in ?? 3600) - 60) * 1000,
+    };
+    return uspsTokenCache.token;
+  } catch (err) {
+    console.error("USPS OAuth error:", err);
+    return null;
+  }
+}
+
+export async function checkUSPS(trackingNumber: string): Promise<TrackingResult> {
+  if (!process.env.USPS_CLIENT_ID) {
+    return { trackingNumber, status: "unknown", description: "USPS_CLIENT_ID not configured — register at cop.usps.com" };
+  }
+
+  const token = await getUSPSToken();
+  if (!token) {
+    return { trackingNumber, status: "unknown", description: "Failed to get USPS auth token" };
+  }
+
+  try {
+    const res = await fetch(
+      `https://apis.usps.com/tracking/v3/tracking/${encodeURIComponent(trackingNumber)}?expand=SUMMARY`,
+      {
+        headers: { "Authorization": `Bearer ${token}` },
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      return { trackingNumber, status: "unknown", description: `USPS API error ${res.status}: ${errText.slice(0, 100)}` };
     }
 
-    if (statusEvent.includes("delivered")) {
-      // Try to parse delivered date
-      const dateMatch = text.match(/<EventDate>(.*?)<\/EventDate>/);
-      const timeMatch = text.match(/<EventTime>(.*?)<\/EventTime>/);
-      const deliveredAt = dateMatch ? new Date(`${dateMatch[1]} ${timeMatch?.[1] ?? ""}`) : new Date();
+    const data = await res.json() as {
+      trackSummary?: {
+        eventType?: string;
+        eventDescription?: string;
+        eventDate?: string;
+        eventTime?: string;
+      };
+      error?: { message?: string };
+    };
+
+    if (data.error) {
+      return { trackingNumber, status: "unknown", description: data.error.message ?? "USPS error" };
+    }
+
+    const eventType = (data.trackSummary?.eventType ?? "").toUpperCase();
+    const description = data.trackSummary?.eventDescription ?? "Unknown";
+
+    // USPS event types: DELIVERED, OUT_FOR_DELIVERY, IN_TRANSIT, ALERT, etc.
+    if (eventType === "DELIVERED" || description.toUpperCase().includes("DELIVERED")) {
+      const dateStr = data.trackSummary?.eventDate;
+      const timeStr = data.trackSummary?.eventTime;
+      const deliveredAt = dateStr ? new Date(`${dateStr}T${timeStr ?? "12:00:00"}`) : new Date();
       return {
         trackingNumber,
         status: "delivered",
-        description: eventMatch?.[2] ?? "Delivered",
+        description,
         deliveredAt: isNaN(deliveredAt.getTime()) ? new Date() : deliveredAt,
       };
     }
 
-    if (statusEvent.includes("out for delivery")) {
-      return { trackingNumber, status: "out_for_delivery", description: eventMatch?.[2] ?? "Out for delivery" };
+    if (eventType === "OUT_FOR_DELIVERY" || description.toUpperCase().includes("OUT FOR DELIVERY")) {
+      return { trackingNumber, status: "out_for_delivery", description };
     }
 
-    if (statusEvent.includes("exception") || statusEvent.includes("alert")) {
-      return { trackingNumber, status: "exception", description: eventMatch?.[2] ?? "Exception" };
+    if (eventType === "ALERT" || eventType.includes("EXCEPTION")) {
+      return { trackingNumber, status: "exception", description };
     }
 
-    return {
-      trackingNumber,
-      status: "in_transit",
-      description: eventMatch?.[2] ?? "In transit",
-    };
+    return { trackingNumber, status: "in_transit", description };
   } catch (err) {
     console.error(`USPS tracking error for ${trackingNumber}:`, err);
     return { trackingNumber, status: "unknown", description: "Network error checking USPS" };
