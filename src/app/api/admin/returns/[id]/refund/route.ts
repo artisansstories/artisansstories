@@ -74,7 +74,11 @@ export async function POST(
       }),
       prisma.order.update({
         where: { id: order.id },
-        data: { financialStatus: newFinancialStatus },
+        data: {
+          financialStatus: newFinancialStatus,
+          // Full refund = order is refunded; partial = keep order status as-is
+          ...(isPartial ? {} : { status: "REFUNDED" }),
+        },
       }),
     ]);
     // Restock inventory if requested

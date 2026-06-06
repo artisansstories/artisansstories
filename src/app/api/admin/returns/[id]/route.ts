@@ -17,6 +17,7 @@ export async function GET(
             orderNumber: true,
             email: true,
             total: true,
+            status: true,
             stripePaymentIntentId: true,
             financialStatus: true,
             customer: { select: { id: true, firstName: true, lastName: true, email: true } },
