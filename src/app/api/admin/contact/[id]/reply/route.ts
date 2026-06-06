@@ -36,7 +36,7 @@ export async function POST(
     const replyResult = await resend.emails.send({
       from: "Artisans' Stories <hello@artisansstories.com>",
       to: [contactMsg.email],
-      replyTo: "anna@artisansstories.com",
+      replyTo: "hello@artisansstories.com",
       subject: `Re: ${contactMsg.subject}`,
       html: `
         <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">

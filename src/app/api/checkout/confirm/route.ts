@@ -324,8 +324,15 @@ export async function POST(request: NextRequest) {
 
     try {
       const confirmResult = await resend.emails.send({
-        from: process.env.RESEND_FROM!,
+        from: `Artisans' Stories <hello@artisansstories.com>`,
         to: email,
+        // replyTo uses order-specific address so replies auto-thread to this order in Communications
+        replyTo: `hello@artisansstories.com`,
+        headers: {
+          // RFC 2822 threading: replies will carry this in In-Reply-To / References
+          "X-Order-ID": order.id,
+          "X-Order-Number": orderNumber,
+        },
         subject: `Order Confirmed — ${orderNumber}`,
         html: orderConfirmationHtml({
           orderNumber,
