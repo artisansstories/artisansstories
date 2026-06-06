@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const StripeSDK = require("stripe");
-const stripe = new StripeSDK.default(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2024-06-20" });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-27.acacia" }) as any;
 
 export async function GET(request: NextRequest) {
   try {
