@@ -309,24 +309,126 @@ function CheckoutForm({
   }, [form.countryCode, subtotal]);
 
   // Setup PaymentRequest for Apple Pay / Google Pay
+  // Initialize once when stripe loads; update amount as total changes
   useEffect(() => {
-    if (!stripe || total === 0) return;
-
+    if (!stripe) return;
+    // Use a placeholder amount of 1 cent for initial canMakePayment check;
+    // actual amount is updated before the sheet opens via paymentRequest.update()
     const pr = stripe.paymentRequest({
       country: "US",
       currency: "usd",
-      total: { label: "Artisans' Stories", amount: total },
+      total: { label: "Artisans\' Stories", amount: Math.max(1, total) },
       requestPayerName: true,
       requestPayerEmail: true,
     });
-
     pr.canMakePayment().then((result) => {
       if (result) {
         setPaymentRequest(pr);
         setCanMakePayment(true);
       }
     });
-  }, [stripe, total]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe]); // initialize once
+
+  // Keep PaymentRequest amount in sync when total changes
+  useEffect(() => {
+    if (!paymentRequest || total === 0) return;
+    paymentRequest.update({
+      total: { label: "Artisans\' Stories", amount: total },
+    });
+  }, [paymentRequest, total]);
+
+  // Handle Apple Pay / Google Pay payment completion
+  useEffect(() => {
+    if (!paymentRequest || !stripe) return;
+
+    const handler = async (event: { paymentMethod: { id: string }; payerEmail?: string; payerName?: string; shippingAddress?: { addressLine?: string[]; city?: string; region?: string; postalCode?: string; country?: string }; complete: (s: string) => void }) => {
+      setProcessing(true);
+      setCheckoutError("");
+      try {
+        // Create payment intent
+        const piRes = await fetch("/api/checkout/create-payment-intent", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: items.map((i) => ({ variantId: i.variantId, quantity: i.quantity, price: i.price })),
+            email: event.payerEmail || form.email,
+            shippingAddress: {
+              firstName: form.firstName, lastName: form.lastName,
+              address1: form.address1, address2: form.address2 || undefined,
+              city: form.city, state: form.state, stateCode: form.stateCode,
+              zip: form.zip, country: form.country, countryCode: form.countryCode,
+            },
+            shippingRateId: selectedRateId,
+            discountCode: discountCode || undefined,
+          }),
+        });
+        const piData = await piRes.json();
+        if (!piRes.ok || (!piData.clientSecret && !piData.freeOrder)) {
+          event.complete("fail");
+          setCheckoutError(piData.error || "Payment failed");
+          setProcessing(false);
+          return;
+        }
+
+        let paymentIntentId = piData.paymentIntentId;
+
+        if (!piData.freeOrder) {
+          const { error, paymentIntent } = await stripe.confirmCardPayment(
+            piData.clientSecret,
+            { payment_method: event.paymentMethod.id },
+            { handleActions: false }
+          );
+          if (error || (paymentIntent?.status !== "succeeded" && paymentIntent?.status !== "requires_capture")) {
+            event.complete("fail");
+            setCheckoutError(error?.message || "Payment failed");
+            setProcessing(false);
+            return;
+          }
+          paymentIntentId = paymentIntent!.id;
+        }
+
+        event.complete("success");
+
+        // Confirm order
+        const confirmRes = await fetch("/api/checkout/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentIntentId,
+            email: event.payerEmail || form.email,
+            phone: form.phone || undefined,
+            items, shippingAddress: {
+              firstName: form.firstName, lastName: form.lastName,
+              address1: form.address1, address2: form.address2 || undefined,
+              city: form.city, state: form.state, stateCode: form.stateCode,
+              zip: form.zip, country: form.country, countryCode: form.countryCode,
+            },
+            shippingRateId: selectedRateId,
+            discountCode: discountCode || undefined,
+          }),
+        });
+        const confirmData = await confirmRes.json();
+        if (confirmRes.ok && confirmData.orderNumber) {
+          clearCart();
+          router.push(`/checkout/success?order=${confirmData.orderNumber}`);
+        } else {
+          setCheckoutError(confirmData.error || "Order failed after payment");
+        }
+      } catch {
+        event.complete("fail");
+        setCheckoutError("Something went wrong. Please try again.");
+      } finally {
+        setProcessing(false);
+      }
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (paymentRequest as any).on("paymentmethod", handler);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return () => { (paymentRequest as any).off("paymentmethod", handler); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentRequest, stripe, items, selectedRateId, discountCode, form]);
 
   const handleFieldChange = (field: keyof FormData, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
