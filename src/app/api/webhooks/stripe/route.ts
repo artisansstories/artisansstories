@@ -90,15 +90,48 @@ export async function POST(request: NextRequest) {
               ? charge.payment_intent
               : charge.payment_intent.id;
 
-          const isFullRefund = charge.refunded;
-          await prisma.order.updateMany({
-            where: { stripePaymentIntentId: paymentIntentId },
-            data: {
-              financialStatus: isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
-              status: isFullRefund ? "REFUNDED" : undefined,
-            },
-          });
-          console.log(`Order refund processed for PaymentIntent: ${paymentIntentId}`);
+          // A voided/released authorization (never captured) also fires charge.refunded
+          // with refunded=true, but no money ever moved. Only treat as a real refund
+          // when funds were actually captured. Otherwise it's a void on a cancelled order.
+          const amountCaptured = charge.amount_captured ?? 0;
+          const isVoidOfUncaptured = amountCaptured === 0;
+
+          if (isVoidOfUncaptured) {
+            // Auth released, $0 moved. Do NOT relabel as REFUNDED.
+            // Only set VOIDED if the order isn't already in a terminal cancelled state.
+            await prisma.order.updateMany({
+              where: {
+                stripePaymentIntentId: paymentIntentId,
+                status: { notIn: ["CANCELLED", "REFUNDED"] },
+              },
+              data: { financialStatus: "VOIDED" },
+            });
+            console.log(`Auth void (no capture) for PaymentIntent: ${paymentIntentId} — not labeled as refund`);
+          } else {
+            const isFullRefund = charge.refunded;
+            // Never downgrade an order that was explicitly cancelled by admin.
+            await prisma.order.updateMany({
+              where: {
+                stripePaymentIntentId: paymentIntentId,
+                status: { not: "CANCELLED" },
+              },
+              data: {
+                financialStatus: isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
+                status: isFullRefund ? "REFUNDED" : undefined,
+              },
+            });
+            // For cancelled orders, just record the refund financially without changing status.
+            await prisma.order.updateMany({
+              where: {
+                stripePaymentIntentId: paymentIntentId,
+                status: "CANCELLED",
+              },
+              data: {
+                financialStatus: isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
+              },
+            });
+            console.log(`Order refund processed for PaymentIntent: ${paymentIntentId}`);
+          }
         }
         break;
       }
