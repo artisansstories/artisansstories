@@ -38,7 +38,6 @@ const TIMELINE_STEPS: TimelineStep[] = [
   { key: 'placed',    label: 'Order Placed',  statuses: ['PENDING', 'PROCESSING', 'FULFILLED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED'] },
   { key: 'paid',      label: 'Payment',       statuses: ['PROCESSING', 'FULFILLED', 'SHIPPED', 'DELIVERED', 'REFUNDED'] },
   { key: 'shipped',   label: 'Shipped',       statuses: ['SHIPPED', 'DELIVERED'] },
-  { key: 'delivered', label: 'Delivered',     statuses: ['DELIVERED'] },
 ];
 
 export default async function OrderDetailPage({
@@ -106,9 +105,9 @@ export default async function OrderDetailPage({
   const isAuthorized = order.financialStatus === 'AUTHORIZED';
   const shippingAddress = order.shippingAddress as Record<string, string>;
 
-  // Can request return if DELIVERED and within 30 days
+  // Can request return if SHIPPED (or DELIVERED) and within 30 days
   const canReturn =
-    order.status === 'DELIVERED' &&
+    (order.status === 'SHIPPED' || order.status === 'DELIVERED') &&
     order.returns.filter(r => r.status !== 'REJECTED').length === 0 &&
     Date.now() - new Date(order.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000;
 

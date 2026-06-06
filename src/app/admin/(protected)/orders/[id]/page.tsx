@@ -164,9 +164,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 const TIMELINE_STEPS: Array<{ key: OrderStatus; label: string }> = [
   { key: "PENDING", label: "Placed" },
   { key: "PROCESSING", label: "Processing" },
-  { key: "FULFILLED", label: "Fulfilled" },
+  { key: "FULFILLED", label: "Packed" },
   { key: "SHIPPED", label: "Shipped" },
-  { key: "DELIVERED", label: "Delivered" },
 ];
 
 const STATUS_ORDER: OrderStatus[] = ["PENDING", "PROCESSING", "FULFILLED", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"];
@@ -374,7 +373,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showFulfillForm, setShowFulfillForm] = useState(false);
-  const [markingDelivered, setMarkingDelivered] = useState(false);
   const [adminNote, setAdminNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
@@ -405,17 +403,6 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   useEffect(() => { fetchOrder(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function markDelivered() {
-    if (!order) return;
-    setMarkingDelivered(true);
-    try {
-      const res = await fetch(`/api/admin/orders/${id}/deliver`, { method: "POST" });
-      if (res.ok) fetchOrder();
-    } finally {
-      setMarkingDelivered(false);
-    }
-  }
 
   async function handleSaveNote() {
     if (!order) return;
@@ -749,15 +736,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     + Fulfill Remaining Items
                   </button>
                 )}
-                {["SHIPPED", "FULFILLED"].includes(order.status) && !hasUnfulfilled && (
-                  <button
-                    onClick={markDelivered}
-                    disabled={markingDelivered}
-                    style={{ marginTop: 12, padding: "9px 20px", borderRadius: 8, border: "none", background: "#15803d", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: markingDelivered ? "not-allowed" : "pointer", opacity: markingDelivered ? 0.7 : 1 }}
-                  >
-                    {markingDelivered ? "Updating…" : "✓ Mark as Delivered"}
-                  </button>
-                )}
+
                 {showFulfillForm && (
                   <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #ede8df" }}>
                     <FulfillmentForm order={order} onFulfilled={() => { setShowFulfillForm(false); fetchOrder(); }} />
