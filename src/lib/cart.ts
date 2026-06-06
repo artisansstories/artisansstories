@@ -82,11 +82,9 @@ export const useCart = create<CartStore>()(
     }),
     {
       name: "artisans-cart",
-      // Only persist items and discount info (not computed values)
+      // Only persist cart items — discount codes are session-only, never auto-applied
       partialize: (state) => ({
         items: state.items,
-        discountCode: state.discountCode,
-        discountAmount: state.discountAmount,
       }),
     }
   )
