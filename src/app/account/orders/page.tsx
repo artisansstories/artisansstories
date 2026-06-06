@@ -280,8 +280,7 @@ export default async function OrdersPage() {
                       textDecoration: 'none',
                       transition: 'background 0.15s',
                     }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,105,20,0.06)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+
                   >
                     View Details
                   </a>

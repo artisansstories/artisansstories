@@ -115,18 +115,7 @@ export default async function AccountPage() {
                 textDecoration: 'none',
                 transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.15s',
               }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.boxShadow = '0 4px 24px rgba(139,105,20,0.12)';
-                el.style.borderColor = 'rgba(139,105,20,0.3)';
-                el.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.boxShadow = 'none';
-                el.style.borderColor = '#ede8df';
-                el.style.transform = 'translateY(0)';
-              }}
+
             >
               <span style={{ fontSize: 24 }}>{link.icon}</span>
               <span style={{ fontSize: 15, fontWeight: 600, color: '#3a2e24', fontFamily: "'Inter',sans-serif" }}>
