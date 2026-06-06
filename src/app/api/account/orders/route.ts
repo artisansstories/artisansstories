@@ -37,6 +37,10 @@ export async function GET() {
             estimatedDelivery: true,
           },
         },
+        returns: {
+          select: { id: true, status: true },
+          where: { status: { notIn: ['REJECTED'] } },
+        },
       },
     });
 

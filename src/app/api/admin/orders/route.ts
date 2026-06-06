@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
         include: {
           customer: { select: { id: true, firstName: true, lastName: true, email: true } },
           _count: { select: { items: true } },
+          returns: { select: { id: true, status: true }, where: { status: { notIn: ["REJECTED"] } } },
         },
       }),
     ]);
@@ -92,6 +93,7 @@ export async function GET(request: NextRequest) {
       customer: o.customer,
       createdAt: o.createdAt,
       updatedAt: o.updatedAt,
+      activeReturnStatus: o.returns[0]?.status ?? null,
     }));
     return NextResponse.json({ orders: ordersOut, total, page, totalPages: Math.ceil(total / limit) });
   } catch (err) {

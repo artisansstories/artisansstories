@@ -17,6 +17,7 @@ interface Order {
   itemsCount: number;
   customer: { firstName: string | null; lastName: string | null } | null;
   createdAt: string;
+  activeReturnStatus: string | null;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -340,7 +341,14 @@ export default function OrdersPage() {
                     )}
                   </td>
                   <td style={{ padding: "14px 16px" }}>
-                    <StatusBadge status={order.status} />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <StatusBadge status={order.status} />
+                      {order.activeReturnStatus && (
+                        <span style={{ padding: "2px 8px", borderRadius: 20, background: "#fff7ed", color: "#c2410c", fontSize: 10, fontWeight: 700, fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap" }}>
+                          ↩ Return {order.activeReturnStatus.replace("_", " ").toLowerCase()}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td style={{ padding: "14px 16px" }}>
                     <FinancialBadge status={order.financialStatus} />
@@ -400,6 +408,11 @@ export default function OrdersPage() {
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <StatusBadge status={order.status} />
                   <FinancialBadge status={order.financialStatus} />
+                  {order.activeReturnStatus && (
+                    <span style={{ padding: "2px 8px", borderRadius: 20, background: "#fff7ed", color: "#c2410c", fontSize: 10, fontWeight: 700, fontFamily: "'Inter',sans-serif" }}>
+                      ↩ Return {order.activeReturnStatus.replace("_", " ").toLowerCase()}
+                    </span>
+                  )}
                 </div>
                 <a
                   href={`/admin/orders/${order.id}`}

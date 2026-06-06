@@ -70,6 +70,10 @@ export default async function OrdersPage() {
         orderBy: { createdAt: 'desc' },
       },
       _count: { select: { items: true } },
+      returns: {
+        select: { id: true, status: true },
+        where: { status: { notIn: ['REJECTED'] } },
+      },
     },
   });
 
@@ -179,6 +183,11 @@ export default async function OrdersPage() {
                     <span style={{ fontSize: 12, color: financialCfg.color, fontFamily: "'Inter',sans-serif", fontWeight: 500 }}>
                       {financialCfg.label}
                     </span>
+                    {order.returns.length > 0 && (
+                      <span style={{ padding: '2px 9px', borderRadius: 20, background: '#fff7ed', color: '#c2410c', fontSize: 11, fontWeight: 600, fontFamily: "'Inter',sans-serif" }}>
+                        ↩ Return {order.returns[0].status.charAt(0) + order.returns[0].status.slice(1).toLowerCase()}
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                     <span style={{ fontSize: 13, color: '#9a876e', fontFamily: "'Inter',sans-serif" }}>
