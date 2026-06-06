@@ -46,14 +46,22 @@ export default async function OrderDetailPage({
 }: {
   params: Promise<{ orderNumber: string }>;
 }) {
-  const session = await getAccountSession();
+  let session;
+  try {
+    session = await getAccountSession();
+  } catch (e) {
+    console.error('[OrderDetailPage] getAccountSession threw:', e);
+    throw e;
+  }
   if (!session) {
     redirect('/account/login');
   }
 
   const { orderNumber } = await params;
 
-  const order = await prisma.order.findFirst({
+  let order;
+  try {
+    order = await prisma.order.findFirst({
     where: {
       orderNumber,
       customerId: session.id,
@@ -83,6 +91,10 @@ export default async function OrderDetailPage({
       },
     },
   });
+  } catch (e) {
+    console.error('[OrderDetailPage] prisma query threw:', e);
+    throw e;
+  }
 
   if (!order) {
     notFound();
