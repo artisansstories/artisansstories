@@ -136,26 +136,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate tax via Stripe Tax (automatic, address-based)
+    // All amounts are in cents (DB stores prices as Int in cents)
     let taxTotal = 0;
     let taxCalculationId = "";
     try {
-      const taxLineItems = [
-        {
-          amount: Math.max(0, taxableGoods),
-          reference: "goods",
-          tax_code: "txcd_99999999", // General tangible goods
-          tax_behavior: "exclusive",
-        },
-        ...(taxableShipping > 0
-          ? [{
-              amount: taxableShipping,
-              reference: "shipping",
-              tax_code: "txcd_92010001", // Shipping
-              tax_behavior: "exclusive",
-            }]
-          : []),
-      ];
-
+      // NOTE: Stripe Tax requires shipping as top-level `shipping_cost` param,
+      // NOT as a line item with txcd_92010001 (that causes an API error).
       const taxCalculation = await stripe.tax.calculations.create({
         currency: "usd",
         customer_details: {
@@ -169,7 +155,22 @@ export async function POST(request: NextRequest) {
           },
           address_source: "shipping",
         },
-        line_items: taxLineItems,
+        line_items: [
+          {
+            amount: Math.max(1, Math.round(taxableGoods)),
+            reference: "goods",
+            tax_code: "txcd_99999999", // General tangible goods
+            tax_behavior: "exclusive",
+          },
+        ],
+        ...(taxableShipping > 0
+          ? {
+              shipping_cost: {
+                amount: Math.round(taxableShipping),
+                tax_behavior: "exclusive",
+              },
+            }
+          : {}),
       });
 
       taxTotal = taxCalculation.tax_amount_exclusive;
