@@ -32,7 +32,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
             maxWidth: 1000,
             margin: '0 auto',
             padding: '0 20px',
-            height: 64,
+            height: 80,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -43,9 +43,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
               <Image
                 src="/logo-color.png"
                 alt="Artisans' Stories"
-                width={160}
-                height={43}
-                style={{ width: 'clamp(120px, 30vw, 160px)', height: 'auto' }}
+                width={320}
+                height={86}
+                style={{ width: 'clamp(200px, 40vw, 320px)', height: 'auto' }}
                 unoptimized
                 priority
               />
