@@ -70,10 +70,12 @@ export async function POST(
     }
 
     if (allFulfilled) {
+      // If tracking was provided, order is now SHIPPED; otherwise FULFILLED (packed, awaiting carrier)
+      const newStatus = body.trackingNumber?.trim() ? "SHIPPED" : "FULFILLED";
       await prisma.order.update({
         where: { id },
         data: {
-          status: "FULFILLED",
+          status: newStatus,
           financialStatus: newFinancialStatus,
         },
       });
