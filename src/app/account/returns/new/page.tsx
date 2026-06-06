@@ -348,33 +348,7 @@ function NewReturnForm() {
                     </div>
                   </div>
 
-                  {/* Note */}
-                  <div>
-                    <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b5540", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-                      Note (optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={sel.note}
-                      onChange={e => updateItem(item.id, "note", e.target.value)}
-                      placeholder="Any additional details..."
-                      style={{
-                        width: "100%",
-                        height: 40,
-                        padding: "0 12px",
-                        borderRadius: 8,
-                        border: "1.5px solid #e0d5c5",
-                        background: "#fdfaf6",
-                        fontSize: 14,
-                        color: "#3a2e24",
-                        fontFamily: "'Inter',sans-serif",
-                        outline: "none",
-                      }}
-                      onFocus={e => { e.target.style.borderColor = "#8B6914"; }}
-                      onBlur={e => { e.target.style.borderColor = "#e0d5c5"; }}
-                      onClick={e => e.stopPropagation()}
-                    />
-                  </div>
+
                 </div>
               )}
             </div>
@@ -384,13 +358,14 @@ function NewReturnForm() {
 
       {/* Customer note */}
       <div style={{ marginBottom: 24 }}>
-        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b5540", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
-          Additional Notes (optional)
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", marginBottom: 6 }}>
+          Message to Artisans&apos; Stories <span style={{ fontWeight: 400, color: "#9a876e" }}>(optional)</span>
         </label>
+        <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 8px" }}>Anything else we should know about your return? We&apos;ll see this when we review your request.</p>
         <textarea
           value={customerNote}
           onChange={e => setCustomerNote(e.target.value)}
-          placeholder="Any additional information about your return request..."
+          placeholder="e.g. The clasp broke on first wear, here are the details..."
           rows={3}
           style={{
             width: "100%",
