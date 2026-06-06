@@ -1,5 +1,6 @@
 import { getAccountSession } from '@/lib/account-session';
 import Image from 'next/image';
+import AccountNav from './AccountNav';
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
   const session = await getAccountSession();
@@ -50,97 +51,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
               />
             </a>
 
-            {/* Account nav */}
+            {/* Account nav — client component (event handlers not allowed in server components) */}
             <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              {session ? (
-                <>
-                  <a
-                    href="/account/orders"
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: '#5a4a38',
-                      fontFamily: "'Inter', sans-serif",
-                      transition: 'background 0.15s',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,105,20,0.08)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    Orders
-                  </a>
-                  <a
-                    href="/account/addresses"
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: '#5a4a38',
-                      fontFamily: "'Inter', sans-serif",
-                      transition: 'background 0.15s',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,105,20,0.08)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    Addresses
-                  </a>
-                  <a
-                    href="/account/profile"
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: '#5a4a38',
-                      fontFamily: "'Inter', sans-serif",
-                      transition: 'background 0.15s',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,105,20,0.08)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    Profile
-                  </a>
-                  <a
-                    href="/api/auth/customer/logout"
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: 8,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: '#8B6914',
-                      fontFamily: "'Inter', sans-serif",
-                      border: '1px solid rgba(139,105,20,0.3)',
-                      transition: 'background 0.15s',
-                      whiteSpace: 'nowrap',
-                    }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,105,20,0.06)'; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    Sign Out
-                  </a>
-                </>
-              ) : (
-                <a
-                  href="/account/login"
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: 10,
-                    fontSize: 14,
-                    fontWeight: 500,
-                    color: '#fff',
-                    background: 'linear-gradient(135deg, #8B6914 0%, #C9A84C 100%)',
-                    fontFamily: "'Inter', sans-serif",
-                    boxShadow: '0 2px 8px rgba(139,105,20,0.25)',
-                  }}
-                >
-                  Sign In
-                </a>
-              )}
+              <AccountNav hasSession={!!session} />
             </nav>
           </div>
         </header>
