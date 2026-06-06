@@ -3,6 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+// Phone mask: digits only → (XXX) XXX-XXXX
+function maskPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function formatPhoneDisplay(raw: string | null | undefined): string {
+  if (!raw) return "";
+  return maskPhone(raw);
+}
+
 type Address = {
   id: string;
   type: string;
@@ -150,8 +164,15 @@ function AddressForm({
 
       <div>
         <label style={labelStyle}>Phone (optional)</label>
-        <input type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} style={inputStyle}
-          onFocus={e => { e.target.style.borderColor = "#8B6914"; }} onBlur={e => { e.target.style.borderColor = "#e0d5c5"; }} />
+        <input
+          type="tel"
+          value={form.phone}
+          onChange={e => set("phone", maskPhone(e.target.value))}
+          placeholder="(555) 000-0000"
+          style={inputStyle}
+          onFocus={e => { e.target.style.borderColor = "#8B6914"; }}
+          onBlur={e => { e.target.style.borderColor = "#e0d5c5"; }}
+        />
       </div>
 
       <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
@@ -445,7 +466,7 @@ export default function AddressesPage() {
                         {addr.address1}{addr.address2 ? `, ${addr.address2}` : ""}<br />
                         {addr.city}, {addr.stateCode} {addr.zip}<br />
                         {addr.country}
-                        {addr.phone && <><br />{addr.phone}</>}
+                        {addr.phone && <><br />{formatPhoneDisplay(addr.phone)}</>}
                       </p>
                     </div>
 

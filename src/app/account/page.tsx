@@ -2,10 +2,6 @@ import { redirect } from 'next/navigation';
 import { getAccountSession } from '@/lib/account-session';
 import { prisma } from '@/lib/prisma';
 
-function formatPrice(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
-
 function formatDate(date: Date | string): string {
   return new Intl.DateTimeFormat('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(date));
 }
@@ -23,10 +19,7 @@ export default async function AccountPage() {
       email: true,
       firstName: true,
       lastName: true,
-      totalOrders: true,
-      totalSpent: true,
       createdAt: true,
-      lastOrderAt: true,
     },
   });
 
@@ -62,71 +55,41 @@ export default async function AccountPage() {
         </p>
       </div>
 
-      {/* Stats */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: 16,
-        marginBottom: 40,
-      }}>
-        <StatCard label="Total Orders" value={customer.totalOrders.toString()} />
-        <StatCard
-          label="Total Spent"
-          value={formatPrice(customer.totalSpent)}
-        />
-        <StatCard
-          label="Last Order"
-          value={customer.lastOrderAt ? formatDate(customer.lastOrderAt) : '—'}
-        />
-      </div>
-
       {/* Decorative divider */}
       <div style={{ width: '100%', height: 1, background: 'linear-gradient(90deg,transparent,#c8a84c40,transparent)', marginBottom: 36 }} />
 
       {/* Quick links */}
-      <div>
-        <h2 style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: 'clamp(18px,3vw,22px)',
-          fontWeight: 500,
-          color: '#3a2e24',
-          marginBottom: 20,
-        }}>
-          Your Account
-        </h2>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: 16,
-        }}>
-          {quickLinks.map(link => (
-            <a
-              key={link.href}
-              href={link.href}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-                padding: '20px 22px',
-                background: '#fff',
-                borderRadius: 14,
-                border: '1px solid #ede8df',
-                textDecoration: 'none',
-                transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.15s',
-              }}
-
-            >
-              <span style={{ fontSize: 24 }}>{link.icon}</span>
-              <span style={{ fontSize: 15, fontWeight: 600, color: '#3a2e24', fontFamily: "'Inter',sans-serif" }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {quickLinks.map(link => (
+          <a
+            key={link.href}
+            href={link.href}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              padding: '18px 20px',
+              background: '#fff',
+              borderRadius: 14,
+              border: '1px solid #ede8df',
+              textDecoration: 'none',
+              transition: 'border-color 0.15s, box-shadow 0.15s',
+            }}
+          >
+            <span style={{ fontSize: 26, flexShrink: 0, lineHeight: 1 }}>{link.icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 15, fontWeight: 600, color: '#3a2e24', fontFamily: "'Inter',sans-serif", margin: '0 0 3px' }}>
                 {link.label}
-              </span>
-              <span style={{ fontSize: 13, color: '#9a876e', fontFamily: "'Inter',sans-serif", lineHeight: 1.4 }}>
+              </p>
+              <p style={{ fontSize: 13, color: '#9a876e', fontFamily: "'Inter',sans-serif", margin: 0, lineHeight: 1.4 }}>
                 {link.description}
-              </span>
-            </a>
-          ))}
-        </div>
+              </p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c4b5a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+          </a>
+        ))}
       </div>
 
       {/* Sign out */}
@@ -149,20 +112,4 @@ export default async function AccountPage() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{
-      background: '#fff',
-      borderRadius: 14,
-      border: '1px solid #ede8df',
-      padding: '18px 20px',
-    }}>
-      <p style={{ fontSize: 11, fontWeight: 600, color: '#9a876e', fontFamily: "'Inter',sans-serif", letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
-        {label}
-      </p>
-      <p style={{ fontSize: 'clamp(18px,3vw,22px)', fontWeight: 700, color: '#8B6914', fontFamily: "'Inter',sans-serif", margin: 0 }}>
-        {value}
-      </p>
-    </div>
-  );
-}
+

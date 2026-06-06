@@ -3,6 +3,14 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+function maskPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 type Customer = {
   id: string;
   email: string;
@@ -10,13 +18,7 @@ type Customer = {
   lastName: string | null;
   phone: string | null;
   acceptsMarketing: boolean;
-  totalOrders: number;
-  totalSpent: number;
 };
-
-function formatPrice(cents: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
-}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -133,26 +135,6 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 28 }}>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ede8df", padding: "14px 18px" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "#9a876e", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-            Total Orders
-          </p>
-          <p style={{ fontSize: 20, fontWeight: 700, color: "#8B6914", fontFamily: "'Inter',sans-serif", margin: 0 }}>
-            {customer.totalOrders}
-          </p>
-        </div>
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ede8df", padding: "14px 18px" }}>
-          <p style={{ fontSize: 11, fontWeight: 600, color: "#9a876e", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 6 }}>
-            Total Spent
-          </p>
-          <p style={{ fontSize: 20, fontWeight: 700, color: "#8B6914", fontFamily: "'Inter',sans-serif", margin: 0 }}>
-            {formatPrice(customer.totalSpent)}
-          </p>
-        </div>
-      </div>
-
       {/* Form */}
       <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #ede8df", padding: "24px 24px 28px" }}>
         <h2 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 20, fontWeight: 500, color: "#3a2e24", marginBottom: 20 }}>
@@ -175,7 +157,8 @@ export default function ProfilePage() {
         )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <style>{`@media(min-width:500px){.name-grid{grid-template-columns:1fr 1fr !important;}}`}</style>
+          <div className="name-grid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
             <div>
               <label style={labelStyle}>First Name</label>
               <input
@@ -220,7 +203,7 @@ export default function ProfilePage() {
             <input
               type="tel"
               value={phone}
-              onChange={e => setPhone(e.target.value)}
+              onChange={e => setPhone(maskPhone(e.target.value))}
               placeholder="(555) 000-0000"
               style={inputStyle}
               onFocus={e => { e.target.style.borderColor = "#8B6914"; }}
@@ -247,7 +230,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <p style={{ fontSize: 14, fontWeight: 500, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: "0 0 3px" }}>
-                Email marketing
+                Stay in the loop
               </p>
               <p style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter',sans-serif", margin: 0, lineHeight: 1.5 }}>
                 Receive news about new collections, artisan stories, and exclusive offers.
