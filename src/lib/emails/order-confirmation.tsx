@@ -106,13 +106,13 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
     <tr><td align="center">
       <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
 
-        <!-- Logo header — plain white, no color -->
+        <!-- Logo header — plain white, fills width -->
         <tr>
-          <td style="padding:32px 40px 20px;text-align:center;border-bottom:1px solid #ede8df;">
+          <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
             <a href="${siteUrl}" style="display:inline-block;">
               <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-                alt="Artisans' Stories" width="240"
-                style="display:block;margin:0 auto;width:240px;max-width:80%;height:auto;" />
+                alt="Artisans' Stories" width="400"
+                style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
             </a>
           </td>
         </tr>
@@ -120,19 +120,6 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
         <!-- Thank You -->
         <tr>
           <td style="padding:36px 40px 24px;text-align:center;border-bottom:1px solid #ede8df;">
-            <!-- Clean SVG checkmark circle — properly centered -->
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 18px;">
-              <tr><td align="center">
-                <div style="width:56px;height:56px;background:#f0faf0;border-radius:50%;text-align:center;line-height:56px;">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-                    style="display:inline-block;vertical-align:middle;"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="11" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
-                    <path d="M7 12.5l3.5 3.5 6.5-7" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </div>
-              </td></tr>
-            </table>
             <h2 style="margin:0 0 8px;font-size:26px;color:#3a2e24;font-weight:700;font-family:'Helvetica Neue',Arial,sans-serif;">
               Thank you for your order!
             </h2>
