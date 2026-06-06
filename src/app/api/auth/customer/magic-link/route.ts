@@ -19,10 +19,8 @@ function customerMagicLinkEmail(magicLink: string): string {
     <tr><td align="center">
       <table cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
         <tr>
-          <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:28px 40px;text-align:center;">
-            <div style="display:inline-block;background:#ffffff;border-radius:8px;padding:12px 24px;">
-              <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="200" style="display:block;margin:0 auto;width:200px;max-width:100%;height:auto;" />
-            </div>
+          <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
+            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="400" style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
           </td>
         </tr>
         <tr>

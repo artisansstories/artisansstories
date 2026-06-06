@@ -28,13 +28,13 @@ export function orderCancelledHtml(data: OrderCancelledData): string {
     <tr><td align="center">
       <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
 
-        <!-- Logo -->
+        <!-- Logo header -->
         <tr>
-          <td style="padding:32px 40px 20px;text-align:center;border-bottom:1px solid #ede8df;">
+          <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
             <a href="https://artisansstories.com" style="display:inline-block;">
               <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-                alt="Artisans' Stories" width="240"
-                style="display:block;margin:0 auto;width:240px;max-width:80%;height:auto;" />
+                alt="Artisans' Stories" width="400"
+                style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
             </a>
           </td>
         </tr>
@@ -42,18 +42,6 @@ export function orderCancelledHtml(data: OrderCancelledData): string {
         <!-- Body -->
         <tr>
           <td style="padding:36px 40px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-            <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 18px;">
-              <tr><td align="center">
-                <div style="width:56px;height:56px;background:#fef2f2;border-radius:50%;text-align:center;line-height:56px;">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none"
-                    style="display:inline-block;vertical-align:middle;"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="12" cy="12" r="11" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
-                    <path d="M15 9l-6 6M9 9l6 6" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
-                  </svg>
-                </div>
-              </td></tr>
-            </table>
             <h2 style="margin:0 0 10px;font-size:24px;color:#3a2e24;font-weight:700;font-family:'Helvetica Neue',Arial,sans-serif;">
               Your order has been cancelled
             </h2>

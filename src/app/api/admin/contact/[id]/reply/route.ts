@@ -40,10 +40,8 @@ export async function POST(
       subject: `Re: ${contactMsg.subject}`,
       html: `
         <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
-          <div style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);padding:24px 40px;text-align:center;">
-            <div style="display:inline-block;background:#ffffff;border-radius:8px;padding:10px 20px;">
-              <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="200" style="display:block;margin:0 auto;width:200px;max-width:100%;height:auto;" />
-            </div>
+          <div style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
+            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="400" style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
           </div>
           <div style="padding:32px 40px;">
             <p style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;color:#3a2e24;margin:0 0 16px;">Hi ${contactMsg.name},</p>

@@ -76,7 +76,7 @@ export async function POST(
 <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f0e8;padding:32px 16px;"><tr><td align="center">
 <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:#fff;border-radius:12px;overflow:hidden;">
 <tr><td style="padding:32px 40px 20px;text-align:center;border-bottom:1px solid #ede8df;">
-<img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="240" style="display:block;margin:0 auto;width:240px;max-width:80%;height:auto;"/></td></tr>
+<img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="400" style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;"/></td></tr>
 <tr><td style="padding:36px 40px;text-align:center;">
 <h2 style="margin:0 0 12px;font-size:24px;color:#3a2e24;font-weight:700;">Refund Issued</h2>
 <p style="margin:0 0 20px;font-size:15px;color:#7a6852;">A refund of <strong>$${(refundAmt / 100).toFixed(2)}</strong> has been issued for order <strong>${order.orderNumber}</strong>.</p>
