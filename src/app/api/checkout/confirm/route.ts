@@ -62,16 +62,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Free order path (100% discount — no Stripe charge)
+    const isFreeOrder = paymentIntentId.startsWith("free_");
+
     // Verify the PaymentIntent — accept 'succeeded' (immediate) or 'requires_capture' (manual capture)
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    const validStatuses = ["succeeded", "requires_capture"];
-    if (!validStatuses.includes(paymentIntent.status)) {
-      return NextResponse.json(
-        { error: `Payment not completed. Status: ${paymentIntent.status}` },
-        { status: 400 }
-      );
+    let isAuthorizedOnly = false;
+    if (!isFreeOrder) {
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const validStatuses = ["succeeded", "requires_capture"];
+      if (!validStatuses.includes(paymentIntent.status)) {
+        return NextResponse.json(
+          { error: `Payment not completed. Status: ${paymentIntent.status}` },
+          { status: 400 }
+        );
+      }
+      isAuthorizedOnly = paymentIntent.status === "requires_capture";
     }
-    const isAuthorizedOnly = paymentIntent.status === "requires_capture";
 
     // Check for duplicate order
     const existingOrder = await prisma.order.findFirst({
@@ -156,8 +162,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Get taxTotal from PaymentIntent metadata (set by Stripe Tax during create-payment-intent)
-    const taxTotal = parseInt(paymentIntent.metadata?.taxTotal || "0", 10);
-    const taxCalculationId: string = paymentIntent.metadata?.taxCalculationId || "";
+    let taxTotal = 0;
+    let taxCalculationId = "";
+    if (!isFreeOrder) {
+      const piForMeta = await stripe.paymentIntents.retrieve(paymentIntentId);
+      taxTotal = parseInt(piForMeta.metadata?.taxTotal || "0", 10);
+      taxCalculationId = piForMeta.metadata?.taxCalculationId || "";
+    }
 
     const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal);
 

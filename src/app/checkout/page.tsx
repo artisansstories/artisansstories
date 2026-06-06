@@ -438,7 +438,7 @@ function CheckoutForm({
       });
 
       const piData = await piRes.json();
-      if (!piRes.ok || !piData.clientSecret) {
+      if (!piRes.ok || (!piData.clientSecret && !piData.freeOrder)) {
         setCheckoutError(piData.error || "Failed to initialize payment");
         setProcessing(false);
         return;
@@ -449,40 +449,46 @@ function CheckoutForm({
         setServerTaxTotal(piData.taxTotal);
       }
 
-      // Step 2: Confirm card payment
-      const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
-        piData.clientSecret,
-        {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: `${form.firstName} ${form.lastName}`,
-              email: form.email,
-              phone: form.phone || undefined,
-              address: {
-                line1: form.address1,
-                line2: form.address2 || undefined,
-                city: form.city,
-                state: form.stateCode,
-                postal_code: form.zip,
-                country: form.countryCode,
+      let confirmedPaymentIntentId: string = piData.paymentIntentId;
+
+      if (!piData.freeOrder) {
+        // Step 2: Confirm card payment
+        const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(
+          piData.clientSecret,
+          {
+            payment_method: {
+              card: cardElement,
+              billing_details: {
+                name: `${form.firstName} ${form.lastName}`,
+                email: form.email,
+                phone: form.phone || undefined,
+                address: {
+                  line1: form.address1,
+                  line2: form.address2 || undefined,
+                  city: form.city,
+                  state: form.stateCode,
+                  postal_code: form.zip,
+                  country: form.countryCode,
+                },
               },
             },
-          },
+          }
+        );
+
+        if (stripeError) {
+          setCheckoutError(stripeError.message || "Payment failed. Please try again.");
+          setProcessing(false);
+          return;
         }
-      );
 
-      if (stripeError) {
-        setCheckoutError(stripeError.message || "Payment failed. Please try again.");
-        setProcessing(false);
-        return;
-      }
+        // Accept both "succeeded" (immediate capture) and "requires_capture" (manual capture)
+        if (paymentIntent?.status !== "succeeded" && paymentIntent?.status !== "requires_capture") {
+          setCheckoutError("Payment was not completed. Please try again.");
+          setProcessing(false);
+          return;
+        }
 
-      // Accept both "succeeded" (immediate capture) and "requires_capture" (manual capture)
-      if (paymentIntent?.status !== "succeeded" && paymentIntent?.status !== "requires_capture") {
-        setCheckoutError("Payment was not completed. Please try again.");
-        setProcessing(false);
-        return;
+        confirmedPaymentIntentId = paymentIntent.id;
       }
 
       // Step 3: Confirm order
@@ -490,7 +496,7 @@ function CheckoutForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentIntentId: paymentIntent.id,
+          paymentIntentId: confirmedPaymentIntentId,
           email: form.email,
           phone: form.phone || undefined,
           items,

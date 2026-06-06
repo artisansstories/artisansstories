@@ -185,6 +185,20 @@ export async function POST(request: NextRequest) {
     // Calculate total
     const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal);
 
+    // Free order — no Stripe charge needed
+    if (total === 0) {
+      return NextResponse.json({
+        freeOrder: true,
+        clientSecret: null,
+        paymentIntentId: `free_${Date.now()}`,
+        subtotal,
+        discountTotal,
+        shippingTotal,
+        taxTotal,
+        total: 0,
+      });
+    }
+
     // Create Stripe PaymentIntent (manual capture — charge only when shipped)
     const paymentIntent = await stripe.paymentIntents.create({
       amount: total,
