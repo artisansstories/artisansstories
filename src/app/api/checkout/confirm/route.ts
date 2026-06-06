@@ -150,6 +150,10 @@ export async function POST(request: NextRequest) {
         if (notExpired && notExceeded && meetsMinimum) {
           if (discount.type === "PERCENTAGE") {
             discountTotal = Math.floor((subtotal * discount.value) / 100);
+            // 100% off = entire order free, including shipping
+            if (discount.value >= 100) {
+              discountTotal = subtotal + shippingTotal;
+            }
           } else if (discount.type === "FIXED_AMOUNT") {
             discountTotal = Math.min(discount.value, subtotal);
           } else if (discount.type === "FREE_SHIPPING") {

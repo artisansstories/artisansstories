@@ -258,6 +258,7 @@ function CheckoutForm({
   const [discountInput, setDiscountInput] = useState(cartDiscountCode || "");
   const [discountAmount, setDiscountAmount] = useState(cartDiscountAmount);
   const [discountType, setDiscountType] = useState<string | null>(null);
+  const [discountValue, setDiscountValue] = useState<number>(0); // e.g. 100 for 100% off
   const [discountError, setDiscountError] = useState("");
   const [discountLoading, setDiscountLoading] = useState(false);
 
@@ -272,9 +273,12 @@ function CheckoutForm({
 
   // Computed totals
   const selectedRate = shippingRates.find((r) => r.id === selectedRateId);
-  const shippingTotal = discountType === "FREE_SHIPPING" ? 0 : (selectedRate?.price ?? 0);
-  const effectiveDiscount = discountType === "FREE_SHIPPING" ? (selectedRate?.price ?? 0) : discountAmount;
-  const taxableAmount = Math.max(0, subtotal - (discountType === "FREE_SHIPPING" ? 0 : discountAmount));
+  const isFreeEverything = (discountType === "FREE_SHIPPING") || (discountType === "PERCENTAGE" && discountValue >= 100);
+  const shippingTotal = isFreeEverything ? 0 : (selectedRate?.price ?? 0);
+  const effectiveDiscount = isFreeEverything
+    ? discountAmount + (selectedRate?.price ?? 0)
+    : discountAmount;
+  const taxableAmount = Math.max(0, subtotal - (isFreeEverything ? discountAmount : discountAmount));
   const estimatedTaxTotal = Math.round(taxableAmount * 0.0825);
   // Use server-confirmed tax once PaymentIntent is created; fall back to estimate
   const taxTotal = serverTaxTotal !== null ? serverTaxTotal : estimatedTaxTotal;
@@ -485,6 +489,7 @@ function CheckoutForm({
         setDiscountCode(data.code);
         setDiscountAmount(data.discountAmount);
         setDiscountType(data.type);
+        setDiscountValue(data.value ?? 0);
         setDiscount(data.code, data.discountAmount);
       } else {
         setDiscountError(data.error || "Invalid discount code");
@@ -922,7 +927,7 @@ function CheckoutForm({
                       </span>
                     </div>
                     <span style={{ fontSize: 14, color: "#8B6914", fontWeight: 600 }}>
-                      {rate.price === 0 || discountType === "FREE_SHIPPING" ? "Free" : formatPrice(rate.price)}
+                      {rate.price === 0 || isFreeEverything ? "Free" : formatPrice(rate.price)}
                     </span>
                   </label>
                 ))}

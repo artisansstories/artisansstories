@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       valid: true,
       discountAmount,
       type: discount.type,
+      value: discount.value,
       code: discount.code,
     });
   } catch (error) {
