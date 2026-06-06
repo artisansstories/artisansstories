@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 
 interface InventoryItem {
@@ -21,21 +21,41 @@ interface InventoryItem {
   };
 }
 
+/* ── Toast ── */
+interface Toast {
+  id: number;
+  message: string;
+  kind: "success" | "error";
+}
+
+function ToastContainer({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div style={{ position: "fixed", bottom: 28, right: 28, display: "flex", flexDirection: "column", gap: 10, zIndex: 9999, pointerEvents: "none" }}>
+      {toasts.map((t) => (
+        <div key={t.id} style={{
+          display: "flex", alignItems: "center", gap: 10,
+          background: t.kind === "success" ? "#1a4731" : "#7f1d1d",
+          color: "#fff", padding: "12px 18px", borderRadius: 10,
+          fontFamily: "'Inter',sans-serif", fontSize: 14, fontWeight: 500,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+          animation: "slideInToast 0.2s ease",
+          minWidth: 200,
+        }}>
+          <span style={{ fontSize: 16 }}>{t.kind === "success" ? "✓" : "✕"}</span>
+          {t.message}
+        </div>
+      ))}
+      <style>{`@keyframes slideInToast { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }`}</style>
+    </div>
+  );
+}
+
 function StatusBadge({ qty, threshold }: { qty: number; threshold: number }) {
   let label = "In Stock";
   let bg = "#dcfce7";
   let color = "#15803d";
-
-  if (qty === 0) {
-    label = "Out of Stock";
-    bg = "#fef2f2";
-    color = "#dc2626";
-  } else if (qty <= threshold) {
-    label = "Low Stock";
-    bg = "#fffbeb";
-    color = "#d97706";
-  }
-
+  if (qty === 0) { label = "Out of Stock"; bg = "#fef2f2"; color = "#dc2626"; }
+  else if (qty <= threshold) { label = "Low Stock"; bg = "#fffbeb"; color = "#d97706"; }
   return (
     <span style={{ padding: "4px 10px", borderRadius: 20, background: bg, color, fontFamily: "'Inter',sans-serif", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
       {label}
@@ -43,10 +63,21 @@ function StatusBadge({ qty, threshold }: { qty: number; threshold: number }) {
   );
 }
 
-function QtyCell({ item, onUpdate }: { item: InventoryItem; onUpdate: (id: string, newQty: number) => void }) {
+function QtyCell({
+  item,
+  onUpdate,
+  onToast,
+  savedId,
+}: {
+  item: InventoryItem;
+  onUpdate: (id: string, newQty: number) => void;
+  onToast: (msg: string, kind: "success" | "error") => void;
+  savedId: string | null;
+}) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(item.quantity));
   const [saving, setSaving] = useState(false);
+  const justSaved = savedId === item.id;
 
   async function save() {
     const newQty = parseInt(val, 10);
@@ -61,7 +92,12 @@ function QtyCell({ item, onUpdate }: { item: InventoryItem; onUpdate: (id: strin
       if (res.ok) {
         onUpdate(item.id, newQty);
         setEditing(false);
+        onToast(`Saved — ${item.variant.product.name} (${item.variant.name}): ${newQty}`, "success");
+      } else {
+        onToast("Failed to save. Try again.", "error");
       }
+    } catch {
+      onToast("Failed to save. Try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -79,7 +115,12 @@ function QtyCell({ item, onUpdate }: { item: InventoryItem; onUpdate: (id: strin
       if (res.ok) {
         onUpdate(item.id, newQty);
         setVal(String(newQty));
+        onToast(`Saved — ${item.variant.product.name} (${item.variant.name}): ${newQty}`, "success");
+      } else {
+        onToast("Failed to save. Try again.", "error");
       }
+    } catch {
+      onToast("Failed to save. Try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -109,17 +150,29 @@ function QtyCell({ item, onUpdate }: { item: InventoryItem; onUpdate: (id: strin
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <button onClick={() => adjust(-1)} disabled={saving || item.quantity === 0} style={{ width: 26, height: 26, borderRadius: 6, border: "1px solid #e0d5c5", background: "transparent", cursor: item.quantity === 0 ? "not-allowed" : "pointer", color: "#5a4a38", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", opacity: item.quantity === 0 ? 0.4 : 1 }}>−</button>
+      <button onClick={() => adjust(-1)} disabled={saving || item.quantity === 0}
+        style={{ width: 26, height: 26, borderRadius: 6, border: "1px solid #e0d5c5", background: "transparent", cursor: item.quantity === 0 ? "not-allowed" : "pointer", color: "#5a4a38", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center", opacity: item.quantity === 0 ? 0.4 : 1 }}>
+        −
+      </button>
       <span
         onClick={() => setEditing(true)}
-        style={{ minWidth: 40, textAlign: "center", fontFamily: "'Inter',sans-serif", fontSize: 14, fontWeight: 600, color: "#3a2e24", cursor: "pointer", padding: "4px 6px", borderRadius: 6, transition: "background 0.15s" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(139,105,20,0.08)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
         title="Click to edit"
+        style={{
+          minWidth: 40, textAlign: "center", fontFamily: "'Inter',sans-serif", fontSize: 14, fontWeight: 600,
+          color: justSaved ? "#15803d" : "#3a2e24",
+          cursor: "pointer", padding: "4px 6px", borderRadius: 6,
+          background: justSaved ? "rgba(21,128,61,0.1)" : "transparent",
+          transition: "background 0.15s, color 0.3s",
+        }}
+        onMouseEnter={(e) => { if (!justSaved) (e.currentTarget as HTMLElement).style.background = "rgba(139,105,20,0.08)"; }}
+        onMouseLeave={(e) => { if (!justSaved) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
       >
-        {item.quantity}
+        {saving ? "…" : item.quantity}
       </span>
-      <button onClick={() => adjust(1)} disabled={saving} style={{ width: 26, height: 26, borderRadius: 6, border: "1px solid #e0d5c5", background: "transparent", cursor: "pointer", color: "#5a4a38", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+      <button onClick={() => adjust(1)} disabled={saving}
+        style={{ width: 26, height: 26, borderRadius: 6, border: "1px solid #e0d5c5", background: "transparent", cursor: "pointer", color: "#5a4a38", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        +
+      </button>
     </div>
   );
 }
@@ -133,6 +186,18 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [searchInput, setSearchInput] = useState("");
+
+  /* Toast state */
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastCounter = useRef(0);
+  const [lastSavedId, setLastSavedId] = useState<string | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function addToast(message: string, kind: "success" | "error") {
+    const id = ++toastCounter.current;
+    setToasts((prev) => [...prev, { id, message, kind }]);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 3000);
+  }
 
   const fetchInventory = useCallback(async () => {
     setLoading(true);
@@ -166,10 +231,14 @@ export default function InventoryPage() {
 
   function handleUpdate(id: string, newQty: number) {
     setItems((prev) => prev.map((item) => item.id === id ? { ...item, quantity: newQty } : item));
+    setLastSavedId(id);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setLastSavedId(null), 2500);
   }
 
   return (
     <div>
+      <ToastContainer toasts={toasts} />
       <style>{`
         @media (max-width: 767px) { .inv-table { display: none !important; } .inv-cards { display: block !important; } }
         @media (min-width: 768px) { .inv-table { display: table !important; } .inv-cards { display: none !important; } }
@@ -237,10 +306,17 @@ export default function InventoryPage() {
               <tbody>
                 {items.map((item, idx) => {
                   const thumb = item.variant.product.images[0]?.urlThumb ?? item.variant.product.images[0]?.url;
+                  const rowSaved = lastSavedId === item.id;
                   return (
-                    <tr key={item.id} style={{ borderBottom: idx < items.length - 1 ? "1px solid #f5f0e8" : "none", transition: "background 0.1s" }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    <tr
+                      key={item.id}
+                      style={{
+                        borderBottom: idx < items.length - 1 ? "1px solid #f5f0e8" : "none",
+                        transition: "background 0.2s",
+                        background: rowSaved ? "rgba(21,128,61,0.06)" : "transparent",
+                      }}
+                      onMouseEnter={(e) => { if (!rowSaved) (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
+                      onMouseLeave={(e) => { if (!rowSaved) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                     >
                       <td style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -259,7 +335,7 @@ export default function InventoryPage() {
                       <td style={{ padding: "12px 16px", fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#5a4a38" }}>{item.variant.name}</td>
                       <td style={{ padding: "12px 16px", fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#9a876e", fontVariantNumeric: "tabular-nums" }}>{item.variant.sku ?? "—"}</td>
                       <td style={{ padding: "12px 16px" }}>
-                        <QtyCell item={item} onUpdate={handleUpdate} />
+                        <QtyCell item={item} onUpdate={handleUpdate} onToast={addToast} savedId={lastSavedId} />
                       </td>
                       <td style={{ padding: "12px 16px", fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#5a4a38" }}>{item.lowStockThreshold}</td>
                       <td style={{ padding: "12px 16px" }}>
@@ -291,7 +367,7 @@ export default function InventoryPage() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#9a876e" }}>Threshold: {item.lowStockThreshold}</span>
-                      <QtyCell item={item} onUpdate={handleUpdate} />
+                      <QtyCell item={item} onUpdate={handleUpdate} onToast={addToast} savedId={lastSavedId} />
                     </div>
                   </div>
                 );

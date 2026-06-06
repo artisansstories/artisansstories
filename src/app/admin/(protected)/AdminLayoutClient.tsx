@@ -217,7 +217,7 @@ export function AdminLayoutClient({
             </div>
           </header>
 
-          <main style={{ flex: 1, padding: "clamp(16px,3vw,32px)", overflowX: "hidden" }}>
+          <main style={{ flex: 1, padding: "clamp(16px,3vw,32px)", overflowX: "hidden", overflowY: "auto", height: "calc(100dvh - 58px)" }}>
             {children}
           </main>
         </div>
