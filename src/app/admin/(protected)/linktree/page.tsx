@@ -259,7 +259,7 @@ function LinkForm({
       }}
     >
       <div style={{ display: "grid", gap: 12 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 180px), 1fr))", gap: 12 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.textMid, marginBottom: 4 }}>Title *</label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} required placeholder="e.g. Shop" />
@@ -563,7 +563,7 @@ export default function LinkTreeAdmin() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, padding: "32px 24px" }}>
+    <div style={{ minHeight: "100vh", background: C.bg, padding: "clamp(16px,4vw,32px) clamp(12px,3vw,24px)" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* Header */}
@@ -596,10 +596,11 @@ export default function LinkTreeAdmin() {
         </div>
 
         {/* Two-column layout */}
-        <div style={{ display: "flex", gap: 28, alignItems: "flex-start" }}>
+        <style>{`.linktree-layout{display:flex;flex-direction:column;gap:20px}.linktree-editor{flex:1;min-width:0}.linktree-preview{width:100%}@media(min-width:900px){.linktree-layout{flex-direction:row;gap:28px;align-items:flex-start}.linktree-editor{flex:0 0 500px}.linktree-preview{flex:1;min-width:0}}`}</style>
+        <div className="linktree-layout">
 
           {/* ── Left column: editor ─────────────────────────────────────────── */}
-          <div style={{ flex: "0 0 500px", minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="linktree-editor" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Settings card */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 4px rgba(58,46,36,0.06)" }}>
@@ -680,7 +681,7 @@ export default function LinkTreeAdmin() {
                   {/* Colors */}
                   <div>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: C.textMid, marginBottom: 8 }}>Colors</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 10 }}>
                       <ColorInput label="Background" value={settings.backgroundColor} onChange={(v) => setSettings({ ...settings, backgroundColor: v })} />
                       <ColorInput label="Button" value={settings.buttonColor} onChange={(v) => setSettings({ ...settings, buttonColor: v })} />
                       <ColorInput label="Text" value={settings.textColor} onChange={(v) => setSettings({ ...settings, textColor: v })} />
@@ -859,7 +860,7 @@ export default function LinkTreeAdmin() {
           </div>
 
           {/* ── Right column: analytics + phone preview ───────────────────── */}
-          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="linktree-preview" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Analytics Panel */}
             {analytics && (
