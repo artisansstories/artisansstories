@@ -70,9 +70,15 @@ export default function ContactPage() {
         <main style={{ flex: 1 }}>
           <style>{`
             input:focus, textarea:focus, select:focus { border-color: #8B6914 !important; box-shadow: 0 0 0 3px rgba(139,105,20,0.1); }
+            .contact-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+            .contact-name-email { display: grid; grid-template-columns: 1fr; gap: 16px; }
+            @media (min-width: 768px) {
+              .contact-grid { grid-template-columns: 1fr 1.5fr; gap: 48px; }
+              .contact-name-email { grid-template-columns: 1fr 1fr; }
+            }
           `}</style>
 
-          <section style={{ maxWidth: 1100, margin: "0 auto", padding: "56px 24px 80px" }}>
+          <section style={{ maxWidth: 1100, margin: "0 auto", padding: "clamp(32px,6vw,56px) clamp(16px,4vw,24px) 80px" }}>
             <div style={{ marginBottom: 40, textAlign: "center" }}>
               <p style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 13, fontWeight: 500, color: "#C9A84C", letterSpacing: "0.12em", textTransform: "uppercase", margin: "0 0 10px" }}>
                 Get in Touch
@@ -82,7 +88,7 @@ export default function ContactPage() {
               </h1>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 48, alignItems: "start" }}>
+            <div className="contact-grid" style={{ alignItems: "start" }}>
 
               {/* Contact Info */}
               <div>
@@ -143,7 +149,7 @@ export default function ContactPage() {
                         </div>
                       )}
 
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                      <div className="contact-name-email" style={{ marginBottom: 16 }}>
                         <div>
                           <label style={{ display: "block", fontFamily: "'Inter',sans-serif", fontSize: 13, fontWeight: 500, color: "#5a4a38", marginBottom: 6 }}>
                             Name <span style={{ color: "#dc2626" }}>*</span>
