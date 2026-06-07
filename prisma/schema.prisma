@@ -710,3 +710,15 @@ enum EmailDirection {
   OUTBOUND
   INBOUND
 }
+
+model KBArticle {
+  id           String   @id @default(cuid())
+  title        String
+  slug         String   @unique
+  category     String
+  excerpt      String
+  content      String   @db.Text
+  readTimeMin  Int      @default(3)
+  publishedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
