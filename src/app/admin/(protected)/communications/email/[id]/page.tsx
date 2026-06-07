@@ -72,7 +72,7 @@ export default function EmailViewerPage({ params }: { params: Promise<{ id: stri
   }
 
   return (
-    <div style={{ maxWidth: 760, margin: "0 auto" }}>
+    <div style={{ maxWidth: 760, margin: "0 auto", overflowX: "hidden" }}>
       {/* Breadcrumb */}
       <div style={{ marginBottom: 20 }}>
         <Link href="/admin/communications" style={{ fontFamily: "'Inter',sans-serif", fontSize: 13, color: "#8B6914", textDecoration: "none" }}>
@@ -128,31 +128,42 @@ export default function EmailViewerPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {log.bodyHtml ? (
-          <div style={{ background: "#f5f5f5", padding: 20 }}>
-            {/* Sandboxed iframe to safely render HTML email */}
-            <iframe
-              srcDoc={log.bodyHtml}
-              style={{
-                width: "100%",
-                minHeight: 600,
-                border: "none",
-                background: "#fff",
-                borderRadius: 8,
-                display: "block",
-              }}
-              title={`Email: ${log.subject}`}
-              sandbox="allow-same-origin"
-              onLoad={(e) => {
-                // Auto-resize to content height
-                const iframe = e.currentTarget;
-                try {
-                  const doc = iframe.contentDocument;
-                  if (doc) {
-                    iframe.style.height = `${doc.documentElement.scrollHeight + 32}px`;
-                  }
-                } catch { /* cross-origin, leave default height */ }
-              }}
-            />
+          <div style={{ background: "#f5f5f5", padding: "16px 12px" }}>
+            <style>{`
+              .email-scale-wrap { width: 100%; overflow: hidden; }
+              .email-iframe { width: 640px; border: none; background: #fff; border-radius: 8px; display: block; transform-origin: top left; }
+              @media (max-width: 680px) {
+                .email-scale-wrap { overflow: visible; }
+                .email-iframe { transform: scale(var(--email-scale, 0.5)); margin-bottom: calc((var(--email-scale, 0.5) - 1) * var(--email-h, 600px)); }
+              }
+            `}</style>
+            {/* Scaling wrapper: on mobile shrinks 640px email to fit viewport */}
+            <div className="email-scale-wrap">
+              <iframe
+                className="email-iframe"
+                srcDoc={log.bodyHtml}
+                title={`Email: ${log.subject}`}
+                sandbox="allow-same-origin"
+                onLoad={(e) => {
+                  const iframe = e.currentTarget;
+                  try {
+                    const doc = iframe.contentDocument;
+                    if (doc) {
+                      const h = doc.documentElement.scrollHeight + 32;
+                      iframe.style.height = `${h}px`;
+                      // Scale to fit container on mobile
+                      const container = iframe.parentElement;
+                      if (container) {
+                        const scale = Math.min(1, container.clientWidth / 640);
+                        iframe.style.transform = `scale(${scale})`;
+                        iframe.style.marginBottom = `${(scale - 1) * h}px`;
+                        iframe.style.transformOrigin = "top left";
+                      }
+                    }
+                  } catch { /* sandboxed */ }
+                }}
+              />
+            </div>
           </div>
         ) : (
           <div style={{ padding: "40px 24px", textAlign: "center" }}>
