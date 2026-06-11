@@ -262,7 +262,7 @@ export function AdminLayoutClient({
           .admin-grid-sidebar { grid-template-columns: 1fr !important; }
           .admin-grid-sidebar-sm { grid-template-columns: 1fr !important; }
           .admin-hide-mobile { display: none !important; }
-          .admin-main-padding { padding: 12px !important; }
+          .admin-main-padding { padding: 12px 12px calc(68px + env(safe-area-inset-bottom) + 12px) !important; }
         }
         @media (min-width: 768px) {
           .admin-sidebar { display: block !important; }
