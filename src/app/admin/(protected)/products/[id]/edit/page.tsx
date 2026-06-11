@@ -37,6 +37,7 @@ export default async function EditProductPage({ params }: PageProps) {
     id: product.id,
     name: product.name,
     slug: product.slug,
+    sku: product.sku ?? null,
     description: product.description ?? "",
     story: product.story ?? "",
     price: product.price,

@@ -62,6 +62,7 @@ export interface ProductData {
   width?: number | null;
   height?: number | null;
   dimensionUnit: string;
+  sku?: string | null;
   seoTitle?: string;
   seoDescription?: string;
   isFeatured?: boolean;
@@ -244,6 +245,9 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
   const [seoTitle, setSeoTitle] = useState(product?.seoTitle ?? "");
   const [seoDescription, setSeoDescription] = useState(product?.seoDescription ?? "");
+
+  const [sku, setSku] = useState(product?.sku ?? "");
+  const [skuGenerating, setSkuGenerating] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; error?: boolean } | null>(null);
@@ -483,6 +487,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         width: width ? parseFloat(width) : undefined,
         height: height ? parseFloat(height) : undefined,
         dimensionUnit,
+        sku: sku.trim() || null,
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
         images: images.map((img, i) => ({
@@ -917,6 +922,59 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
             </div>
           </div>
 
+          {/* Section: SKU */}
+          <div style={sectionCard}>
+            <SectionHeading>SKU</SectionHeading>
+            <div style={{ marginBottom: 4 }}>
+              <Label>Product SKU</Label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="text"
+                  value={sku}
+                  onChange={e => setSku(e.target.value.toUpperCase())}
+                  placeholder="e.g. AS-TOT-X4K2M9"
+                  style={{ ...inputStyle, flex: 1, fontFamily: "monospace", letterSpacing: "0.04em" }}
+                />
+                <button
+                  type="button"
+                  disabled={skuGenerating}
+                  onClick={async () => {
+                    setSkuGenerating(true);
+                    try {
+                      const res = await fetch("/api/admin/products/generate-sku", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ type: "product", categoryName: allCategories.find(c => c.id === categoryIds[0])?.name }),
+                      });
+                      const data = await res.json() as { sku?: string };
+                      if (data.sku) setSku(data.sku);
+                    } finally {
+                      setSkuGenerating(false);
+                    }
+                  }}
+                  style={{
+                    padding: "9px 16px",
+                    borderRadius: 8,
+                    border: "1px solid #e0d5c5",
+                    background: skuGenerating ? "#f5f0e8" : "#fff",
+                    color: "#6b4c14",
+                    fontSize: 13,
+                    fontFamily: "'Inter', sans-serif",
+                    cursor: skuGenerating ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap",
+                    fontWeight: 500,
+                    flexShrink: 0,
+                  }}
+                >
+                  {skuGenerating ? "Generating..." : "⚡ Generate"}
+                </button>
+              </div>
+              <p style={{ fontSize: 11, color: "#9a876e", fontFamily: "'Inter', sans-serif", marginTop: 5 }}>
+                Unique identifier for this product. Auto-generated or enter your own.
+              </p>
+            </div>
+          </div>
+
           {/* Section 4: Variants */}
           <div style={sectionCard}>
             <SectionHeading>Variants</SectionHeading>
@@ -1017,17 +1075,63 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                           <tr key={idx} style={{ borderBottom: "1px solid #ede8df" }}>
                             <td style={{ padding: "8px 10px", fontWeight: 500, color: "#3a2e24" }}>{v.name}</td>
                             <td style={{ padding: "8px 10px" }}>
-                              <input
-                                type="text"
-                                value={v.sku ?? ""}
-                                onChange={(e) => {
-                                  const next = [...variants];
-                                  next[idx] = { ...next[idx], sku: e.target.value };
-                                  setVariants(next);
-                                }}
-                                placeholder="SKU"
-                                style={{ ...inputStyle, padding: "5px 8px", width: 100 }}
-                              />
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <input
+                                  type="text"
+                                  value={v.sku ?? ""}
+                                  onChange={(e) => {
+                                    const next = [...variants];
+                                    next[idx] = { ...next[idx], sku: e.target.value };
+                                    setVariants(next);
+                                  }}
+                                  placeholder="SKU"
+                                  style={{ ...inputStyle, padding: "5px 8px", width: 100 }}
+                                />
+                                <button
+                                  type="button"
+                                  title="Generate variant SKU"
+                                  onClick={async () => {
+                                    if (!sku) return;
+                                    try {
+                                      const res = await fetch("/api/admin/products/generate-sku", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          type: "variant",
+                                          productSku: sku,
+                                          optionValues: Object.values(v.optionValues),
+                                        }),
+                                      });
+                                      const data = await res.json() as { sku?: string };
+                                      if (data.sku) {
+                                        const next = [...variants];
+                                        next[idx] = { ...next[idx], sku: data.sku };
+                                        setVariants(next);
+                                      }
+                                    } catch {
+                                      // silent
+                                    }
+                                  }}
+                                  style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: "50%",
+                                    border: "1px solid #c9a84c",
+                                    background: "#fff",
+                                    color: "#8B6914",
+                                    cursor: sku ? "pointer" : "not-allowed",
+                                    fontSize: 12,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    opacity: sku ? 1 : 0.4,
+                                    padding: 0,
+                                  }}
+                                >
+                                  ↻
+                                </button>
+                              </div>
                             </td>
                             <td style={{ padding: "8px 10px" }}>
                               <input

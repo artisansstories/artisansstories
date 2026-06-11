@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/admin/artisans", label: "Artisans", icon: IconStar, mobileShow: false },
   { href: "/admin/categories", label: "Categories", icon: IconTag, mobileShow: false },
   { href: "/admin/inventory", label: "Inventory", icon: IconWarehouse, mobileShow: false },
+  { href: "/admin/skus", label: "SKU Registry", icon: IconTag, mobileShow: false },
   { href: "/admin/orders", label: "Orders", icon: IconShoppingBag, mobileShow: true },
   { href: "/admin/customers", label: "Customers", icon: IconUsers, mobileShow: false },
   { href: "/admin/communications", label: "Communications", icon: IconMail, mobileShow: false },

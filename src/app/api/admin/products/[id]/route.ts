@@ -79,6 +79,7 @@ export async function PUT(
       width?: number;
       height?: number;
       dimensionUnit?: string;
+      sku?: string | null;
       seoTitle?: string;
       seoDescription?: string;
       isFeatured?: boolean;
@@ -133,6 +134,7 @@ export async function PUT(
     if (body.width !== undefined) updateData.width = body.width;
     if (body.height !== undefined) updateData.height = body.height;
     if (body.dimensionUnit !== undefined) updateData.dimensionUnit = body.dimensionUnit;
+    if (body.sku !== undefined) updateData.sku = body.sku ?? null;
     if (body.seoTitle !== undefined) updateData.seoTitle = body.seoTitle;
     if (body.seoDescription !== undefined) updateData.seoDescription = body.seoDescription;
     if (body.isFeatured !== undefined) updateData.isFeatured = body.isFeatured;

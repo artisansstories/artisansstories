@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
       width?: number;
       height?: number;
       dimensionUnit?: string;
+      sku?: string | null;
       seoTitle?: string;
       seoDescription?: string;
       images?: Array<{
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
         width: body.width,
         height: body.height,
         dimensionUnit: body.dimensionUnit ?? "in",
+        sku: body.sku ?? null,
         seoTitle: body.seoTitle,
         seoDescription: body.seoDescription,
         categories: body.categoryIds?.length
