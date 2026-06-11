@@ -117,7 +117,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: "0 auto", padding: "clamp(24px,4vw,48px) 20px" }}>
+    <div style={{ maxWidth: 600, margin: "0 auto", padding: "clamp(20px,4vw,48px) 16px" }}>
 
       {/* Header */}
       <div style={{ marginBottom: 32 }}>

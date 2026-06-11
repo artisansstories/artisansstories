@@ -144,7 +144,7 @@ function AddressForm({
           onFocus={e => { e.target.style.borderColor = "#8B6914"; }} onBlur={e => { e.target.style.borderColor = "#e0d5c5"; }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(80px,1fr))", gap: 14 }}>
         <div>
           <label style={labelStyle}>City *</label>
           <input type="text" required value={form.city} onChange={e => set("city", e.target.value)} style={inputStyle}
@@ -321,7 +321,7 @@ export default function AddressesPage() {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: "clamp(24px,4vw,48px) 20px" }}>
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "clamp(20px,4vw,48px) 16px" }}>
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 16, marginBottom: 32 }}>

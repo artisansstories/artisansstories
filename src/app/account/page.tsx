@@ -36,7 +36,7 @@ export default async function AccountPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto', padding: 'clamp(24px,4vw,48px) 20px' }}>
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: 'clamp(20px,4vw,48px) 16px' }}>
 
       {/* Welcome header */}
       <div style={{ marginBottom: 40 }}>

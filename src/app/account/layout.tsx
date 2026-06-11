@@ -16,6 +16,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #d8cfc0; border-radius: 4px; }
+        /* Mobile-first header sizing */
+        .acct-header-inner { height: 56px; padding: 0 16px; }
+        @media (min-width: 640px) { .acct-header-inner { height: 72px; padding: 0 24px; } }
       `}</style>
 
       <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#faf7f2' }}>
@@ -28,15 +31,13 @@ export default async function AccountLayout({ children }: { children: React.Reac
           top: 0,
           zIndex: 30,
         }}>
-          <div style={{
+          <div className="acct-header-inner" style={{
             maxWidth: 1000,
             margin: '0 auto',
-            padding: '0 20px',
-            height: 80,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: 16,
+            gap: 12,
           }}>
             {/* Logo */}
             <a href="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
@@ -45,14 +46,14 @@ export default async function AccountLayout({ children }: { children: React.Reac
                 alt="Artisans' Stories"
                 width={320}
                 height={86}
-                style={{ width: 'clamp(200px, 40vw, 320px)', height: 'auto' }}
+                style={{ width: 'clamp(130px, 34vw, 260px)', height: 'auto' }}
                 unoptimized
                 priority
               />
             </a>
 
             {/* Account nav — client component (event handlers not allowed in server components) */}
-            <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <nav style={{ display: 'flex', alignItems: 'center' }}>
               <AccountNav hasSession={!!session} />
             </nav>
           </div>
@@ -67,11 +68,11 @@ export default async function AccountLayout({ children }: { children: React.Reac
         <footer style={{
           borderTop: '1px solid #ede8df',
           background: '#fff',
-          padding: '20px',
+          padding: '20px 16px',
           textAlign: 'center',
         }}>
           <p style={{ fontSize: 12, color: '#b09878', fontFamily: "'Inter', sans-serif" }}>
-            &copy; {new Date().getFullYear()} Artisans' Stories &nbsp;&middot;&nbsp;
+            &copy; {new Date().getFullYear()} Artisans&apos; Stories &nbsp;&middot;&nbsp;
             <a href="/" style={{ color: '#8B6914' }}>Shop</a>
             &nbsp;&middot;&nbsp;
             <a href="mailto:hello@artisansstories.com" style={{ color: '#8B6914' }}>Contact</a>
