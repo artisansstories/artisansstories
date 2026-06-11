@@ -401,7 +401,7 @@ export default function DiscountForm({ discount }: DiscountFormProps) {
 
         {/* Usage Limits Section */}
         <Section title="Usage Limits">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="admin-grid-2col" style={{ gap: 16 }}>
             <div>
               <Label htmlFor="usageLimit">Total Usage Limit</Label>
               <input
@@ -435,7 +435,7 @@ export default function DiscountForm({ discount }: DiscountFormProps) {
 
         {/* Active Period Section */}
         <Section title="Active Period">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="admin-grid-2col" style={{ gap: 16 }}>
             <div>
               <Label htmlFor="startsAt">Start Date (optional)</Label>
               <input

@@ -70,7 +70,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (v: string) 
             ))}
           </div>
           {/* Icons grid */}
-          <div style={{ padding: 12, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+          <div style={{ padding: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(52px, 1fr))", gap: 4 }}>
             {ICON_GROUPS[activeGroup].icons.map(icon => (
               <button
                 key={icon}

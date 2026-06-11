@@ -185,6 +185,19 @@ export function AdminLayoutClient({
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #d8cfc0; border-radius: 4px; }
+
+        /* Mobile-first utility grid classes */
+        .admin-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .admin-grid-sidebar { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+        .admin-grid-sidebar-sm { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+
+        @media (max-width: 639px) {
+          .admin-grid-2col { grid-template-columns: 1fr !important; }
+          .admin-grid-sidebar { grid-template-columns: 1fr !important; }
+          .admin-grid-sidebar-sm { grid-template-columns: 1fr !important; }
+          .admin-hide-mobile { display: none !important; }
+          .admin-main-padding { padding: 12px !important; }
+        }
       `}</style>
 
       <div style={{ display: "flex", minHeight: "100dvh" }}>
@@ -218,7 +231,7 @@ export function AdminLayoutClient({
             </div>
           </header>
 
-          <main style={{ flex: 1, padding: "clamp(16px,3vw,32px)", overflowX: "hidden", overflowY: "auto", height: "calc(100dvh - 58px)" }}>
+          <main className="admin-main-padding" style={{ flex: 1, padding: "clamp(16px,3vw,32px)", overflowX: "hidden", overflowY: "auto", height: "calc(100dvh - 58px)" }}>
             {children}
           </main>
         </div>
@@ -238,6 +251,18 @@ export function AdminLayoutClient({
       </div>
 
       <style>{`
+        /* Mobile-first utility grid classes */
+        .admin-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .admin-grid-sidebar { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+        .admin-grid-sidebar-sm { display: grid; grid-template-columns: 1fr 280px; gap: 20px; align-items: start; }
+
+        @media (max-width: 639px) {
+          .admin-grid-2col { grid-template-columns: 1fr !important; }
+          .admin-grid-sidebar { grid-template-columns: 1fr !important; }
+          .admin-grid-sidebar-sm { grid-template-columns: 1fr !important; }
+          .admin-hide-mobile { display: none !important; }
+          .admin-main-padding { padding: 12px !important; }
+        }
         @media (min-width: 768px) {
           .admin-sidebar { display: block !important; }
           .admin-hamburger { display: none !important; }

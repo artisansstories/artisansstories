@@ -337,7 +337,7 @@ function RateForm({
 
       {/* Min/Max for WEIGHT or ORDER_VALUE */}
       {(form.condition === "WEIGHT" || form.condition === "ORDER_VALUE") && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="admin-grid-2col" style={{ gap: 10 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#7a5c3a", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>
               {form.condition === "WEIGHT" ? "Min Weight (oz)" : "Min Order ($)"}
@@ -693,9 +693,9 @@ function ZoneCard({
           )}
 
           {zone.rates.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ marginBottom: 12, overflowX: "auto" }}>
               {/* Rates table header */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 80px 80px 100px", gap: 8, padding: "6px 8px", borderBottom: "1px solid #ede8df", marginBottom: 4 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 100px 80px 80px 100px", gap: 8, padding: "6px 8px", borderBottom: "1px solid #ede8df", marginBottom: 4, minWidth: 620 }}>
                 {["Rate Name", "Condition", "Range", "Price", "Active", "Actions"].map((h) => (
                   <span key={h} style={{ fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</span>
                 ))}
@@ -727,6 +727,7 @@ function ZoneCard({
                       padding: "10px 8px",
                       borderBottom: "1px solid #f5f0ea",
                       alignItems: "center",
+                      minWidth: 620,
                     }}>
                       <span style={{ fontSize: 13, color: "#3a2e24", fontWeight: 500 }}>{rate.name}</span>
                       <span style={{ fontSize: 12, color: "#7a5c3a" }}>{conditionLabel(rate.condition)}</span>

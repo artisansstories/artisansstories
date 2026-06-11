@@ -286,7 +286,7 @@ function FulfillmentForm({ order, onFulfilled }: FulfillFormProps) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+      <div className="admin-grid-2col" style={{ gap: 14, marginBottom: 14 }}>
         <div>
           <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "#7a6852", fontFamily: "'Inter', sans-serif", marginBottom: 5 }}>Carrier</label>
           <select value={trackingCompany} onChange={e => setTrackingCompany(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
@@ -596,14 +596,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
-      <div className="order-detail-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
+      <div className="order-detail-grid admin-grid-sidebar" style={{ gap: 20, alignItems: "start" }}>
 
         {/* LEFT COLUMN */}
         <div>
 
           {/* Order Header Card */}
           <Card title="Order Details">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div className="admin-grid-2col" style={{ gap: 16 }}>
               {[
                 { label: "Order Number", value: order.orderNumber },
                 { label: "Date Placed", value: formatDate(order.createdAt) },

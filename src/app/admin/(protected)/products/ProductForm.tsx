@@ -622,7 +622,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr min(320px, 100%)", gap: 18, alignItems: "start" }} className="product-form-grid">
+      <div className="product-form-grid admin-grid-sidebar" style={{ gap: 18, alignItems: "start" }}>
 
         {/* ── Left column: main content ── */}
         <div>
@@ -808,7 +808,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           {/* Section 3: Pricing */}
           <div style={sectionCard}>
             <SectionHeading>Pricing</SectionHeading>
-            <div style={{ ...gridTwo, marginBottom: 16 }}>
+            <div className="admin-grid-2col" style={{ marginBottom: 16 }}>
               <div>
                 <Label required>Price (USD)</Label>
                 <div style={{ position: "relative" }}>
@@ -824,9 +824,9 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                   />
                 </div>
               </div>
-              <div>
+              <div style={{ width: "100%" }}>
                 <Label>Compare-at Price (original / was price)</Label>
-                <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "stretch", flexWrap: "wrap", width: "100%" }}>
                   {/* Discount type pill toggle */}
                   <div style={{ display: "flex", border: "1px solid #ede8df", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
                     <button
@@ -1003,8 +1003,8 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
                 {/* Variants table */}
                 {variants.length > 0 && (
-                  <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'Inter', sans-serif" }}>
+                  <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                    <table style={{ width: "100%", minWidth: 500, borderCollapse: "collapse", fontSize: 13, fontFamily: "'Inter', sans-serif" }}>
                       <thead>
                         <tr style={{ background: "#f5f0e8" }}>
                           {["Variant", "SKU", "Price Override", "Qty"].map((h) => (
@@ -1255,10 +1255,9 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
       </div>
 
       <style>{`
+        .product-form-grid { display: grid; grid-template-columns: 1fr 320px; }
         @media (max-width: 860px) {
-          .product-form-grid {
-            grid-template-columns: 1fr !important;
-          }
+          .product-form-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </div>

@@ -271,7 +271,7 @@ export default function CategoriesPage() {
             {editingId ? "Edit Category" : "New Category"}
           </h2>
           <form onSubmit={handleSubmit}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+            <div className="admin-grid-2col" style={{ gap: 12, marginBottom: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 500, color: "#6b5540", fontFamily: "'Inter', sans-serif", marginBottom: 5 }}>
                   Name <span style={{ color: "#b91c1c" }}>*</span>

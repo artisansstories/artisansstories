@@ -678,7 +678,7 @@ export default function EmailTemplateEditor() {
 
       {/* Colors */}
       <Section title="Colors">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="admin-grid-2col" style={{ gap: 16 }}>
           <ColorPicker label="Text Dark" value={template.textColorDark} onChange={(v) => updateTemplate({ textColorDark: v })} />
           <ColorPicker label="Text Medium" value={template.textColorMedium} onChange={(v) => updateTemplate({ textColorMedium: v })} />
           <ColorPicker label="Text Light" value={template.textColorLight} onChange={(v) => updateTemplate({ textColorLight: v })} />

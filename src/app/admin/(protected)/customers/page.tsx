@@ -110,7 +110,8 @@ export default function CustomersPage() {
         <>
           <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, overflow: "hidden" }}>
             {/* Desktop table */}
-            <table className="cust-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <table className="cust-table" style={{ width: "100%", minWidth: 600, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #ede8df" }}>
                   {["Customer", "Total Orders", "Total Spent", "Last Order", "Joined", ""].map((h) => (
@@ -156,6 +157,7 @@ export default function CustomersPage() {
                 ))}
               </tbody>
             </table>
+            </div>
 
             {/* Mobile cards */}
             <div className="cust-cards" style={{ display: "none" }}>

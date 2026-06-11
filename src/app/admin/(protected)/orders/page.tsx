@@ -299,7 +299,8 @@ export default function OrdersPage() {
 
       {/* Desktop Table */}
       <div className="orders-table" style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <table style={{ width: "100%", minWidth: 700, borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ borderBottom: "1px solid #ede8df", background: "#faf7f2" }}>
               {["Order #", "Date", "Customer", "Status", "Payment", "Total", "Actions"].map(h => (
@@ -371,6 +372,7 @@ export default function OrdersPage() {
             }
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Mobile Cards */}

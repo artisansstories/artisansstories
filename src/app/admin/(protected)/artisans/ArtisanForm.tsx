@@ -241,7 +241,7 @@ export default function ArtisanForm({ artisan }: Props) {
       </div>
 
       <form onSubmit={handleSubmit}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 20, alignItems: "start" }}>
+        <div className="admin-grid-sidebar-sm" style={{ gap: 20 }}>
           <div>
 
             {/* Basic Info */}
@@ -264,7 +264,7 @@ export default function ArtisanForm({ artisan }: Props) {
             {/* Origin */}
             <div style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Origin</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div className="admin-grid-2col" style={{ gap: 12, marginBottom: 14 }}>
                 <div>
                   <label style={labelStyle}>Country</label>
                   <input value={originCountry} onChange={e => setOriginCountry(e.target.value)} style={inputStyle} placeholder="El Salvador" />

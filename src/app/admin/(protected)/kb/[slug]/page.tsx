@@ -255,7 +255,7 @@ export default function KBArticlePage({ params }: { params: Promise<{ slug: stri
                   />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div className="admin-grid-2col" style={{ gap: 12, marginBottom: 16 }}>
                   <div>
                     <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#57534e", fontFamily: "'Inter',sans-serif", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Category</label>
                     <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
