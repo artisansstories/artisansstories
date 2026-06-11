@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ProductStatus, ProductDiscountType } from "@prisma/client";
+import { ProductStatus, ProductDiscountType, ProductPromoTheme } from "@prisma/client";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -64,6 +64,8 @@ export async function PUT(
       price?: number;
       compareAtPrice?: number;
       discountType?: ProductDiscountType | null;
+      promoLabel?: string | null;
+      promoTheme?: ProductPromoTheme | null;
       costPrice?: number;
       status?: ProductStatus;
       categoryIds?: string[];
@@ -121,6 +123,15 @@ export async function PUT(
     if (body.price !== undefined) updateData.price = body.price;
     if (body.compareAtPrice !== undefined) updateData.compareAtPrice = body.compareAtPrice;
     if (body.discountType !== undefined) updateData.discountType = body.discountType ?? null;
+    if (body.promoLabel !== undefined) {
+      const label = body.promoLabel || null;
+      updateData.promoLabel = label;
+      // When promoLabel is cleared, also clear promoTheme
+      if (!label) updateData.promoTheme = null;
+      else if (body.promoTheme !== undefined) updateData.promoTheme = body.promoTheme ?? ProductPromoTheme.WARM;
+    } else if (body.promoTheme !== undefined) {
+      updateData.promoTheme = body.promoTheme ?? null;
+    }
     if (body.costPrice !== undefined) updateData.costPrice = body.costPrice;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.tags !== undefined) updateData.tags = body.tags;

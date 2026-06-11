@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import RichTextEditor from "@/components/RichTextEditor";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { promoThemeStyles, PromoTheme } from "@/lib/discount";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,8 @@ export interface ProductData {
   price: number;
   compareAtPrice?: number | null;
   discountType?: "PERCENTAGE" | "FIXED" | null;
+  promoLabel?: string | null;
+  promoTheme?: PromoTheme | null;
   costPrice?: number | null;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   categoryIds: string[];
@@ -205,6 +208,8 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
   const [compareAtPrice, setCompareAtPrice] = useState(product?.compareAtPrice ? String(product.compareAtPrice / 100) : "");
   const [discountType, setDiscountType] = useState<"PERCENTAGE" | "FIXED">(product?.discountType ?? "PERCENTAGE");
   const [costPrice, setCostPrice] = useState(product?.costPrice ? String(product.costPrice / 100) : "");
+  const [promoLabel, setPromoLabel] = useState(product?.promoLabel ?? "");
+  const [promoTheme, setPromoTheme] = useState<PromoTheme>(product?.promoTheme ?? "WARM");
 
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE" | "ARCHIVED">(product?.status ?? "DRAFT");
 
@@ -473,6 +478,8 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         price: priceInCents,
         compareAtPrice: compareAtPriceInCents,
         discountType: compareAtPriceInCents ? discountType : null,
+        promoLabel: promoLabel.trim() || null,
+        promoTheme: promoLabel.trim() ? promoTheme : null,
         costPrice: costPriceInCents,
         status: overrideStatus ?? status,
         categoryIds,
@@ -923,6 +930,78 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
               {margin > 0 && (
                 <p style={{ fontSize: 12, color: "#6b5540", fontFamily: "'Inter', sans-serif", marginTop: 4 }}>Margin: {margin}%</p>
               )}
+            </div>
+
+            {/* Promo Label */}
+            <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid #ede8df" }}>
+              <Label>Promo Label</Label>
+              <input
+                type="text"
+                value={promoLabel}
+                onChange={(e) => setPromoLabel(e.target.value)}
+                placeholder="e.g. Father's Day Special, Limited Time Only"
+                style={inputStyle}
+              />
+              {promoLabel.trim() && (
+                <>
+                  {/* Theme picker */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                    {(Object.keys(promoThemeStyles) as PromoTheme[]).map((theme) => {
+                      const selected = promoTheme === theme;
+                      return (
+                        <button
+                          key={theme}
+                          type="button"
+                          onClick={() => setPromoTheme(theme)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "7px 12px",
+                            borderRadius: 8,
+                            border: selected ? "1.5px solid #8B6914" : "1px solid #ede8df",
+                            background: selected ? "#fdf5ea" : "#fff",
+                            color: selected ? "#7a5a00" : "#6b5540",
+                            fontFamily: "'Inter', sans-serif",
+                            fontSize: 12,
+                            fontWeight: selected ? 600 : 500,
+                            cursor: "pointer",
+                            transition: "border-color 0.15s, background 0.15s",
+                          }}
+                        >
+                          <span style={{
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            background: promoThemeStyles[theme].background,
+                            flexShrink: 0,
+                            display: "inline-block",
+                          }} />
+                          {theme.charAt(0) + theme.slice(1).toLowerCase()}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Live preview */}
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{
+                      ...promoThemeStyles[promoTheme],
+                      display: "inline-block",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "3px 8px",
+                      borderRadius: 4,
+                      fontFamily: "'Inter', sans-serif",
+                      letterSpacing: "0.06em",
+                    }}>
+                      {promoLabel.trim()}
+                    </span>
+                  </div>
+                </>
+              )}
+              <p style={{ fontSize: 11, color: "#9a876e", fontFamily: "'Inter', sans-serif", marginTop: 6 }}>
+                Optional badge shown on the product card and detail page (e.g. &ldquo;New Arrival&rdquo;, &ldquo;Best Seller&rdquo;).
+              </p>
             </div>
           </div>
 

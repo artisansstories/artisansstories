@@ -12,3 +12,17 @@ export function discountBadge(
   // Default: PERCENTAGE
   return `Save ${Math.round((1 - salePrice / compareAtPrice) * 100)}%`;
 }
+
+export type PromoTheme = "WARM" | "COOL" | "BOLD" | "SOFT" | "DARK";
+
+export const promoThemeStyles: Record<PromoTheme, { background: string; color: string }> = {
+  WARM: { background: "#8B6914", color: "#fff" }, // warm gold
+  COOL: { background: "#2a7a6e", color: "#fff" }, // teal
+  BOLD: { background: "#c0392b", color: "#fff" }, // crimson
+  SOFT: { background: "#d4728a", color: "#fff" }, // blush
+  DARK: { background: "#2c2c2c", color: "#fff" }, // charcoal
+};
+
+export function getPromoThemeStyle(theme?: string | null) {
+  return promoThemeStyles[(theme as PromoTheme) ?? "WARM"] ?? promoThemeStyles.WARM;
+}

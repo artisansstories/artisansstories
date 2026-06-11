@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCart, formatPrice, CartItem } from "@/lib/cart";
 import { useCartDrawer } from "@/components/CartDrawerProvider";
 import ProductCard from "@/components/ProductCard";
-import { discountBadge } from "@/lib/discount";
+import { discountBadge, getPromoThemeStyle } from "@/lib/discount";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +60,8 @@ interface Product {
   price: number;
   compareAtPrice?: number | null;
   discountType?: "PERCENTAGE" | "FIXED" | null;
+  promoLabel?: string | null;
+  promoTheme?: string | null;
   artisanName?: string | null;
   artisan?: { id: string; slug: string; name: string; status: string; avatarUrl?: string | null } | null;
   originCountry: string;
@@ -85,6 +87,8 @@ interface RelatedProduct {
   price: number;
   compareAtPrice?: number | null;
   discountType?: "PERCENTAGE" | "FIXED" | null;
+  promoLabel?: string | null;
+  promoTheme?: string | null;
   isFeatured: boolean;
   hasVariants: boolean;
   variantId?: string | null;
@@ -479,6 +483,24 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 ) : ""}
                 {product.artisanName && product.originCountry ? " · " : ""}
                 {product.originCountry}
+              </span>
+            </div>
+          )}
+
+          {/* Promo label */}
+          {product.promoLabel && (
+            <div style={{ marginBottom: 10 }}>
+              <span style={{
+                ...getPromoThemeStyle(product.promoTheme),
+                display: "inline-block",
+                fontSize: 12,
+                fontWeight: 700,
+                padding: "4px 10px",
+                borderRadius: 4,
+                fontFamily: "'Inter', sans-serif",
+                letterSpacing: "0.06em",
+              }}>
+                {product.promoLabel}
               </span>
             </div>
           )}

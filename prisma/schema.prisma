@@ -88,6 +88,8 @@ model Product {
   price            Int
   compareAtPrice   Int?
   discountType     ProductDiscountType?
+  promoLabel       String?
+  promoTheme       ProductPromoTheme?
   costPrice        Int?
   sku              String?           @unique
   barcode          String?
@@ -613,6 +615,14 @@ enum ReturnReason {
 enum ProductDiscountType {
   PERCENTAGE
   FIXED
+}
+
+enum ProductPromoTheme {
+  WARM
+  COOL
+  BOLD
+  SOFT
+  DARK
 }
 
 enum DiscountType {

@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart, formatPrice, CartItem } from "@/lib/cart";
 import { useCartDrawer } from "./CartDrawerProvider";
-import { discountBadge } from "@/lib/discount";
+import { discountBadge, getPromoThemeStyle } from "@/lib/discount";
 
 interface ProductCardProduct {
   id: string;
@@ -14,6 +14,8 @@ interface ProductCardProduct {
   price: number;
   compareAtPrice?: number | null;
   discountType?: "PERCENTAGE" | "FIXED" | null;
+  promoLabel?: string | null;
+  promoTheme?: string | null;
   isFeatured: boolean;
   hasVariants: boolean;
   variantId?: string | null;
@@ -157,6 +159,19 @@ export default function ProductCard({ product }: ProductCardProps) {
             flexDirection: "column",
             gap: 4,
           }}>
+            {product.promoLabel && (
+              <span style={{
+                ...getPromoThemeStyle(product.promoTheme),
+                fontSize: 10,
+                fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                padding: "3px 7px",
+                borderRadius: 4,
+                letterSpacing: "0.06em",
+              }}>
+                {product.promoLabel}
+              </span>
+            )}
             {badgeLabel && (
               <span style={{
                 background: "#e74c3c",

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ProductStatus, ProductDiscountType, Prisma } from "@prisma/client";
+import { ProductStatus, ProductDiscountType, ProductPromoTheme, Prisma } from "@prisma/client";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -106,6 +106,8 @@ export async function POST(request: NextRequest) {
       price: number;
       compareAtPrice?: number;
       discountType?: ProductDiscountType | null;
+      promoLabel?: string | null;
+      promoTheme?: ProductPromoTheme | null;
       costPrice?: number;
       status?: ProductStatus;
       categoryIds?: string[];
@@ -151,6 +153,8 @@ export async function POST(request: NextRequest) {
         price: body.price,
         compareAtPrice: body.compareAtPrice,
         discountType: body.discountType ?? null,
+        promoLabel: body.promoLabel || null,
+        promoTheme: body.promoLabel ? (body.promoTheme ?? ProductPromoTheme.WARM) : null,
         costPrice: body.costPrice,
         status: body.status ?? ProductStatus.DRAFT,
         tags: body.tags ?? [],

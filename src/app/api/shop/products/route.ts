@@ -68,6 +68,8 @@ export async function GET(request: NextRequest) {
           price: true,
           compareAtPrice: true,
           discountType: true,
+          promoLabel: true,
+          promoTheme: true,
           isFeatured: true,
           totalSold: true,
           tags: true,
