@@ -17,6 +17,7 @@ interface Product {
   name: string;
   price: number;
   compareAtPrice?: number | null;
+  discountType?: "PERCENTAGE" | "FIXED" | null;
   isFeatured: boolean;
   hasVariants: boolean;
   variantId?: string | null;

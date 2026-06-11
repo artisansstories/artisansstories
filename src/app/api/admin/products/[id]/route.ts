@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { ProductStatus } from "@prisma/client";
+import { ProductStatus, ProductDiscountType } from "@prisma/client";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -63,6 +63,7 @@ export async function PUT(
       story?: string;
       price?: number;
       compareAtPrice?: number;
+      discountType?: ProductDiscountType | null;
       costPrice?: number;
       status?: ProductStatus;
       categoryIds?: string[];
@@ -118,6 +119,7 @@ export async function PUT(
     if (body.story !== undefined) updateData.story = body.story;
     if (body.price !== undefined) updateData.price = body.price;
     if (body.compareAtPrice !== undefined) updateData.compareAtPrice = body.compareAtPrice;
+    if (body.discountType !== undefined) updateData.discountType = body.discountType ?? null;
     if (body.costPrice !== undefined) updateData.costPrice = body.costPrice;
     if (body.status !== undefined) updateData.status = body.status;
     if (body.tags !== undefined) updateData.tags = body.tags;

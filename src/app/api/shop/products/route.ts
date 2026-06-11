@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
           name: true,
           price: true,
           compareAtPrice: true,
+          discountType: true,
           isFeatured: true,
           totalSold: true,
           tags: true,

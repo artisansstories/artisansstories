@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart, formatPrice, CartItem } from "@/lib/cart";
 import { useCartDrawer } from "@/components/CartDrawerProvider";
 import ProductCard from "@/components/ProductCard";
+import { discountBadge } from "@/lib/discount";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ interface Product {
   story?: string | null;
   price: number;
   compareAtPrice?: number | null;
+  discountType?: "PERCENTAGE" | "FIXED" | null;
   artisanName?: string | null;
   artisan?: { id: string; slug: string; name: string; status: string; avatarUrl?: string | null } | null;
   originCountry: string;
@@ -82,6 +84,7 @@ interface RelatedProduct {
   name: string;
   price: number;
   compareAtPrice?: number | null;
+  discountType?: "PERCENTAGE" | "FIXED" | null;
   isFeatured: boolean;
   hasVariants: boolean;
   variantId?: string | null;
@@ -510,7 +513,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 borderRadius: 4,
                 fontFamily: "'Inter', sans-serif",
               }}>
-                Save {Math.round((1 - effectivePrice / product.compareAtPrice) * 100)}%
+                {discountBadge(effectivePrice, product.compareAtPrice, product.discountType)}
               </span>
             )}
           </div>

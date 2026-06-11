@@ -58,8 +58,8 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
     ? Object.fromEntries(Object.entries(socialLinks).filter(([k]) => slv[k] !== false))
     : null;
   const activeProducts = a.products
-    .map((pa: { product: { status: string; id: string; slug: string; name: string; price: number; compareAtPrice: number | null; isFeatured: boolean; images: { url: string; urlMedium: string | null; altText: string | null }[]; variants: { id: string }[] } }) => pa.product)
-    .filter((p: { status: string }) => p && p.status === "ACTIVE") as { id: string; slug: string; name: string; price: number; compareAtPrice: number | null; isFeatured: boolean; images: { url: string; urlMedium: string | null; altText: string | null }[]; variants: { id: string }[] }[];
+    .map((pa: { product: { status: string; id: string; slug: string; name: string; price: number; compareAtPrice: number | null; discountType: "PERCENTAGE" | "FIXED" | null; isFeatured: boolean; images: { url: string; urlMedium: string | null; altText: string | null }[]; variants: { id: string }[] } }) => pa.product)
+    .filter((p: { status: string }) => p && p.status === "ACTIVE") as { id: string; slug: string; name: string; price: number; compareAtPrice: number | null; discountType: "PERCENTAGE" | "FIXED" | null; isFeatured: boolean; images: { url: string; urlMedium: string | null; altText: string | null }[]; variants: { id: string }[] }[];
 
   const originParts = [artisan.city, artisan.region, artisan.originCountry].filter(Boolean);
   const originStr = originParts.join(", ");
@@ -278,7 +278,7 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
               Handcrafted by {artisan.name}
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 20 }}>
-              {activeProducts.map((product: { id: string; slug: string; name: string; price: number; compareAtPrice: number | null; isFeatured: boolean; images: { url: string; urlMedium: string | null; altText: string | null }[]; variants: { id: string }[] }) => (
+              {activeProducts.map((product: { id: string; slug: string; name: string; price: number; compareAtPrice: number | null; discountType: "PERCENTAGE" | "FIXED" | null; isFeatured: boolean; images: { url: string; urlMedium: string | null; altText: string | null }[]; variants: { id: string }[] }) => (
                 <ProductCard
                   key={product.id}
                   product={{
@@ -287,6 +287,7 @@ export default async function ArtisanProfilePage({ params }: PageProps) {
                     name: product.name,
                     price: product.price,
                     compareAtPrice: product.compareAtPrice ?? null,
+                    discountType: product.discountType ?? null,
                     isFeatured: product.isFeatured,
                     hasVariants: product.variants.length > 1,
                     variantId: product.variants[0]?.id ?? null,

@@ -46,6 +46,7 @@ export interface ProductData {
   story?: string;
   price: number;
   compareAtPrice?: number | null;
+  discountType?: "PERCENTAGE" | "FIXED" | null;
   costPrice?: number | null;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   categoryIds: string[];
@@ -201,6 +202,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
   const [price, setPrice] = useState(product ? String(product.price / 100) : "");
   const [compareAtPrice, setCompareAtPrice] = useState(product?.compareAtPrice ? String(product.compareAtPrice / 100) : "");
+  const [discountType, setDiscountType] = useState<"PERCENTAGE" | "FIXED">(product?.discountType ?? "PERCENTAGE");
   const [costPrice, setCostPrice] = useState(product?.costPrice ? String(product.costPrice / 100) : "");
 
   const [status, setStatus] = useState<"DRAFT" | "ACTIVE" | "ARCHIVED">(product?.status ?? "DRAFT");
@@ -466,6 +468,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         story: story || undefined,
         price: priceInCents,
         compareAtPrice: compareAtPriceInCents,
+        discountType: compareAtPriceInCents ? discountType : null,
         costPrice: costPriceInCents,
         status: overrideStatus ?? status,
         categoryIds,
@@ -822,21 +825,75 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                 </div>
               </div>
               <div>
-                <Label>Compare-at Price</Label>
-                <div style={{ position: "relative" }}>
-                  <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9a876e", fontFamily: "'Inter', sans-serif", fontSize: 14 }}>$</span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={compareAtPrice}
-                    onChange={(e) => setCompareAtPrice(e.target.value)}
-                    placeholder="0.00"
-                    style={{ ...inputStyle, paddingLeft: 26 }}
-                  />
+                <Label>Compare-at Price (original / was price)</Label>
+                <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                  {/* Discount type pill toggle */}
+                  <div style={{ display: "flex", border: "1px solid #ede8df", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType("PERCENTAGE")}
+                      style={{
+                        padding: "9px 12px",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        background: discountType === "PERCENTAGE" ? "#8B6914" : "#fff",
+                        color: discountType === "PERCENTAGE" ? "#fff" : "#6b5540",
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountType("FIXED")}
+                      style={{
+                        padding: "9px 12px",
+                        border: "none",
+                        borderLeft: "1px solid #ede8df",
+                        cursor: "pointer",
+                        fontFamily: "'Inter', sans-serif",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        background: discountType === "FIXED" ? "#8B6914" : "#fff",
+                        color: discountType === "FIXED" ? "#fff" : "#6b5540",
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      $ off
+                    </button>
+                  </div>
+                  {/* Price input */}
+                  <div style={{ position: "relative", flex: 1 }}>
+                    <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#9a876e", fontFamily: "'Inter', sans-serif", fontSize: 14 }}>$</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={compareAtPrice}
+                      onChange={(e) => setCompareAtPrice(e.target.value)}
+                      placeholder="0.00"
+                      style={{ ...inputStyle, paddingLeft: 26 }}
+                    />
+                  </div>
                 </div>
-                {savePct > 0 && (
-                  <p style={{ fontSize: 12, color: "#15803d", fontFamily: "'Inter', sans-serif", marginTop: 4 }}>Save {savePct}%</p>
+                {/* Live preview */}
+                {compareNum > priceNum && priceNum > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#aaa", textDecoration: "line-through" }}>
+                      ${compareNum.toFixed(2)}
+                    </span>
+                    <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 600, color: "#8B6914" }}>
+                      ${priceNum.toFixed(2)}
+                    </span>
+                    <span style={{ background: "#e74c3c", color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 4, fontFamily: "'Inter', sans-serif" }}>
+                      {discountType === "FIXED"
+                        ? (() => { const d = compareNum - priceNum; return `Save $${d % 1 === 0 ? d.toFixed(0) : d.toFixed(2)}`; })()
+                        : `Save ${savePct}%`}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>

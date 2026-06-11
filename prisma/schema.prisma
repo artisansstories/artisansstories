@@ -87,6 +87,7 @@ model Product {
   status           ProductStatus     @default(DRAFT)
   price            Int
   compareAtPrice   Int?
+  discountType     ProductDiscountType?
   costPrice        Int?
   sku              String?           @unique
   barcode          String?
@@ -607,6 +608,11 @@ enum ReturnReason {
   NOT_AS_DESCRIBED
   CHANGED_MIND
   OTHER
+}
+
+enum ProductDiscountType {
+  PERCENTAGE
+  FIXED
 }
 
 enum DiscountType {

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart, formatPrice, CartItem } from "@/lib/cart";
 import { useCartDrawer } from "./CartDrawerProvider";
+import { discountBadge } from "@/lib/discount";
 
 interface ProductCardProduct {
   id: string;
@@ -12,6 +13,7 @@ interface ProductCardProduct {
   name: string;
   price: number;
   compareAtPrice?: number | null;
+  discountType?: "PERCENTAGE" | "FIXED" | null;
   isFeatured: boolean;
   hasVariants: boolean;
   variantId?: string | null;
@@ -47,8 +49,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const fetchedRef = useRef(false);
 
   const image = product.images[0];
-  const discount = product.compareAtPrice && product.compareAtPrice > product.price
-    ? Math.round((1 - product.price / product.compareAtPrice) * 100)
+  const badgeLabel = product.compareAtPrice && product.compareAtPrice > product.price
+    ? discountBadge(product.price, product.compareAtPrice, product.discountType)
     : null;
 
   // Pre-fetch inventory on hover so click is instant
@@ -155,7 +157,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             flexDirection: "column",
             gap: 4,
           }}>
-            {discount && (
+            {badgeLabel && (
               <span style={{
                 background: "#e74c3c",
                 color: "#fff",
@@ -165,9 +167,8 @@ export default function ProductCard({ product }: ProductCardProps) {
                 padding: "3px 7px",
                 borderRadius: 4,
                 letterSpacing: "0.06em",
-                textTransform: "uppercase",
               }}>
-                -{discount}%
+                {badgeLabel}
               </span>
             )}
             {product.isFeatured && (

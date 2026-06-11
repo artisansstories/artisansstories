@@ -54,6 +54,7 @@ export async function GET(
             name: true,
             price: true,
             compareAtPrice: true,
+            discountType: true,
             isFeatured: true,
             images: {
               orderBy: { position: "asc" },
