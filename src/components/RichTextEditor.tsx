@@ -112,7 +112,7 @@ export default function RichTextEditor({
   if (!editor) return null;
 
   return (
-    <div style={{ border: "1.5px solid #e0d5c5", borderRadius: 8, overflow: "hidden", background: "#fff" }}>
+    <div style={{ border: "1.5px solid #e0d5c5", borderRadius: 8, overflow: "hidden", background: "#fff", maxWidth: "100%" }}>
       {/* Toolbar */}
       <div style={{
         display: "flex",
@@ -249,6 +249,15 @@ export default function RichTextEditor({
         .rte-content blockquote { border-left: 3px solid ${GOLD}; margin: 0.75em 0; padding: 0.5em 1em; color: #7a6a55; background: rgba(139,105,20,0.04); border-radius: 0 6px 6px 0; }
         .rte-content a.rte-link { color: ${GOLD}; text-decoration: underline; }
         .tiptap p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: #bba98a; pointer-events: none; float: left; height: 0; font-style: italic; }
+        /* Prevent editor content from overflowing mobile viewport */
+        .rte-content { overflow: hidden; max-width: 100%; }
+        .rte-content .ProseMirror {
+          overflow-wrap: break-word;
+          word-break: break-word;
+          max-width: 100%;
+          overflow: hidden;
+        }
+        .rte-content .ProseMirror * { max-width: 100%; box-sizing: border-box; }
       `}</style>
       <EditorContent editor={editor} className="rte-content" />
     </div>

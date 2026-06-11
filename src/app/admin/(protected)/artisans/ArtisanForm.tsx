@@ -216,7 +216,15 @@ export default function ArtisanForm({ artisan }: Props) {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
+    <div className="af-container" style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
+      <style>{`
+        @media (max-width: 639px) {
+          .af-container { padding: 20px 12px !important; }
+          .af-section-card { padding: 14px !important; }
+          .af-header { flex-wrap: wrap !important; gap: 10px !important; }
+          .af-header h1 { font-size: 22px !important; word-break: break-word !important; }
+        }
+      `}</style>
       {/* Toast */}
       {toast && (
         <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, padding: "12px 20px", borderRadius: 8, background: toast.error ? "#c0392b" : "#27ae60", color: "#fff", fontFamily: "'Inter', sans-serif", fontSize: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}>
@@ -224,7 +232,7 @@ export default function ArtisanForm({ artisan }: Props) {
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+      <div className="af-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 600, color: "#2a1f14", margin: 0 }}>
           {isEdit ? `Edit — ${artisan!.name}` : "New Artisan"}
         </h1>
@@ -245,7 +253,7 @@ export default function ArtisanForm({ artisan }: Props) {
           <div>
 
             {/* Basic Info */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Basic Info</h2>
               <label style={labelStyle}>Name *</label>
               <input value={name} onChange={e => { setName(e.target.value); if (!isEdit) setSlug(autoSlug(e.target.value)); }} required style={{ ...inputStyle, marginBottom: 14 }} placeholder="Rosa Maria Zamora" />
@@ -262,7 +270,7 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Origin */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Origin</h2>
               <div className="admin-grid-2col" style={{ gap: 12, marginBottom: 14 }}>
                 <div>
@@ -278,7 +286,7 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Hero Image */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Hero Image</h2>
               {heroImageUrl && (
                 <div style={{ position: "relative", width: "100%", height: 180, borderRadius: 8, overflow: "hidden", marginBottom: 12, background: "#f5f0e8" }}>
@@ -293,7 +301,7 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Avatar */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Portrait / Avatar</h2>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                 {avatarUrl && (
@@ -312,8 +320,8 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Story */}
-            <div style={sectionCard}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12 }}>
+            <div className="af-section-card" style={sectionCard}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8, gap: 12, flexWrap: "wrap" }}>
                 <input
                   value={storyLabel}
                   onChange={e => setStoryLabel(e.target.value)}
@@ -341,21 +349,21 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Quote */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Pull Quote</h2>
               <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 10px" }}>A short quote in the artisan&apos;s own words. Displayed prominently on their profile.</p>
               <input value={quote} onChange={e => setQuote(e.target.value)} style={inputStyle} placeholder="Each piece carries a little piece of my heart." />
             </div>
 
             {/* Letter to Buyer */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Letter to Buyer</h2>
               <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "0 0 10px" }}>A personal note shown on the artisan&apos;s profile page. Keep it warm and personal.</p>
               <textarea value={letterToBuyer} onChange={e => setLetterToBuyer(e.target.value)} style={{ ...inputStyle, minHeight: 100, resize: "vertical" }} placeholder="Thank you for supporting handmade. This piece was made with care, just for you." />
             </div>
 
             {/* Gallery */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                 <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: 0 }}>Photo Gallery</h2>
                 <button
@@ -404,7 +412,7 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Social Links */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Social Links</h2>
               {[
                 { label: "Instagram", value: socialInstagram, set: setSocialInstagram, placeholder: "https://instagram.com/...", visible: slvInstagram, setVisible: setSlvInstagram },
@@ -447,7 +455,7 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* SEO */}
-            <div style={sectionCard}>
+            <div className="af-section-card" style={sectionCard}>
               <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>SEO</h2>
               <label style={labelStyle}>Meta Title</label>
               <input value={metaTitle} onChange={e => setMetaTitle(e.target.value)} style={{ ...inputStyle, marginBottom: 12 }} placeholder={`${name || "Artisan"} — Artisans Stories`} />
@@ -460,7 +468,7 @@ export default function ArtisanForm({ artisan }: Props) {
           {/* Sidebar */}
           <div style={{ position: "sticky", top: 24 }}>
             {/* Status */}
-            <div style={{ ...sectionCard, marginBottom: 16 }}>
+            <div className="af-section-card" style={{ ...sectionCard, marginBottom: 16 }}>
               <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: "#2a1f14", margin: "0 0 14px" }}>Status</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {(["DRAFT", "ACTIVE"] as const).map((s) => (
@@ -475,7 +483,7 @@ export default function ArtisanForm({ artisan }: Props) {
             </div>
 
             {/* Story Checklist */}
-            <div style={{ ...sectionCard, marginBottom: 0 }}>
+            <div className="af-section-card" style={{ ...sectionCard, marginBottom: 0 }}>
               <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: "#2a1f14", margin: "0 0 14px" }}>Profile Checklist</h3>
               <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: "#9a876e", margin: "0 0 12px" }}>Required before publishing</p>
               {[

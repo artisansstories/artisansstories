@@ -133,7 +133,7 @@ export default function EmailViewerPage({ params }: { params: Promise<{ id: stri
               .email-scale-wrap { width: 100%; overflow: hidden; }
               .email-iframe { width: 640px; border: none; background: #fff; border-radius: 8px; display: block; transform-origin: top left; }
               @media (max-width: 680px) {
-                .email-scale-wrap { overflow: visible; }
+                .email-scale-wrap { overflow: visible; overflow-x: auto; max-width: 100%; }
                 .email-iframe { transform: scale(var(--email-scale, 0.5)); margin-bottom: calc((var(--email-scale, 0.5) - 1) * var(--email-h, 600px)); }
               }
             `}</style>

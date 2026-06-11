@@ -264,6 +264,20 @@ export function AdminLayoutClient({
           .admin-hide-mobile { display: none !important; }
           .admin-main-padding { padding: 12px 12px calc(68px + env(safe-area-inset-bottom) + 12px) !important; }
         }
+        /* Hard stop on horizontal overflow — admin-wide */
+        @media (max-width: 639px) {
+          .admin-main-padding, .admin-main-padding * {
+            max-width: 100%;
+            box-sizing: border-box;
+          }
+          /* Exception for tables, iframes, and intentional scroll containers */
+          .admin-main-padding [style*="overflowX"],
+          .admin-main-padding [style*="overflow-x"],
+          .admin-main-padding table,
+          .admin-main-padding iframe {
+            max-width: unset;
+          }
+        }
         @media (min-width: 768px) {
           .admin-sidebar { display: block !important; }
           .admin-hamburger { display: none !important; }

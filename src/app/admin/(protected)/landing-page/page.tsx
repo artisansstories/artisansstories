@@ -156,7 +156,14 @@ export default function LandingPageEditor() {
   if (loading) return <div className="p-8">Loading...</div>;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#faf9f6", padding: "32px" }}>
+    <div className="lp-editor" style={{ minHeight: "100vh", background: "#faf9f6", padding: "32px" }}>
+      <style>{`
+        @media (max-width: 1023px) {
+          .lp-editor { padding: 16px 12px !important; }
+          .lp-editor-row { flex-wrap: wrap !important; }
+          .lp-preview-col { width: 100% !important; }
+        }
+      `}</style>
       <div style={{ maxWidth: 1400, margin: "0 auto" }}>
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 28, fontWeight: 700, color: "#3a2e24", marginBottom: 8 }}>
@@ -167,9 +174,9 @@ export default function LandingPageEditor() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 32 }}>
+        <div className="lp-editor-row" style={{ display: "flex", gap: 32 }}>
           {/* Editor */}
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ background: "#fff", border: "1px solid #e0d5c5", borderRadius: 12, padding: 24 }}>
               
               {/* Coming Soon Badge */}
@@ -419,7 +426,7 @@ export default function LandingPageEditor() {
           </div>
 
           {/* Live Preview */}
-          <div style={{ width: 480, flexShrink: 0 }}>
+          <div className="lp-preview-col" style={{ width: 480, maxWidth: "100%", flexShrink: 0 }}>
             <div style={{ position: "sticky", top: 32 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <h3 style={{ fontSize: 16, fontWeight: 600, color: "#3a2e24", margin: 0 }}>Live Preview</h3>

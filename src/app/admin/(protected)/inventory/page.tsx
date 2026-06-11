@@ -294,8 +294,8 @@ export default function InventoryPage() {
       ) : (
         <>
           {/* Desktop Table */}
-          <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, overflow: "hidden" }}>
-            <table className="inv-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 12, overflow: "hidden", overflowX: "auto" }}>
+            <table className="inv-table" style={{ width: "100%", minWidth: 600, borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid #ede8df" }}>
                   {["Product", "Variant", "SKU", "Qty", "Threshold", "Status"].map((h) => (

@@ -564,12 +564,6 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
   const fieldGroup: React.CSSProperties = { marginBottom: 16 };
 
-  const gridTwo: React.CSSProperties = {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-  };
-
   const btnPrimary: React.CSSProperties = {
     padding: "11px 22px",
     background: "#8B6914",
@@ -1326,7 +1320,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                 </div>
                 <div>
                   <Label>Dimensions (L × W × H)</Label>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     <input type="number" min="0" step="0.1" value={length} onChange={(e) => setLength(e.target.value)} placeholder="L" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
                     <span style={{ color: "#c8b89a" }}>×</span>
                     <input type="number" min="0" step="0.1" value={width} onChange={(e) => setWidth(e.target.value)} placeholder="W" style={{ ...inputStyle, flex: 1, minWidth: 0 }} />
