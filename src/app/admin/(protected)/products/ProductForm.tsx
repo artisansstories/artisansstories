@@ -560,6 +560,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
     marginBottom: 18,
     boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
   };
+  const sectionCardClass = "pf-section-card";
 
   const fieldGroup: React.CSSProperties = { marginBottom: 16 };
 
@@ -599,9 +600,18 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
   return (
     <div>
+      <style>{`
+        @media (max-width: 639px) {
+          .pf-section-card { padding: 14px 14px !important; }
+          .pf-header { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
+          .pf-header h1 { font-size: 18px !important; word-break: break-word !important; }
+          .pf-slug { word-break: break-all !important; overflow-wrap: anywhere !important; overflow: hidden !important; max-width: 100% !important; }
+          .pf-toast { left: 12px !important; right: 12px !important; top: 12px !important; }
+        }
+      `}</style>
       {/* Toast */}
       {toast && (
-        <div style={{
+        <div className="pf-toast" style={{
           position: "fixed", top: 20, right: 20, zIndex: 1000,
           background: toast.error ? "#fef2f2" : "#f0fdf4",
           border: `1px solid ${toast.error ? "#fecaca" : "#bbf7d0"}`,
@@ -615,13 +625,13 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
       )}
 
       {/* Page header */}
-      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
+      <div className="pf-header" style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <a href="/admin/products" style={{ fontSize: 13, color: "#8B6914", fontFamily: "'Inter', sans-serif", textDecoration: "none" }}>
             ← Products
           </a>
           <span style={{ color: "#c8b89a" }}>/</span>
-          <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: "clamp(20px,3vw,28px)", fontWeight: 500, color: "#3a2e24" }}>
+          <h1 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: "clamp(18px,3vw,28px)", fontWeight: 500, color: "#3a2e24", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "60vw" }}>
             {isEdit ? (product?.name || "Edit Product") : "New Product"}
           </h1>
         </div>
@@ -633,7 +643,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         <div>
 
           {/* Section 1: Basic Info */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Basic Information</SectionHeading>
             <div style={fieldGroup}>
               <Label required>Product Name</Label>
@@ -645,7 +655,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                 style={inputStyle}
               />
               {slug && (
-                <p style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif", marginTop: 5 }}>
+                <p className="pf-slug" style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>
                   Slug: <span style={{ fontWeight: 500, color: "#6b5540" }}>{slug}</span>
                 </p>
               )}
@@ -665,7 +675,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Section 2: Media */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Media</SectionHeading>
 
             {/* Drop zone */}
@@ -811,7 +821,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Section 3: Pricing */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Pricing</SectionHeading>
             <div className="admin-grid-2col" style={{ marginBottom: 16 }}>
               <div>
@@ -923,7 +933,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Section: SKU */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>SKU</SectionHeading>
             <div style={{ marginBottom: 4 }}>
               <Label>Product SKU</Label>
@@ -976,7 +986,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Section 4: Variants */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Variants</SectionHeading>
             <div style={{ marginBottom: 16 }}>
               <Toggle
@@ -1173,7 +1183,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Section 7: SEO */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>SEO</SectionHeading>
             <div style={{ marginBottom: 12, padding: "10px 14px", background: "#faf7f2", borderRadius: 8, border: "1px solid #ede8df" }}>
               <p style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif" }}>
@@ -1200,7 +1210,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         <div>
 
           {/* Status */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Status</SectionHeading>
             {(["DRAFT", "ACTIVE", "ARCHIVED"] as const).map((s) => (
               <label key={s} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, cursor: "pointer" }}>
@@ -1220,7 +1230,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Organization */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Organization</SectionHeading>
             <div style={fieldGroup}>
               <Label>Categories</Label>
@@ -1295,7 +1305,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Shipping */}
-          <div style={sectionCard}>
+          <div className={sectionCardClass} style={sectionCard}>
             <SectionHeading>Shipping</SectionHeading>
             <div style={{ marginBottom: 16 }}>
               <Toggle checked={requiresShipping} onChange={setRequiresShipping} label="Requires shipping" />
