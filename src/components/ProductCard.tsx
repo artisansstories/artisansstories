@@ -159,19 +159,6 @@ export default function ProductCard({ product }: ProductCardProps) {
             flexDirection: "column",
             gap: 4,
           }}>
-            {product.promoLabel && (
-              <span style={{
-                ...getPromoThemeStyle(product.promoTheme),
-                fontSize: 10,
-                fontWeight: 700,
-                fontFamily: "'Inter', sans-serif",
-                padding: "3px 7px",
-                borderRadius: 4,
-                letterSpacing: "0.06em",
-              }}>
-                {product.promoLabel}
-              </span>
-            )}
             {badgeLabel && (
               <span style={{
                 background: "#e74c3c",
@@ -220,6 +207,24 @@ export default function ProductCard({ product }: ProductCardProps) {
           }}>
             {product.name}
           </h3>
+
+          {/* Promo Label */}
+          {product.promoLabel && (
+            <div style={{ marginBottom: 6 }}>
+              <span style={{
+                ...getPromoThemeStyle(product.promoTheme),
+                fontSize: 10,
+                fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                padding: "3px 8px",
+                borderRadius: 20,
+                letterSpacing: "0.05em",
+                display: "inline-block",
+              }}>
+                {product.promoLabel}
+              </span>
+            </div>
+          )}
 
           {/* Price */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>

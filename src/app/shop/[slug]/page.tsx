@@ -495,10 +495,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 display: "inline-block",
                 fontSize: 12,
                 fontWeight: 700,
-                padding: "4px 10px",
-                borderRadius: 4,
+                padding: "4px 12px",
+                borderRadius: 20,
                 fontFamily: "'Inter', sans-serif",
-                letterSpacing: "0.06em",
+                letterSpacing: "0.05em",
               }}>
                 {product.promoLabel}
               </span>
