@@ -150,45 +150,60 @@ export default function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
-          {/* Badges */}
-          <div style={{
-            position: "absolute",
-            top: 10,
-            left: 10,
-            display: "flex",
-            flexDirection: "column",
-            gap: 4,
-          }}>
-            {badgeLabel && (
+          {/* Diagonal corner ribbon — discount badge */}
+          {badgeLabel && (
+            <div style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              width: 72,
+              height: 72,
+              overflow: "hidden",
+              pointerEvents: "none",
+            }}>
               <span style={{
+                position: "absolute",
+                top: 18,
+                right: -20,
+                width: 88,
                 background: "#e74c3c",
                 color: "#fff",
-                fontSize: 10,
-                fontWeight: 700,
+                fontSize: 9,
+                fontWeight: 800,
                 fontFamily: "'Inter', sans-serif",
-                padding: "3px 7px",
-                borderRadius: 4,
-                letterSpacing: "0.06em",
+                textAlign: "center",
+                padding: "3px 0",
+                transform: "rotate(45deg)",
+                letterSpacing: "0.05em",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
               }}>
                 {badgeLabel}
               </span>
-            )}
-            {product.isFeatured && (
+            </div>
+          )}
+
+          {/* Featured pill — bottom-left, small, unobtrusive */}
+          {product.isFeatured && (
+            <div style={{
+              position: "absolute",
+              bottom: 8,
+              left: 8,
+            }}>
               <span style={{
-                background: "#8B6914",
+                background: "rgba(139,105,20,0.85)",
                 color: "#fff",
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: 700,
                 fontFamily: "'Inter', sans-serif",
-                padding: "3px 7px",
-                borderRadius: 4,
+                padding: "2px 7px",
+                borderRadius: 20,
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
               }}>
                 Featured
               </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* Info */}

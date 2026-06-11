@@ -531,9 +531,10 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 color: "#fff",
                 fontSize: 12,
                 fontWeight: 700,
-                padding: "3px 8px",
-                borderRadius: 4,
+                padding: "3px 10px",
+                borderRadius: 20,
                 fontFamily: "'Inter', sans-serif",
+                letterSpacing: "0.04em",
               }}>
                 {discountBadge(effectivePrice, product.compareAtPrice, product.discountType)}
               </span>
