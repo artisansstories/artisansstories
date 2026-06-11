@@ -206,7 +206,7 @@ export function AdminLayoutClient({
             <button onClick={() => setSidebarOpen(true)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b5540", padding: 6, display: "flex", alignItems: "center" }} className="admin-hamburger">
               <IconMenu size={22} />
             </button>
-            <span style={{ fontSize: 16, fontWeight: 600, color: "#3a2e24", fontFamily: "'Cormorant Garamond',serif", letterSpacing: "0.02em" }} className="admin-storename">{storeName}</span>
+            <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto" }} unoptimized />
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
               <div style={{ textAlign: "right", display: "none" }} className="admin-userinfo">
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>{user?.name}</p>
