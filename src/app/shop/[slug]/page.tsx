@@ -1022,7 +1022,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                     whiteSpace: "nowrap",
                   }}
                 >
-                  Her Story →
+                  Their Story →
                 </a>
               )}
             </div>
