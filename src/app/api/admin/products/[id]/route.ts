@@ -85,6 +85,7 @@ export async function PUT(
       seoTitle?: string;
       seoDescription?: string;
       isFeatured?: boolean;
+      disclaimer?: string | null;
       images?: Array<{
         url: string;
         urlMedium?: string | null;
@@ -149,6 +150,7 @@ export async function PUT(
     if (body.seoTitle !== undefined) updateData.seoTitle = body.seoTitle;
     if (body.seoDescription !== undefined) updateData.seoDescription = body.seoDescription;
     if (body.isFeatured !== undefined) updateData.isFeatured = body.isFeatured;
+    if (body.disclaimer !== undefined) updateData.disclaimer = body.disclaimer;
     // Update artisan link (ProductArtisan join table)
     if (body.artisanId !== undefined) {
       await prisma.productArtisan.deleteMany({ where: { productId: id } });

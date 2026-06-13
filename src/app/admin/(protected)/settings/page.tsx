@@ -28,6 +28,7 @@ interface StoreSettings {
   lowStockAlertEmail: string | null;
   adminLogoSize: number;
   orderNotificationEmail: string | null;
+  productDisclaimer: string | null;
 }
 
 const SECTION_STYLE: React.CSSProperties = {
@@ -107,6 +108,7 @@ export default function SettingsPage() {
     metaTitle: "",
     metaDescription: "",
     googleAnalyticsId: "",
+    productDisclaimer: "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -451,6 +453,23 @@ export default function SettingsPage() {
         <div>
           <label style={LABEL_STYLE}>Google Analytics ID</label>
           <input style={INPUT_STYLE} value={settings.googleAnalyticsId ?? ""} onChange={(e) => update("googleAnalyticsId", e.target.value)} placeholder="G-XXXXXXXXXX" />
+        </div>
+      </div>
+
+      {/* 8. Product Disclaimer */}
+      <div style={SECTION_STYLE}>
+        <h2 style={SECTION_TITLE}>Global Product Disclaimer</h2>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#9a876e", marginBottom: 16 }}>
+          This disclaimer appears on all product pages unless overridden per product. Leave empty to disable globally.
+        </p>
+        <div>
+          <label style={LABEL_STYLE}>Disclaimer Text</label>
+          <textarea
+            style={{ ...TEXTAREA_STYLE, minHeight: 120 }}
+            value={settings.productDisclaimer ?? ""}
+            onChange={(e) => update("productDisclaimer", e.target.value)}
+            placeholder="Each piece is handcrafted by skilled artisans, making every item one-of-a-kind..."
+          />
         </div>
       </div>
 

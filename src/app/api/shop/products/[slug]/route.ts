@@ -37,6 +37,12 @@ export async function GET(
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
+    // Fetch global disclaimer from StoreSettings
+    const storeSettings = await prisma.storeSettings.findUnique({
+      where: { id: "singleton" },
+      select: { productDisclaimer: true },
+    });
+
     // Fetch related products from same category (first category)
     const firstCategoryId = product.categories[0]?.category?.id;
     let relatedProducts: typeof relatedRaw = [];
@@ -78,6 +84,7 @@ export async function GET(
         ...product,
         categories: product.categories.map(pc => pc.category),
         artisan: product.artisans?.[0]?.artisan ?? null,
+        globalDisclaimer: storeSettings?.productDisclaimer ?? null,
       },
       relatedProducts: relatedProducts.map(p => ({
         ...p,

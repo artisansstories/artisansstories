@@ -78,6 +78,8 @@ interface Product {
   variants: ProductVariant[];
   options: ProductOption[];
   categories: Category[];
+  disclaimer?: string | null;
+  globalDisclaimer?: string | null;
 }
 
 interface RelatedProduct {
@@ -134,6 +136,88 @@ function IconCraft({ size = 16 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
+  );
+}
+
+// ─── Disclaimer Accordion ─────────────────────────────────────────────────────
+
+function DisclaimerAccordion({ text }: { text: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div
+      style={{
+        marginTop: 32,
+        marginBottom: 16,
+        borderRadius: 8,
+        border: "1px solid #ede8df",
+        background: "rgba(139,105,20,0.06)",
+        overflow: "hidden",
+      }}
+    >
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "14px 16px",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "'Inter', sans-serif",
+          fontSize: 13,
+          fontWeight: 500,
+          color: "#6b5540",
+          textAlign: "left",
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
+          </svg>
+          Handmade Item Notice
+        </span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.2s ease",
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      <div
+        style={{
+          maxHeight: isOpen ? 500 : 0,
+          overflow: "hidden",
+          transition: "max-height 0.3s ease",
+        }}
+      >
+        <div
+          style={{
+            padding: "0 16px 14px 16px",
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 13,
+            lineHeight: 1.6,
+            color: "#6b5540",
+          }}
+        >
+          {text}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1043,6 +1127,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
         </div>
       </div>
+
+      {/* Handmade Item Disclaimer */}
+      {(() => {
+        const effectiveDisclaimer =
+          product.disclaimer === null || product.disclaimer === undefined
+            ? product.globalDisclaimer
+            : product.disclaimer;
+        return effectiveDisclaimer ? <DisclaimerAccordion text={effectiveDisclaimer} /> : null;
+      })()}
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (

@@ -69,6 +69,7 @@ export interface ProductData {
   seoTitle?: string;
   seoDescription?: string;
   isFeatured?: boolean;
+  disclaimer?: string | null;
   images: ProductImage[];
   variants: ProductVariantRow[];
   options: ProductOption[];
@@ -250,6 +251,18 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
   const [seoTitle, setSeoTitle] = useState(product?.seoTitle ?? "");
   const [seoDescription, setSeoDescription] = useState(product?.seoDescription ?? "");
+
+  // Disclaimer: "global" = use global default (null), "custom" = use custom text, "none" = suppress (empty string)
+  const [disclaimerMode, setDisclaimerMode] = useState<"global" | "custom" | "none">(
+    product?.disclaimer === null || product?.disclaimer === undefined
+      ? "global"
+      : product.disclaimer === ""
+        ? "none"
+        : "custom"
+  );
+  const [disclaimerText, setDisclaimerText] = useState(
+    product?.disclaimer && product.disclaimer !== "" ? product.disclaimer : ""
+  );
 
   const [sku, setSku] = useState(product?.sku ?? "");
   const [skuGenerating, setSkuGenerating] = useState(false);
@@ -497,6 +510,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         sku: sku.trim() || null,
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
+        disclaimer: disclaimerMode === "global" ? null : disclaimerMode === "none" ? "" : disclaimerText,
         images: images.map((img, i) => ({
           url: img.url,
           urlMedium: img.urlMedium ?? null,
@@ -1276,6 +1290,66 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                 </p>
               )}
             </div>
+          </div>
+
+          {/* Section 8: Product Disclaimer */}
+          <div className={sectionCardClass} style={sectionCard}>
+            <SectionHeading>Product Disclaimer</SectionHeading>
+            <p style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif", marginBottom: 16 }}>
+              Displayed on the product page to set expectations for handmade items.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="disclaimerMode"
+                  checked={disclaimerMode === "global"}
+                  onChange={() => setDisclaimerMode("global")}
+                  style={{ width: 16, height: 16, accentColor: "#8B6914" }}
+                />
+                <span style={{ fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3a2e24", fontWeight: disclaimerMode === "global" ? 600 : 400 }}>
+                  Use global default
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="disclaimerMode"
+                  checked={disclaimerMode === "custom"}
+                  onChange={() => setDisclaimerMode("custom")}
+                  style={{ width: 16, height: 16, accentColor: "#8B6914" }}
+                />
+                <span style={{ fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3a2e24", fontWeight: disclaimerMode === "custom" ? 600 : 400 }}>
+                  Custom text for this product
+                </span>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                <input
+                  type="radio"
+                  name="disclaimerMode"
+                  checked={disclaimerMode === "none"}
+                  onChange={() => setDisclaimerMode("none")}
+                  style={{ width: 16, height: 16, accentColor: "#8B6914" }}
+                />
+                <span style={{ fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3a2e24", fontWeight: disclaimerMode === "none" ? 600 : 400 }}>
+                  No disclaimer for this product
+                </span>
+              </label>
+            </div>
+            {disclaimerMode === "custom" && (
+              <div style={{ marginTop: 16 }}>
+                <textarea
+                  rows={4}
+                  value={disclaimerText}
+                  onChange={(e) => setDisclaimerText(e.target.value)}
+                  placeholder="Enter custom disclaimer text..."
+                  style={textareaStyle}
+                />
+              </div>
+            )}
+            <p style={{ fontSize: 11, color: "#9a876e", fontFamily: "'Inter', sans-serif", marginTop: 12 }}>
+              The global default can be edited in Settings → Store.
+            </p>
           </div>
         </div>
 
