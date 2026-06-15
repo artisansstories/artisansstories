@@ -250,11 +250,10 @@ export async function POST(request: NextRequest) {
         shippingRateId,
         taxCalculationId,
         taxTotal: String(taxTotal),
-        monograms: JSON.stringify(
-          items
-            .filter(i => i.addons?.length)
-            .map(i => ({ variantId: i.variantId, addons: i.addons }))
-        ),
+        // NOTE: addon/monogram data is NOT stored in Stripe metadata — a Stripe
+        // metadata value is capped at 500 chars, which multiple 50-char monograms
+        // would blow past and fail PaymentIntent creation. The confirm route
+        // re-validates and persists addons from the request body instead.
       },
       receipt_email: email,
     });

@@ -44,6 +44,32 @@ interface ShippingAddress {
   countryCode: string;
 }
 
+const VALID_MONOGRAM_FONTS = ['Anonymous Pro', 'Happy Monkey', 'Oregano'];
+const VALID_MONOGRAM_STYLES = ['INITIALS', 'FULL_NAME'];
+
+// Re-validate + sanitize addon data server-side before persisting. The confirm
+// route trusts the request body (prices are re-derived from the DB), so addon
+// text must be cleaned here too: strip HTML, trim, clamp length, and drop any
+// addon with an unknown type/font/style. Returns undefined when nothing valid
+// remains so productSnapshot/email/OrderItemAddon all see the same clean data.
+function sanitizeAddons(addons?: AddonPayload[]): AddonPayload[] | undefined {
+  if (!addons || addons.length === 0) return undefined;
+  const clean: AddonPayload[] = [];
+  for (const addon of addons) {
+    if (addon.type === 'LASER_MONOGRAM') {
+      const rawText = typeof addon.data?.text === 'string' ? addon.data.text : '';
+      const text = rawText.replace(/<[^>]*>/g, '').trim().slice(0, 50);
+      const font = addon.data?.font;
+      const style = addon.data?.style;
+      if (!text) continue;
+      if (typeof font !== 'string' || !VALID_MONOGRAM_FONTS.includes(font)) continue;
+      if (typeof style !== 'string' || !VALID_MONOGRAM_STYLES.includes(style)) continue;
+      clean.push({ type: 'LASER_MONOGRAM', data: { text, font, style } });
+    }
+  }
+  return clean.length > 0 ? clean : undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -67,6 +93,13 @@ export async function POST(request: NextRequest) {
 
     if (!paymentIntentId || !email || !items || !shippingAddress || !shippingRateId) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Sanitize addon data once, up front, so every downstream consumer
+    // (productSnapshot, OrderItemAddon records, confirmation email) uses the
+    // same cleaned, validated values rather than raw client input.
+    for (const item of items) {
+      item.addons = sanitizeAddons(item.addons);
     }
 
     // Free order path (100% discount — no Stripe charge)
@@ -240,24 +273,31 @@ export async function POST(request: NextRequest) {
       return newOrder;
     });
 
-    // Create OrderItemAddon records for each item with addons
+    // Create OrderItemAddon records for each item with addons.
+    // Claim order items positionally per variant (tracking consumed ids) so that
+    // when the same variant appears in multiple line items — e.g. one plain and
+    // one monogrammed — addons attach to the right item instead of always the
+    // first match.
     const orderItems = (order as unknown as { items: { id: string; variantId: string | null }[] }).items;
+    const consumedOrderItemIds = new Set<string>();
     for (const item of items) {
+      const orderItem = orderItems.find(
+        (oi) => oi.variantId === item.variantId && !consumedOrderItemIds.has(oi.id)
+      );
+      if (!orderItem) continue;
+      consumedOrderItemIds.add(orderItem.id);
       if (item.addons && item.addons.length > 0) {
-        const orderItem = orderItems.find((oi) => oi.variantId === item.variantId);
-        if (orderItem) {
-          try {
-            await prisma.orderItemAddon.createMany({
-              data: item.addons.map(addon => ({
-                orderItemId: orderItem.id,
-                type: addon.type as 'LASER_MONOGRAM',
-                data: addon.data as Prisma.JsonObject,
-                price: 0,
-              })),
-            });
-          } catch (addonErr) {
-            console.error(`Failed to create addon records for order item ${orderItem.id}:`, addonErr);
-          }
+        try {
+          await prisma.orderItemAddon.createMany({
+            data: item.addons.map(addon => ({
+              orderItemId: orderItem.id,
+              type: addon.type as 'LASER_MONOGRAM',
+              data: addon.data as Prisma.JsonObject,
+              price: 0,
+            })),
+          });
+        } catch (addonErr) {
+          console.error(`Failed to create addon records for order item ${orderItem.id}:`, addonErr);
         }
       }
     }

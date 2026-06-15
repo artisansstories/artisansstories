@@ -19,7 +19,14 @@ export interface CartItem {
 function stableAddonHash(addons?: CartItemAddon[]): string {
   if (!addons || addons.length === 0) return '';
   const sorted = [...addons].sort((a, b) => a.type.localeCompare(b.type));
-  return btoa(JSON.stringify(sorted)).replace(/[^a-z0-9]/gi, '').slice(0, 16);
+  const json = JSON.stringify(sorted);
+  // djb2 string hash — Unicode-safe. (btoa throws on any code point > 255,
+  // e.g. em dashes, smart quotes, emoji, or non-Latin names in the monogram text.)
+  let hash = 5381;
+  for (let i = 0; i < json.length; i++) {
+    hash = ((hash << 5) + hash + json.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
 }
 
 export { stableAddonHash };
