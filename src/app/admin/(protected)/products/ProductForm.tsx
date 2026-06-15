@@ -264,6 +264,10 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
     product?.disclaimer && product.disclaimer !== "" ? product.disclaimer : ""
   );
 
+  // Addon state (laser monogram)
+  const [monogramEnabled, setMonogramEnabled] = useState(false);
+  const [monogramLoading, setMonogramLoading] = useState(false);
+
   const [sku, setSku] = useState(product?.sku ?? "");
   const [skuGenerating, setSkuGenerating] = useState(false);
 
@@ -285,6 +289,41 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
       .then((d: { categories: CategoryOption[] }) => setAllCategories(d.categories ?? []))
       .catch(() => {});
   }, []);
+
+  // Load addon state for existing products
+  useEffect(() => {
+    if (!isEdit || !product?.id) return;
+    fetch(`/api/admin/products/${product.id}/addons`)
+      .then((r) => r.json())
+      .then((d: { addons?: { type: string; isEnabled: boolean }[] }) => {
+        const monogram = d.addons?.find((a) => a.type === "LASER_MONOGRAM");
+        setMonogramEnabled(monogram?.isEnabled ?? false);
+      })
+      .catch(() => {});
+  }, [isEdit, product?.id]);
+
+  // Toggle monogram addon
+  async function handleMonogramToggle(enabled: boolean) {
+    if (!isEdit || !product?.id) {
+      setMonogramEnabled(enabled);
+      return;
+    }
+    setMonogramLoading(true);
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}/addons`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "LASER_MONOGRAM", isEnabled: enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to update addon");
+      setMonogramEnabled(enabled);
+      showToast(enabled ? "Laser monogram enabled" : "Laser monogram disabled");
+    } catch {
+      showToast("Failed to update addon", true);
+    } finally {
+      setMonogramLoading(false);
+    }
+  }
 
   // Auto-generate slug from name (only when creating)
   function handleNameChange(val: string) {
@@ -1486,6 +1525,31 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                   </div>
                 </div>
               </>
+            )}
+          </div>
+
+          {/* Product Add-ons */}
+          <div className={sectionCardClass} style={sectionCard}>
+            <SectionHeading>Product Add-ons</SectionHeading>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0" }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontFamily: "'Inter', sans-serif", color: "#3a2e24", fontWeight: 500, margin: 0 }}>
+                  Laser Monogram
+                </p>
+                <p style={{ fontSize: 12, fontFamily: "'Inter', sans-serif", color: "#9a876e", margin: "4px 0 0" }}>
+                  3 fonts · 50 chars max · Initials & Full Name
+                </p>
+              </div>
+              <Toggle
+                checked={monogramEnabled}
+                onChange={(v) => !monogramLoading && handleMonogramToggle(v)}
+                label=""
+              />
+            </div>
+            {!isEdit && (
+              <p style={{ fontSize: 11, color: "#9a876e", fontFamily: "'Inter', sans-serif", margin: "8px 0 0", fontStyle: "italic" }}>
+                Save the product first to enable add-ons.
+              </p>
             )}
           </div>
 

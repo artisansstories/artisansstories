@@ -660,6 +660,19 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                             <div>
                               <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>{item.title}</p>
                               {item.variantTitle && <p style={{ margin: 0, fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif" }}>{item.variantTitle}</p>}
+                              {/* Display addon info from productSnapshot */}
+                              {Array.isArray(snap?.addons) && snap.addons.map((addon: { type: string; data: { text?: string; font?: string; style?: string } }, idx: number) => (
+                                addon.type === 'LASER_MONOGRAM' && addon.data && (
+                                  <div key={idx} style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#8B6914", background: "rgba(139,105,20,0.08)", borderRadius: 4, padding: "3px 8px", width: "fit-content" }}>
+                                    <span style={{ fontWeight: 600 }}>Monogram:</span>
+                                    <span>&ldquo;{addon.data.text}&rdquo;</span>
+                                    <span style={{ color: "#c9a84c" }}>·</span>
+                                    <span>{addon.data.font}</span>
+                                    <span style={{ color: "#c9a84c" }}>·</span>
+                                    <span>{addon.data.style === 'INITIALS' ? 'Initials' : 'Full Name'}</span>
+                                  </div>
+                                )
+                              ))}
                             </div>
                           </div>
                         </td>

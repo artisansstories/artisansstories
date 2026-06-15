@@ -6,10 +6,31 @@ import { prisma } from "@/lib/prisma";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-27.acacia" }) as any;
 
+interface AddonPayload {
+  type: string;
+  data: Record<string, unknown>;
+}
+
 interface CheckoutItem {
   variantId: string;
   quantity: number;
   price: number; // client-provided, will be overridden by DB price
+  addons?: AddonPayload[];
+}
+
+function validateMonogramAddon(data: Record<string, unknown>): string | null {
+  const VALID_FONTS = ['Anonymous Pro', 'Happy Monkey', 'Oregano'];
+  const VALID_STYLES = ['INITIALS', 'FULL_NAME'];
+  const text = data.text;
+  const font = data.font;
+  const style = data.style;
+  if (typeof text !== 'string' || text.trim().length === 0) return 'Monogram text is required';
+  if (text.length > 50) return 'Monogram text exceeds 50 characters';
+  // Basic XSS prevention
+  if (/<[^>]*>/.test(text)) return 'Invalid characters in monogram text';
+  if (!VALID_FONTS.includes(font as string)) return 'Invalid font selection';
+  if (!VALID_STYLES.includes(style as string)) return 'Invalid style selection';
+  return null;
 }
 
 interface ShippingAddress {
@@ -77,6 +98,18 @@ export async function POST(request: NextRequest) {
             variantId: item.variantId,
             available,
           }, { status: 400 });
+        }
+      }
+    }
+
+    // Validate addon data
+    for (const item of items) {
+      if (item.addons) {
+        for (const addon of item.addons) {
+          if (addon.type === 'LASER_MONOGRAM') {
+            const err = validateMonogramAddon(addon.data);
+            if (err) return NextResponse.json({ error: err }, { status: 400 });
+          }
         }
       }
     }
@@ -217,6 +250,11 @@ export async function POST(request: NextRequest) {
         shippingRateId,
         taxCalculationId,
         taxTotal: String(taxTotal),
+        monograms: JSON.stringify(
+          items
+            .filter(i => i.addons?.length)
+            .map(i => ({ variantId: i.variantId, addons: i.addons }))
+        ),
       },
       receipt_email: email,
     });

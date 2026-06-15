@@ -30,6 +30,10 @@ export async function GET(
             artisan: { select: { id: true, slug: true, name: true, status: true, avatarUrl: true } },
           },
         },
+        addons: {
+          where: { isEnabled: true },
+          select: { id: true, type: true, config: true },
+        },
       },
     });
 

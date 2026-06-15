@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect, use, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCart, formatPrice, CartItem } from "@/lib/cart";
+import { useCart, formatPrice, CartItem, stableAddonHash } from "@/lib/cart";
 import { useCartDrawer } from "@/components/CartDrawerProvider";
 import ProductCard from "@/components/ProductCard";
 import { discountBadge, getPromoThemeStyle } from "@/lib/discount";
+import MonogramAddon from "@/components/MonogramAddon";
+import type { CartItemAddon, MonogramConfig } from "@/types/addons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ interface Product {
   categories: Category[];
   disclaimer?: string | null;
   globalDisclaimer?: string | null;
+  addons?: { id: string; type: string; config: unknown }[];
 }
 
 interface RelatedProduct {
@@ -255,6 +258,11 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<"description" | "story" | "details">("description");
   const [addedToCart, setAddedToCart] = useState(false);
+  const [selectedAddon, setSelectedAddon] = useState<CartItemAddon | null>(null);
+
+  const handleAddonChange = useCallback((addon: CartItemAddon | null) => {
+    setSelectedAddon(addon);
+  }, []);
 
   const { addItem } = useCart();
   const { openCart } = useCartDrawer();
@@ -375,6 +383,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
 
   function handleAddToCart() {
     if (!selectedVariant || isOutOfStock) return;
+    const addons = selectedAddon ? [selectedAddon] : undefined;
+    const addonKey = selectedVariant.id + (selectedAddon ? '-' + stableAddonHash([selectedAddon]) : '');
     const item: CartItem = {
       productId: product!.id,
       variantId: selectedVariant.id,
@@ -385,6 +395,8 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       image: product!.images[0]?.url,
       slug: product!.slug,
       sku: selectedVariant.sku ?? undefined,
+      addons,
+      addonKey,
     };
     // Pass availableQty cap so total in cart never exceeds stock
     addItem(item, availableQty < 999 ? availableQty : undefined);
@@ -795,6 +807,16 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
               </span>
             )}
           </div>
+
+          {/* Monogram Add-on */}
+          {product.addons?.find(a => a.type === 'LASER_MONOGRAM') && (
+            <div style={{ marginBottom: 20 }}>
+              <MonogramAddon
+                config={product.addons.find(a => a.type === 'LASER_MONOGRAM')!.config as MonogramConfig}
+                onChange={handleAddonChange}
+              />
+            </div>
+          )}
 
           {/* Quantity */}
           <div style={{ marginBottom: 16 }}>

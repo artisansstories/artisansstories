@@ -58,7 +58,7 @@ export default function CartDrawer() {
       items.forEach(item => {
         const cap = data[item.variantId];
         if (cap !== undefined && item.quantity > cap) {
-          updateQuantity(item.variantId, Math.max(1, cap));
+          updateQuantity(item.addonKey ?? item.variantId, Math.max(1, cap));
         }
       });
     } catch { /* silent */ }
@@ -249,7 +249,7 @@ export default function CartDrawer() {
           ) : (
             <ul style={{ listStyle: "none", padding: 0, margin: "8px 0" }}>
               {items.map(item => (
-                <li key={item.variantId} style={{
+                <li key={item.addonKey ?? item.variantId} style={{
                   display: "flex",
                   gap: 14,
                   padding: "16px 0",
@@ -319,6 +319,20 @@ export default function CartDrawer() {
                       </p>
                     )}
 
+                    {/* Addon display — monogram info */}
+                    {item.addons?.map((addon, i) => (
+                      addon.type === 'LASER_MONOGRAM' && (
+                        <p key={i} style={{
+                          fontFamily: "'Inter', sans-serif",
+                          fontSize: 11,
+                          color: "#8B6914",
+                          margin: "0 0 6px",
+                        }}>
+                          ✦ Monogram: &ldquo;{(addon.data as { text?: string }).text}&rdquo; · {(addon.data as { font?: string }).font}
+                        </p>
+                      )
+                    ))}
+
                     {/* Stock signal — shown when at/near cap */}
                     {(() => {
                       const cap = inventoryCaps[item.variantId];
@@ -350,7 +364,7 @@ export default function CartDrawer() {
                         overflow: "hidden",
                       }}>
                         <button
-                          onClick={() => updateQuantity(item.variantId, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.addonKey ?? item.variantId, item.quantity - 1)}
                           style={{
                             width: 30,
                             height: 30,
@@ -379,7 +393,7 @@ export default function CartDrawer() {
                         <button
                           onClick={() => {
                             const cap = inventoryCaps[item.variantId] ?? 999;
-                            updateQuantity(item.variantId, Math.min(item.quantity + 1, cap));
+                            updateQuantity(item.addonKey ?? item.variantId, Math.min(item.quantity + 1, cap));
                           }}
                           disabled={inventoryCaps[item.variantId] !== undefined && item.quantity >= inventoryCaps[item.variantId]}
                           style={{
@@ -413,7 +427,7 @@ export default function CartDrawer() {
 
                   {/* Remove */}
                   <button
-                    onClick={() => removeItem(item.variantId)}
+                    onClick={() => removeItem(item.addonKey ?? item.variantId)}
                     style={{
                       background: "transparent",
                       border: "none",

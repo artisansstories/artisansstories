@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const StripeSDK = require("stripe");
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
 import { logEmail } from "@/lib/email-log";
 import { Resend } from "resend";
@@ -11,6 +12,11 @@ import crypto from "crypto";
 const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-27.acacia" }) as any;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+interface AddonPayload {
+  type: string;
+  data: Record<string, unknown>;
+}
 
 interface CartItem {
   productId: string;
@@ -22,6 +28,7 @@ interface CartItem {
   image?: string;
   slug: string;
   sku?: string;
+  addons?: AddonPayload[];
 }
 
 interface ShippingAddress {
@@ -221,7 +228,8 @@ export async function POST(request: NextRequest) {
                   price,
                   image: productImage,
                   sku: item.sku,
-                },
+                  addons: item.addons ?? [],
+                } as unknown as Prisma.JsonObject,
               };
             }),
           },
@@ -231,6 +239,28 @@ export async function POST(request: NextRequest) {
 
       return newOrder;
     });
+
+    // Create OrderItemAddon records for each item with addons
+    const orderItems = (order as unknown as { items: { id: string; variantId: string | null }[] }).items;
+    for (const item of items) {
+      if (item.addons && item.addons.length > 0) {
+        const orderItem = orderItems.find((oi) => oi.variantId === item.variantId);
+        if (orderItem) {
+          try {
+            await prisma.orderItemAddon.createMany({
+              data: item.addons.map(addon => ({
+                orderItemId: orderItem.id,
+                type: addon.type as 'LASER_MONOGRAM',
+                data: addon.data as Prisma.JsonObject,
+                price: 0,
+              })),
+            });
+          } catch (addonErr) {
+            console.error(`Failed to create addon records for order item ${orderItem.id}:`, addonErr);
+          }
+        }
+      }
+    }
 
     // Confirm tax calculation with Stripe Tax (records it in tax reports)
     if (taxCalculationId) {
@@ -319,6 +349,7 @@ export async function POST(request: NextRequest) {
         price,
         total: price * item.quantity,
         image: productImage || undefined,
+        addons: item.addons,
       };
     });
 

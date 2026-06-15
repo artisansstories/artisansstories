@@ -1,3 +1,8 @@
+interface AddonPayload {
+  type: string;
+  data: Record<string, unknown>;
+}
+
 interface OrderEmailItem {
   title: string;
   variantTitle?: string;
@@ -5,6 +10,7 @@ interface OrderEmailItem {
   price: number;
   total: number;
   image?: string;
+  addons?: AddonPayload[];
 }
 
 interface OrderEmailData {
@@ -36,9 +42,26 @@ function formatPrice(cents: number): string {
 export function orderConfirmationHtml(order: OrderEmailData): string {
   const { orderNumber, items, subtotal, shippingTotal, taxTotal, viewOrderUrl, discountTotal, total, shippingAddress } = order;
 
-  const itemsHtml = items.map((item) => `
+  const itemsHtml = items.map((item) => {
+    // Build addon HTML if present
+    const addonHtml = item.addons?.map((addon) => {
+      if (addon.type === 'LASER_MONOGRAM') {
+        const data = addon.data as { text?: string; font?: string; style?: string };
+        const styleLabel = data.style === 'INITIALS' ? 'Initials' : 'Full Name';
+        return `
+          <tr>
+            <td colspan="3" style="padding: 2px 16px 8px 80px; color: #8B6914; font-size: 13px;">
+              &#10022; Free Laser Monogram: "${data.text || ''}" &mdash; ${data.font || ''} &mdash; ${styleLabel}
+            </td>
+          </tr>
+        `;
+      }
+      return '';
+    }).join('') || '';
+
+    return `
     <tr>
-      <td style="padding: 12px 0; border-bottom: 1px solid #ede8df; vertical-align: top;">
+      <td style="padding: 12px 0; ${addonHtml ? '' : 'border-bottom: 1px solid #ede8df; '}vertical-align: top;">
         <table cellpadding="0" cellspacing="0" border="0" width="100%">
           <tr>
             ${item.image
@@ -59,10 +82,13 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
               <p style="margin: 0; font-size: 15px; color: #3a2e24; font-weight: 500;">${formatPrice(item.total)}</p>
             </td>
           </tr>
+          ${addonHtml}
         </table>
       </td>
     </tr>
-  `).join("");
+    ${addonHtml ? '<tr><td style="border-bottom: 1px solid #ede8df;"></td></tr>' : ''}
+  `;
+  }).join("");
 
   const totalsHtml = `
     <tr>
