@@ -50,7 +50,7 @@ export default function MonogramAddon({ config, onChange }: MonogramAddonProps) 
     }
   };
 
-  const placeholder = style === 'INITIALS' ? 'e.g. A.K.' : 'e.g. Anna Kool';
+  const placeholder = style === 'INITIALS' ? 'e.g. J.S.' : 'e.g. Jane Smith';
 
   return (
     <div
