@@ -85,10 +85,11 @@ export default async function ReturnsPolicyPage() {
                   <Divider />
 
                   <Section title="Start a Return">
-                    <p>To begin a return, please <a href="/contact" style={{ color: "#8B6914", textDecoration: "underline" }}>contact our team</a> with your order number and the reason for the return. We will guide you through the process.</p>
+                    <p>Returns are initiated directly through your account. Sign in, go to <strong>Orders</strong>, select the order, and tap <strong>Request Return</strong>. You&apos;ll be guided through the process from there.</p>
+                    <p style={{ marginTop: 10 }}>Don&apos;t have an account? <a href="/account/login" style={{ color: "#8B6914", textDecoration: "underline" }}>Sign in with your email</a> — no password needed. If you need further help, <a href="/contact" style={{ color: "#8B6914", textDecoration: "underline" }}>contact us</a>.</p>
                     <div style={{ marginTop: 20 }}>
-                      <a href="/contact" style={{ display: "inline-block", padding: "12px 28px", borderRadius: 8, background: "#8B6914", color: "#fff", fontFamily: "'Inter',sans-serif", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                        Start a Return
+                      <a href="/account/orders" style={{ display: "inline-block", padding: "12px 28px", borderRadius: 8, background: "#8B6914", color: "#fff", fontFamily: "'Inter',sans-serif", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+                        Go to My Orders
                       </a>
                     </div>
                   </Section>
