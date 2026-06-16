@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
       sku?: string | null;
       seoTitle?: string;
       seoDescription?: string;
+      showcaseImages?: string[];
       images?: Array<{
         url: string;
         urlMedium?: string | null;
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
         sku: body.sku ?? null,
         seoTitle: body.seoTitle,
         seoDescription: body.seoDescription,
+        showcaseImages: body.showcaseImages ?? [],
         categories: body.categoryIds?.length
           ? {
               create: body.categoryIds.map((categoryId) => ({ categoryId })),

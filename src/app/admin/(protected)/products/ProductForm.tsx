@@ -70,6 +70,7 @@ export interface ProductData {
   seoDescription?: string;
   isFeatured?: boolean;
   disclaimer?: string | null;
+  showcaseImages?: string[];
   images: ProductImage[];
   variants: ProductVariantRow[];
   options: ProductOption[];
@@ -216,6 +217,11 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
 
   const [images, setImages] = useState<ProductImage[]>(product?.images ?? []);
   const [uploadingImages, setUploadingImages] = useState<string[]>([]);
+
+  // Collection showcase images — display-only URLs, not tied to any variant
+  const [showcaseImages, setShowcaseImages] = useState<string[]>(product?.showcaseImages ?? []);
+  const [uploadingShowcase, setUploadingShowcase] = useState<string[]>([]);
+  const showcaseInputRef = useRef<HTMLInputElement>(null);
 
   const [hasVariants, setHasVariants] = useState((product?.options?.length ?? 0) > 0);
   const [options, setOptions] = useState<ProductOption[]>(product?.options ?? []);
@@ -485,6 +491,58 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
     setImages(next);
   }
 
+  // ─── Showcase Image Upload ──────────────────────────────────────────────────
+
+  const SHOWCASE_MAX = 10;
+
+  const uploadShowcaseFile = useCallback(async (file: File) => {
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    setUploadingShowcase((prev) => [...prev, tempId]);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (name) fd.append("productName", name);
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json() as { error: string };
+        showToast(err.error ?? "Upload failed", true);
+        return;
+      }
+      const data = await res.json() as { url: string };
+      setShowcaseImages((prev) => (prev.length >= SHOWCASE_MAX ? prev : [...prev, data.url]));
+    } catch {
+      showToast("Upload failed", true);
+    } finally {
+      setUploadingShowcase((prev) => prev.filter((id) => id !== tempId));
+    }
+  }, [name]);
+
+  function handleShowcaseFilesSelected(files: FileList) {
+    const remaining = SHOWCASE_MAX - showcaseImages.length - uploadingShowcase.length;
+    if (remaining <= 0) {
+      showToast(`Maximum ${SHOWCASE_MAX} showcase images`, true);
+      return;
+    }
+    Array.from(files).slice(0, remaining).forEach((file) => {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+      const heicByExt = ["heic", "heif"].includes(ext);
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type);
+      if (!allowed && !heicByExt) {
+        showToast(`${file.name}: invalid file type`, true);
+        return;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        showToast(`${file.name}: file too large (max 10MB)`, true);
+        return;
+      }
+      uploadShowcaseFile(file);
+    });
+  }
+
+  function removeShowcaseImage(index: number) {
+    setShowcaseImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
   // ─── Options ──────────────────────────────────────────────────────────────
 
   function addOption() {
@@ -550,6 +608,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         seoTitle: seoTitle || undefined,
         seoDescription: seoDescription || undefined,
         disclaimer: disclaimerMode === "global" ? null : disclaimerMode === "none" ? "" : disclaimerText,
+        showcaseImages,
         images: images.map((img, i) => ({
           url: img.url,
           urlMedium: img.urlMedium ?? null,
@@ -871,6 +930,75 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                   )}
                 </Droppable>
               </DragDropContext>
+            )}
+          </div>
+
+          {/* Section: Collection Showcase Images */}
+          <div className={sectionCardClass} style={sectionCard}>
+            <SectionHeading>Collection Showcase Images</SectionHeading>
+            <p style={{ fontSize: 13, color: "#9a876e", fontFamily: "'Inter', sans-serif", lineHeight: 1.6, marginBottom: 16, marginTop: -6 }}>
+              Display-only images showing the full collection or arrangement. These appear on the product page for context but are not linked to any variant.
+            </p>
+
+            {/* Drop zone */}
+            <div
+              onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleShowcaseFilesSelected(e.dataTransfer.files); }}
+              onDragOver={(e) => e.preventDefault()}
+              onDragEnter={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = "#8B6914"; (e.currentTarget as HTMLElement).style.background = "#fdf8f0"; }}
+              onDragLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#d1c4b4"; (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
+              onClick={() => showcaseInputRef.current?.click()}
+              style={{
+                border: "2px dashed #d1c4b4",
+                borderRadius: 10,
+                background: "#faf7f2",
+                padding: "26px 20px",
+                textAlign: "center",
+                cursor: showcaseImages.length >= SHOWCASE_MAX ? "not-allowed" : "pointer",
+                opacity: showcaseImages.length >= SHOWCASE_MAX ? 0.55 : 1,
+                transition: "border-color 0.15s, background 0.15s",
+                marginBottom: 16,
+              }}
+            >
+              <p style={{ fontSize: 14, fontWeight: 500, color: "#6b5540", fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>
+                {showcaseImages.length >= SHOWCASE_MAX ? "Maximum reached" : "Drop showcase images here or click to browse"}
+              </p>
+              <p style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif" }}>
+                {showcaseImages.length}/{SHOWCASE_MAX} added — JPEG, PNG, WebP, up to 10MB each
+              </p>
+              <input
+                ref={showcaseInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => { if (e.target.files) handleShowcaseFilesSelected(e.target.files); e.target.value = ""; }}
+              />
+            </div>
+
+            {/* Upload progress */}
+            {uploadingShowcase.length > 0 && (
+              <div style={{ marginBottom: 12, padding: "10px 14px", background: "#fdf5ea", borderRadius: 8, border: "1px solid #e8d5a3", fontSize: 13, color: "#7a5a00", fontFamily: "'Inter', sans-serif" }}>
+                Uploading {uploadingShowcase.length} image{uploadingShowcase.length !== 1 ? "s" : ""}...
+              </div>
+            )}
+
+            {/* Thumbnails */}
+            {showcaseImages.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12 }}>
+                {showcaseImages.map((url, idx) => (
+                  <div key={url + idx} style={{ position: "relative", aspectRatio: "1", borderRadius: 10, overflow: "hidden", border: "1px solid #ede8df", background: "#f5f0e8" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button
+                      type="button"
+                      onClick={() => removeShowcaseImage(idx)}
+                      style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
 

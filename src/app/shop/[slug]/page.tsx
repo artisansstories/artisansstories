@@ -77,6 +77,7 @@ interface Product {
   dimensionUnit: string;
   isFeatured: boolean;
   images: ProductImage[];
+  showcaseImages?: string[];
   variants: ProductVariant[];
   options: ProductOption[];
   categories: Category[];
@@ -254,6 +255,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   const [error, setError] = useState<string | null>(null);
 
   const [selectedImage, setSelectedImage] = useState(0);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<"description" | "story" | "details">("description");
@@ -299,6 +301,14 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     }
     load();
   }, [slug]);
+
+  // Close the showcase lightbox on Escape
+  useEffect(() => {
+    if (!lightboxImage) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxImage(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxImage]);
 
   if (loading) return <ProductDetailSkeleton />;
 
@@ -441,6 +451,12 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         .rte-content em { font-style: italic; }
         .rte-content blockquote { border-left: 3px solid #8B6914; margin: 0.75em 0; padding: 0.5em 1em; color: #7a6a55; background: rgba(139,105,20,0.04); border-radius: 0 6px 6px 0; }
         .rte-content a { color: #8B6914; text-decoration: underline; }
+        .showcase-strip { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; }
+        .showcase-strip > button { flex: 0 0 74%; scroll-snap-align: start; }
+        @media (min-width: 640px) {
+          .showcase-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); overflow: visible; }
+          .showcase-strip > button { flex: none; }
+        }
       `}</style>
 
       {/* Breadcrumb */}
@@ -1149,6 +1165,102 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
           )}
         </div>
       </div>
+
+      {/* Collection Gallery — display-only showcase images */}
+      {(product.showcaseImages?.length ?? 0) > 0 && (
+        <section style={{ marginBottom: 56 }}>
+          <h2 style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: "clamp(18px, 2.4vw, 24px)",
+            fontWeight: 500,
+            color: "#6b5540",
+            marginBottom: 16,
+          }}>
+            See the Collection
+          </h2>
+          <div className="showcase-strip">
+            {product.showcaseImages!.map((url, i) => (
+              <button
+                key={url + i}
+                type="button"
+                onClick={() => setLightboxImage(url)}
+                style={{
+                  position: "relative",
+                  aspectRatio: "1 / 1",
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  border: "1px solid #ede8df",
+                  background: "#f5f0e8",
+                  padding: 0,
+                  cursor: "zoom-in",
+                }}
+              >
+                <Image
+                  src={url}
+                  alt={`${product.name} collection ${i + 1}`}
+                  fill
+                  style={{ objectFit: "cover" }}
+                  sizes="(max-width: 639px) 74vw, (max-width: 1024px) 33vw, 220px"
+                />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Showcase lightbox */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2000,
+            background: "rgba(20, 14, 8, 0.86)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            cursor: "zoom-out",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxImage(null)}
+            aria-label="Close"
+            style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              width: 40,
+              height: 40,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.15)",
+              border: "none",
+              color: "#fff",
+              fontSize: 22,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            ×
+          </button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ position: "relative", width: "min(92vw, 1000px)", height: "min(88vh, 1000px)" }}
+          >
+            <Image
+              src={lightboxImage}
+              alt={product.name}
+              fill
+              style={{ objectFit: "contain" }}
+              sizes="92vw"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Handmade Item Disclaimer */}
       {(() => {

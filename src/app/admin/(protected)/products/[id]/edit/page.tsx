@@ -63,6 +63,7 @@ export default async function EditProductPage({ params }: PageProps) {
     seoTitle: product.seoTitle ?? "",
     seoDescription: product.seoDescription ?? "",
     isFeatured: product.isFeatured,
+    showcaseImages: Array.isArray(product.showcaseImages) ? (product.showcaseImages as string[]) : [],
     images: product.images.map((img) => ({
       id: img.id,
       url: img.url,
