@@ -1066,6 +1066,51 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
             </div>
           )}
 
+          {/* Collection Gallery — inline, above description tabs */}
+          {(product.showcaseImages?.length ?? 0) > 0 && (
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: "clamp(15px, 2vw, 18px)",
+                fontWeight: 500,
+                color: "#6b5540",
+                marginBottom: 12,
+                letterSpacing: "0.02em",
+              }}>
+                See the Collection
+              </h2>
+              <div style={{ display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
+                {product.showcaseImages!.map((url, i) => (
+                  <button
+                    key={url + i}
+                    type="button"
+                    onClick={() => setLightboxImage(url)}
+                    style={{
+                      flexShrink: 0,
+                      width: 80,
+                      height: 80,
+                      position: "relative",
+                      borderRadius: 10,
+                      overflow: "hidden",
+                      border: "1px solid #ede8df",
+                      background: "#f5f0e8",
+                      padding: 0,
+                      cursor: "zoom-in",
+                    }}
+                  >
+                    <Image
+                      src={url}
+                      alt={`${product.name} collection ${i + 1}`}
+                      fill
+                      style={{ objectFit: "cover" }}
+                      sizes="80px"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           {TABS.length > 0 && (
             <div>
@@ -1166,47 +1211,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         </div>
       </div>
 
-      {/* Collection Gallery — display-only showcase images */}
-      {(product.showcaseImages?.length ?? 0) > 0 && (
-        <section style={{ marginBottom: 56 }}>
-          <h2 style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: "clamp(18px, 2.4vw, 24px)",
-            fontWeight: 500,
-            color: "#6b5540",
-            marginBottom: 16,
-          }}>
-            See the Collection
-          </h2>
-          <div className="showcase-strip">
-            {product.showcaseImages!.map((url, i) => (
-              <button
-                key={url + i}
-                type="button"
-                onClick={() => setLightboxImage(url)}
-                style={{
-                  position: "relative",
-                  aspectRatio: "1 / 1",
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  border: "1px solid #ede8df",
-                  background: "#f5f0e8",
-                  padding: 0,
-                  cursor: "zoom-in",
-                }}
-              >
-                <Image
-                  src={url}
-                  alt={`${product.name} collection ${i + 1}`}
-                  fill
-                  style={{ objectFit: "cover" }}
-                  sizes="(max-width: 639px) 74vw, (max-width: 1024px) 33vw, 220px"
-                />
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
+
 
       {/* Showcase lightbox */}
       {lightboxImage && (
