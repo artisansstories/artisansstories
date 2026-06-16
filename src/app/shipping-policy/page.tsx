@@ -89,7 +89,7 @@ export default function ShippingPolicyPage() {
               <Divider />
 
               <Section title="Shipping Origin">
-                <p>All orders ship from El Salvador via our authorized carrier partners. Tracking information will be provided once your shipment is in transit.</p>
+                <p>All orders ship from the United States. Tracking information will be provided once your shipment is in transit.</p>
               </Section>
 
               <Divider />
