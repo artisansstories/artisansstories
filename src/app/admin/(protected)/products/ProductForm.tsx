@@ -934,46 +934,34 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
           </div>
 
           {/* Section: Collection Showcase Images */}
-          <div className={sectionCardClass} style={sectionCard}>
-            <SectionHeading>Collection Showcase Images</SectionHeading>
-            <p style={{ fontSize: 13, color: "#9a876e", fontFamily: "'Inter', sans-serif", lineHeight: 1.6, marginBottom: 16, marginTop: -6 }}>
-              Display-only images showing the full collection or arrangement. These appear on the product page for context but are not linked to any variant.
+          <div className={sectionCardClass} style={{ ...sectionCard, borderTop: "3px solid #c8a96e" }}>
+            {/* Header row */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <SectionHeading>Collection Showcase</SectionHeading>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#c8a96e", fontFamily: "'Inter', sans-serif", background: "#fdf5e6", padding: "3px 8px", borderRadius: 20, border: "1px solid #e8d5a3" }}>Gallery</span>
+            </div>
+            <p style={{ fontSize: 13, color: "#9a876e", fontFamily: "'Inter', sans-serif", lineHeight: 1.5, marginBottom: 16, marginTop: 0 }}>
+              Show the full collection or arrangement on the product page. Upload photos to appear as a gallery strip below the product.
             </p>
 
-            {/* Drop zone */}
-            <div
-              onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleShowcaseFilesSelected(e.dataTransfer.files); }}
-              onDragOver={(e) => e.preventDefault()}
-              onDragEnter={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement).style.borderColor = "#8B6914"; (e.currentTarget as HTMLElement).style.background = "#fdf8f0"; }}
-              onDragLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#d1c4b4"; (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
-              onClick={() => showcaseInputRef.current?.click()}
-              style={{
-                border: "2px dashed #d1c4b4",
-                borderRadius: 10,
-                background: "#faf7f2",
-                padding: "26px 20px",
-                textAlign: "center",
-                cursor: showcaseImages.length >= SHOWCASE_MAX ? "not-allowed" : "pointer",
-                opacity: showcaseImages.length >= SHOWCASE_MAX ? 0.55 : 1,
-                transition: "border-color 0.15s, background 0.15s",
-                marginBottom: 16,
-              }}
-            >
-              <p style={{ fontSize: 14, fontWeight: 500, color: "#6b5540", fontFamily: "'Inter', sans-serif", marginBottom: 4 }}>
-                {showcaseImages.length >= SHOWCASE_MAX ? "Maximum reached" : "Drop showcase images here or click to browse"}
-              </p>
-              <p style={{ fontSize: 12, color: "#9a876e", fontFamily: "'Inter', sans-serif" }}>
-                {showcaseImages.length}/{SHOWCASE_MAX} added — JPEG, PNG, WebP, up to 10MB each
-              </p>
-              <input
-                ref={showcaseInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                multiple
-                style={{ display: "none" }}
-                onChange={(e) => { if (e.target.files) handleShowcaseFilesSelected(e.target.files); e.target.value = ""; }}
-              />
-            </div>
+            {/* Thumbnails — horizontal scroll on mobile */}
+            {showcaseImages.length > 0 && (
+              <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 8, marginBottom: 14, WebkitOverflowScrolling: "touch" }}>
+                {showcaseImages.map((url, idx) => (
+                  <div key={url + idx} style={{ position: "relative", flexShrink: 0, width: 90, height: 90, borderRadius: 10, overflow: "hidden", border: "1px solid #ede8df", background: "#f5f0e8" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button
+                      type="button"
+                      onClick={() => removeShowcaseImage(idx)}
+                      style={{ position: "absolute", top: 4, right: 4, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Upload progress */}
             {uploadingShowcase.length > 0 && (
@@ -982,24 +970,46 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
               </div>
             )}
 
-            {/* Thumbnails */}
-            {showcaseImages.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 12 }}>
-                {showcaseImages.map((url, idx) => (
-                  <div key={url + idx} style={{ position: "relative", aspectRatio: "1", borderRadius: 10, overflow: "hidden", border: "1px solid #ede8df", background: "#f5f0e8" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <button
-                      type="button"
-                      onClick={() => removeShowcaseImage(idx)}
-                      style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Big tap-friendly upload button for mobile */}
+            <button
+              type="button"
+              onClick={() => showcaseInputRef.current?.click()}
+              disabled={showcaseImages.length >= SHOWCASE_MAX}
+              style={{
+                width: "100%",
+                padding: "16px 20px",
+                background: showcaseImages.length >= SHOWCASE_MAX ? "#f0ebe3" : "#fdf8f0",
+                border: "2px dashed #c8a96e",
+                borderRadius: 10,
+                cursor: showcaseImages.length >= SHOWCASE_MAX ? "not-allowed" : "pointer",
+                opacity: showcaseImages.length >= SHOWCASE_MAX ? 0.6 : 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                fontFamily: "'Inter', sans-serif",
+              }}
+              onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files) handleShowcaseFilesSelected(e.dataTransfer.files); }}
+              onDragOver={(e) => e.preventDefault()}
+            >
+              <span style={{ fontSize: 22 }}>📷</span>
+              <span style={{ textAlign: "left" }}>
+                <span style={{ display: "block", fontSize: 14, fontWeight: 600, color: "#6b5540" }}>
+                  {showcaseImages.length >= SHOWCASE_MAX ? "Maximum reached (10/10)" : "Add showcase photos"}
+                </span>
+                <span style={{ display: "block", fontSize: 12, color: "#9a876e", marginTop: 2 }}>
+                  {showcaseImages.length}/{SHOWCASE_MAX} added · JPEG, PNG, WebP
+                </span>
+              </span>
+              <input
+                ref={showcaseInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => { if (e.target.files) handleShowcaseFilesSelected(e.target.files); e.target.value = ""; }}
+              />
+            </button>
           </div>
 
           {/* Section 3: Pricing */}
