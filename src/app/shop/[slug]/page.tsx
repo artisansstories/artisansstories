@@ -559,52 +559,52 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
                 </div>
               )}
             </div>
-          {/* Collection Gallery — below main image */}
-            {(product.showcaseImages?.length ?? 0) > 0 && (
-              <div style={{ marginTop: 4 }}>
-                <p style={{
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: "#9a876e",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  margin: "0 0 8px",
-                }}>
-                  See the Collection
-                </p>
-                <div style={{ display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
-                  {product.showcaseImages!.map((url, i) => (
-                    <button
-                      key={url + i}
-                      type="button"
-                      onClick={() => setLightboxImage(url)}
-                      style={{
-                        flexShrink: 0,
-                        width: 72,
-                        height: 72,
-                        position: "relative",
-                        borderRadius: 8,
-                        overflow: "hidden",
-                        border: "1px solid #ede8df",
-                        background: "#f5f0e8",
-                        padding: 0,
-                        cursor: "zoom-in",
-                      }}
-                    >
-                      <Image
-                        src={url}
-                        alt={`${product.name} collection ${i + 1}`}
-                        fill
-                        style={{ objectFit: "cover" }}
-                        sizes="72px"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
+          {/* Collection Gallery — always below main image, outside pdp-gallery-inner so it's never affected by row layout */}
+          {(product.showcaseImages?.length ?? 0) > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <p style={{
+                fontFamily: "'Cormorant Garamond', serif",
+                fontSize: 13,
+                fontWeight: 500,
+                color: "#9a876e",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                margin: "0 0 8px",
+              }}>
+                See the Collection
+              </p>
+              <div style={{ display: "flex", gap: 8, overflowX: "auto", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
+                {product.showcaseImages!.map((url, i) => (
+                  <button
+                    key={url + i}
+                    type="button"
+                    onClick={() => setLightboxImage(url)}
+                    style={{
+                      flexShrink: 0,
+                      width: 72,
+                      height: 72,
+                      position: "relative",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      border: "1px solid #ede8df",
+                      background: "#f5f0e8",
+                      padding: 0,
+                      cursor: "zoom-in",
+                    }}
+                  >
+                    <Image
+                      src={url}
+                      alt={`${product.name} collection ${i + 1}`}
+                      fill
+                      style={{ objectFit: "cover" }}
+                      sizes="72px"
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Product Info */}
