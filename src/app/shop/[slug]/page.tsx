@@ -392,7 +392,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       variantName: selectedVariant.name,
       price: effectivePrice,
       quantity,
-      image: product!.images[0]?.url,
+      image: (product!.images.find(img => img.variantId === selectedVariant.id) ?? product!.images[0])?.url,
       slug: product!.slug,
       sku: selectedVariant.sku ?? undefined,
       addons,
