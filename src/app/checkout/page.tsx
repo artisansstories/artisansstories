@@ -935,6 +935,62 @@ function CheckoutForm({
             )}
           </div>
 
+          {/* Discount Code — always visible, above payment */}
+          <div
+            style={{
+              background: "#ffffff",
+              border: "1px solid #ede8df",
+              borderRadius: 12,
+              padding: 20,
+            }}
+          >
+            <SectionHeader number={4} title="Discount Code" />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Enter discount code"
+                value={discountInput}
+                onChange={(e) => setDiscountInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), applyDiscount())}
+                style={{
+                  flex: 1,
+                  padding: "11px 14px",
+                  border: "1.5px solid #ede8df",
+                  borderRadius: 8,
+                  fontSize: 15,
+                  color: "#3a2e24",
+                  outline: "none",
+                  background: discountCode ? "#f3faf3" : "#fff",
+                }}
+                disabled={!!discountCode}
+              />
+              <button
+                type="button"
+                onClick={applyDiscount}
+                disabled={discountLoading || !!discountCode || !discountInput.trim()}
+                style={{
+                  padding: "11px 18px",
+                  background: discountCode ? "#e8f5e9" : "#8B6914",
+                  color: discountCode ? "#2e7d32" : "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: discountCode ? "default" : "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                {discountCode ? "✓ Applied" : discountLoading ? "..." : "Apply"}
+              </button>
+            </div>
+            {discountError && (
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "#c0392b" }}>{discountError}</p>
+            )}
+            {discountCode && !discountError && (
+              <p style={{ margin: "6px 0 0", fontSize: 13, color: "#2e7d32" }}>Code &ldquo;{discountCode}&rdquo; applied!</p>
+            )}
+          </div>
+
           {/* Payment */}
           <div
             style={{
@@ -944,7 +1000,7 @@ function CheckoutForm({
               padding: 24,
             }}
           >
-            <SectionHeader number={4} title="Payment" />
+            <SectionHeader number={5} title="Payment" />
 
             <PaymentElement
               options={{
