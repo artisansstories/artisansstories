@@ -32,7 +32,7 @@ export default function PrivacyPage() {
             <div style={{ background: "#fff", border: "1px solid #ede8df", borderRadius: 16, padding: "36px 40px" }}>
 
               <Section title="Who We Are">
-                <p>Artisans&rsquo; Stories is an online store operated by El Salvador Imports, based in California, USA. We sell handcrafted goods made by artisans in El Salvador and ship them directly to customers worldwide. Questions about this policy can be directed to <a href="mailto:hello@artisansstories.com" style={{ color: "#8B6914", textDecoration: "underline" }}>hello@artisansstories.com</a>.</p>
+                <p>Artisans&rsquo; Stories is an online store based in California, USA. We connect customers with handcrafted goods made by skilled artisans — both local makers and craftspeople from around the world. Questions about this policy can be directed to <a href="mailto:hello@artisansstories.com" style={{ color: "#8B6914", textDecoration: "underline" }}>hello@artisansstories.com</a>.</p>
               </Section>
 
               <Divider />
@@ -99,7 +99,7 @@ export default function PrivacyPage() {
               <Divider />
 
               <Section title="International Orders">
-                <p>Our products are handcrafted in El Salvador and shipped from the United States. If you place an order from outside the US, your personal information will be processed in the United States and is subject to US law. By placing an order, you consent to this transfer.</p>
+                <p>Our products are handcrafted by artisans locally and around the world, and fulfilled from the United States. If you place an order from outside the US, your personal information will be processed in the United States and is subject to US law. By placing an order, you consent to this transfer.</p>
                 <p style={{ marginTop: 10 }}>For orders requiring export documentation, your name and shipping address may be shared with customs authorities as required by law.</p>
               </Section>
 
@@ -139,7 +139,7 @@ export default function PrivacyPage() {
 
               <Section title="Contact">
                 <p>
-                  Artisans&rsquo; Stories / El Salvador Imports<br />
+                  Artisans&rsquo; Stories<br />
                   <a href="mailto:hello@artisansstories.com" style={{ color: "#8B6914", textDecoration: "underline" }}>hello@artisansstories.com</a><br />
                   California, USA
                 </p>
