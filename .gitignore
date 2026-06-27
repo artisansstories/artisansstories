@@ -6,6 +6,12 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/.playwright-baselines
+
+# db backups - never commit
+/.backups
 
 # next.js
 /.next/
