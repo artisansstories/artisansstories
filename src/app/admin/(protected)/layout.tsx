@@ -1,9 +1,7 @@
 import { getAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { AdminLayoutClient } from "./AdminLayoutClient";
-import { redirect } from "next/navigation";
-import { headers } from "next/headers";
-import { safeAdminCallback } from "@/lib/safe-callback";
+import { RedirectToLogin } from "./RedirectToLogin";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const [session, settings] = await Promise.all([
@@ -12,10 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ]);
 
   if (!session) {
-    const hdrs = await headers();
-    const current = safeAdminCallback(hdrs.get("x-pathname"));
-    const qs = current && current !== "/admin" ? `?callbackUrl=${encodeURIComponent(current)}` : "";
-    redirect(`/admin/login${qs}`);
+    return <RedirectToLogin />;
   }
 
   return (
