@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/admin/landing-page", label: "Landing Page", icon: IconHome, mobileShow: false },
   { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false },
   { href: "/admin/team", label: "Team", icon: IconTeam, mobileShow: false },
+  { href: "/admin/platform", label: "Platform", icon: IconUsers, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
 ];
 
