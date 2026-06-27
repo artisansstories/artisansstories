@@ -22,7 +22,7 @@ model Tenant {
   slug                   String         @unique
   name                   String
   status                 TenantStatus   @default(ACTIVE)
-  isPlatformOwner        Boolean        @default(false)
+  isPlatformOwner        Boolean        @default(false) // DEPRECATED for authz (P10). Inert "house store" marker only; operator power now comes from the PlatformOperator table + as-platform-session cookie, never from this flag.
   stripeConnectAccountId String?
   stripeOnboarded        Boolean        @default(false)
   platformFeeBps         Int            @default(300)

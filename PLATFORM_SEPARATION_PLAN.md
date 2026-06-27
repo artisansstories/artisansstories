@@ -250,3 +250,25 @@ Prints `ADMIN_SCOPING_PASS`, exit 0. This is the regression wall for the whole e
 5. **Login routing collision** (`/platform/login` vs `/admin/login`). *Default:* fully separate pages/cookies; no shared "account chooser." A human who is both Anna-the-admin and an operator would use two different logins — correct, since the identities are different.
 6. **Proxy edge-runtime DB access.** *Default:* keep proxy JWT-only (no DB); `isActive`/identity enforced in-route by `requirePlatformOperator`, exactly as the admin side already splits responsibilities.
 7. **Move `/api/platform` → `/api/operator`?** *Default:* **no** — needless churn; `/api/platform/**` already means "operate the platform." Keep the path; change only the gate.
+
+---
+
+## EXECUTION RECORD (shipped)
+
+All four phases executed via gated loop and deployed to production. Author: Wayne Kool.
+
+| Phase | Commit | What shipped | Gates |
+|---|---|---|---|
+| **P8** | `90fa75c` | Store-admin tenant-scoping hardening: 4 leaky slug routes → scoped client; `resolveTenantFromAdminSession` fails closed (null); `test-admin-scoping.ts` (colliding-slug). | tsc · isolation · admin-scoping · build |
+| **P9** | `548e918` | PlatformOperator + PlatformOperatorToken models; `platform-session.ts` (`as-platform-session` cookie, `requirePlatformOperator`); `/api/auth/platform/{magic-link,verify,logout,session}`; idempotent `seed-platform-operator.ts` (wayne@ + mike@orangeslicesport.com); `safePlatformCallback`. Dormant. | tsc · db push · seed idempotency · operator-session · isolation · admin-scoping · build |
+| **P10** | `b407b52` | Atomic cutover: standalone `/platform/*` operator app; `/api/platform/**` re-gated to `requirePlatformOperator`; `/admin/platform` + Platform nav removed; proxy gates for `/platform` + `/api/platform`; **impersonation** (`/api/platform/tenants/[id]/impersonate` + `/impersonate/stop`, audited via `PlatformAuditLog`, banner+Exit in admin shell). | tsc · db push · build · isolation · admin-scoping · operator-session · operator-authz · impersonation |
+| **P11** | (this) | Decommission: `isPlatformOwner` confirmed inert for authz (display-only "house store" badge); schema deprecation comment; old `requirePlatformAdmin` fully removed; docs. | full suite |
+
+### Final auth model (as shipped)
+- **Platform operator** = row in `PlatformOperator` (no tenant), authenticates at `/platform/login` (magic link), session cookie `as-platform-session`. Lives entirely in `/platform/*`. Operators seeded: wayne@orangeslicesport.com, mike@orangeslicesport.com.
+- **Store admin** = `AdminUser` (has `tenantId`), authenticates at `/admin/login`, cookie `as-admin-session`, scoped to exactly one store. Artisans Stories is just a store; Anna is its store admin.
+- **Impersonation** = operator-only action minting a tenant-scoped `as-admin-session` with `impersonatedBy` claims; audited; confined by P8 tenant isolation; operator's platform session preserved for return.
+- `Tenant.isPlatformOwner` is retained as an inert display marker only — it confers **no** authorization.
+
+### Full gate suite (all green)
+`test-isolation` · `test-admin-scoping` · `test-operator-session` · `test-operator-authz` · `test-impersonation`
