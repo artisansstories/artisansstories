@@ -1,7 +1,7 @@
 import { getAdminSession } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { AdminLayoutClient } from "./AdminLayoutClient";
-import { RedirectToLogin } from "./RedirectToLogin";
+import { redirect } from "next/navigation";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const [session, settings] = await Promise.all([
@@ -10,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ]);
 
   if (!session) {
-    return <RedirectToLogin />;
+    redirect("/admin/login");
   }
 
   return (

@@ -43,14 +43,20 @@ export async function proxy(request: NextRequest) {
 
   // Protect /admin/* UI routes
   if (pathname.startsWith("/admin") && !isAdminPublic) {
+    // Preserve the intended destination so login can return the user there.
+    const intended = pathname + request.nextUrl.search;
+    const loginUrl = new URL("/admin/login", request.url);
+    if (intended && intended !== "/admin") {
+      loginUrl.searchParams.set("callbackUrl", intended);
+    }
     const token = request.cookies.get("as-admin-session")?.value;
     if (!token) {
-      return NextResponse.redirect(new URL("/admin/login", request.url));
+      return NextResponse.redirect(loginUrl);
     }
     try {
       await jwtVerify(token, SECRET);
     } catch {
-      const res = NextResponse.redirect(new URL("/admin/login", request.url));
+      const res = NextResponse.redirect(loginUrl);
       res.cookies.delete("as-admin-session");
       return res;
     }
