@@ -17,3 +17,20 @@ export function safeAdminCallback(raw: string | null | undefined): string {
   if (pathOnly.includes("..")) return "/admin";
   return value;
 }
+
+/**
+ * Open-redirect guard for operator post-login callbackUrl.
+ * Mirrors `safeAdminCallback` but constrains to internal /platform paths.
+ * Falls back to "/platform".
+ */
+export function safePlatformCallback(raw: string | null | undefined): string {
+  if (!raw) return "/platform";
+  const value = raw.trim();
+  if (!value.startsWith("/")) return "/platform";
+  if (value.startsWith("//") || value.startsWith("/\\")) return "/platform";
+  if (value.includes("\\")) return "/platform";
+  const pathOnly = value.split("?")[0].split("#")[0];
+  if (pathOnly !== "/platform" && !pathOnly.startsWith("/platform/")) return "/platform";
+  if (pathOnly.includes("..")) return "/platform";
+  return value;
+}

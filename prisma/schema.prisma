@@ -70,6 +70,42 @@ enum TenantStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Platform operators (P9) — platform-global identity, NOT tenant-scoped.
+// ---------------------------------------------------------------------------
+// An operator is an infrastructure super-admin with no tenantId and no AdminUser
+// row. These models are deliberately ABSENT from TENANT_SCOPED_MODELS in
+// src/lib/tenant-prisma.ts — they have no tenant column and must never be
+// auto-scoped. Operators authenticate through the separate `as-platform-session`
+// cookie + `/api/auth/platform/*` magic-link flow (see src/lib/platform-session.ts).
+
+model PlatformOperator {
+  id          String               @id @default(cuid())
+  email       String               @unique
+  name        String
+  isActive    Boolean              @default(true)
+  role        PlatformOperatorRole @default(OPERATOR)
+  lastLoginAt DateTime?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model PlatformOperatorToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  email     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([email])
+  @@index([token])
+}
+
+enum PlatformOperatorRole {
+  OPERATOR
+}
+
+// ---------------------------------------------------------------------------
 
 model StoreSettings {
   id                     String   @id @default(cuid())
