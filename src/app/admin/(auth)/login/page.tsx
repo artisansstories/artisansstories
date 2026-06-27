@@ -17,6 +17,7 @@ function errorText(code: string | null): string {
 function LoginForm() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
+  const callbackUrl = searchParams.get("callbackUrl");
 
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
@@ -32,7 +33,7 @@ function LoginForm() {
       const res = await fetch("/api/auth/admin/magic-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim(), callbackUrl }),
       });
 
       if (res.ok) {

@@ -5,6 +5,7 @@ import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { logEmail } from "@/lib/email-log";
+import { safeAdminCallback } from "@/lib/safe-callback";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -55,8 +56,9 @@ function adminMagicLinkEmail(magicLink: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as { email: string };
+    const body = await request.json() as { email: string; callbackUrl?: string };
     const email = (body.email ?? "").toLowerCase().trim();
+    const callbackUrl = safeAdminCallback(body.callbackUrl);
 
     if (!email || !email.includes("@")) {
       return NextResponse.json({ error: "Valid email required" }, { status: 400 });
@@ -96,7 +98,8 @@ export async function POST(request: NextRequest) {
     });
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
-    const magicLink = `${siteUrl}/api/auth/admin/verify?token=${encodeURIComponent(token)}`;
+    const cbParam = callbackUrl && callbackUrl !== "/admin" ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : "";
+    const magicLink = `${siteUrl}/api/auth/admin/verify?token=${encodeURIComponent(token)}${cbParam}`;
 
     const adminMlResult = await resend.emails.send({
       from: `Artisans' Stories <${process.env.RESEND_FROM ?? "hello@artisansstories.com"}>`,

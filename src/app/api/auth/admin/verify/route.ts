@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { createAdminSession } from "@/lib/admin-auth";
+import { safeAdminCallback } from "@/lib/safe-callback";
 
 export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
   const token = request.nextUrl.searchParams.get("token");
+  const callbackUrl = safeAdminCallback(request.nextUrl.searchParams.get("callbackUrl"));
 
   if (!token) {
     return NextResponse.redirect(`${siteUrl}/admin/login?error=invalid`);
@@ -49,5 +51,5 @@ export async function GET(request: NextRequest) {
     tenantId: adminUser.tenantId,
   });
 
-  return NextResponse.redirect(`${siteUrl}/admin`);
+  return NextResponse.redirect(`${siteUrl}${callbackUrl}`);
 }
