@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { ProductStatus, ProductDiscountType, ProductPromoTheme } from "@prisma/client";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
-async function makeUniqueSlug(base: string, excludeId: string): Promise<string> {
+// Slug uniqueness must be checked through the tenant-scoped client so the lookup
+// only sees THIS tenant's rows (slugs are unique per-tenant, not globally).
+async function makeUniqueSlug(db: TenantPrisma, base: string, excludeId: string): Promise<string> {
   let slug = base;
   let attempt = 0;
   while (true) {
-    const existing = await prisma.product.findFirst({
+    const existing = await db.product.findFirst({
       where: { slug, NOT: { id: excludeId } },
     });
     if (!existing) return slug;
@@ -116,7 +119,7 @@ export async function PUT(
     let slug = existing.slug;
     if (body.name && body.name !== existing.name) {
       const baseSlug = generateSlug(body.name);
-      slug = await makeUniqueSlug(baseSlug, id);
+      slug = await makeUniqueSlug(db, baseSlug, id);
     }
     const updateData: Parameters<typeof prisma.product.update>[0]["data"] = {};
     if (body.name !== undefined) updateData.name = body.name;

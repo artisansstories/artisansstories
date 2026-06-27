@@ -37,11 +37,13 @@ export async function GET() {
       // Active (published) product count
       db.product.count({ where: { status: "ACTIVE" } }),
 
-      // Low stock: qty > 0 AND qty <= threshold (raw SQL for cross-column compare).
-      // Raw SQL bypasses the scoped client, so the tenant filter is applied by hand.
+      // Low stock: qty > 0 AND qty <= threshold. Raw SQL is REQUIRED here because
+      // Prisma's query API can't express a column-to-column compare (quantity <=
+      // "lowStockThreshold"). Raw bypasses the scoped client, so the tenant filter
+      // is applied by hand — sourced from db.$tenantId so it matches the scoped client.
       prisma.$queryRaw<{ count: bigint }[]>`
         SELECT COUNT(*)::bigint AS count FROM "Inventory"
-        WHERE "tenantId" = ${tenantId}
+        WHERE "tenantId" = ${db.$tenantId}
           AND "trackedInventory" = true
           AND quantity > 0
           AND quantity <= "lowStockThreshold"

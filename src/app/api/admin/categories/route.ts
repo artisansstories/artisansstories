@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import type { TenantPrisma } from "@/lib/tenant-prisma";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
-async function makeUniqueSlug(base: string): Promise<string> {
+// Slug uniqueness must be checked through the tenant-scoped client so the lookup
+// only sees THIS tenant's rows (slugs are unique per-tenant, not globally).
+async function makeUniqueSlug(db: TenantPrisma, base: string): Promise<string> {
   let slug = base;
   let attempt = 0;
   while (true) {
-    const existing = await prisma.category.findFirst({ where: { slug } });
+    const existing = await db.category.findFirst({ where: { slug } });
     if (!existing) return slug;
     attempt++;
     slug = `${base}-${attempt}`;
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
     }
     const baseSlug = generateSlug(body.name);
-    const slug = await makeUniqueSlug(baseSlug);
+    const slug = await makeUniqueSlug(db, baseSlug);
     const maxPosition = await db.category.aggregate({ _max: { position: true } });
     const position = body.position ?? (maxPosition._max.position ?? 0) + 1;
     const category = await db.category.create({

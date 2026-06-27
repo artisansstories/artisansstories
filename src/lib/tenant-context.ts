@@ -89,9 +89,11 @@ export async function resolveTenantFromAdminSession(
     where: { id: session.id },
     select: { tenantId: true },
   });
-  // A logged-in admin always belongs to a tenant; default to tenant zero only
-  // as a single-tenant safety net if the row can't be read.
-  return admin?.tenantId ?? DEFAULT_TENANT_ID;
+  // Fail CLOSED: an unresolvable/orphaned session must NOT silently serve
+  // tenant-zero's data. Return null so getTenantPrismaForAdmin throws a 401.
+  // A valid post-P2 session always embeds tenantId (handled above), so this
+  // null path only affects malformed sessions — which should be rejected.
+  return admin?.tenantId ?? null;
 }
 
 /**

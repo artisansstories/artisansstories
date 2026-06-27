@@ -98,6 +98,10 @@ export async function POST(
       try {
         const mlToken = crypto.randomBytes(32).toString("hex");
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+        // Intentional global-prisma exemption: MagicLinkToken is NOT a tenant-scoped
+        // model — it's keyed by its globally-unique secret `token` and excluded from
+        // TENANT_SCOPED_MODELS. The tenant is passed explicitly (db.$tenantId), so this
+        // is correct by design; the scoped client would not auto-stamp it.
         await prisma.magicLinkToken.create({
           data: {
             tenantId: db.$tenantId,
