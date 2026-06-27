@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import { stripe } from "@/lib/stripe-connect";
 
 /**
@@ -10,39 +10,21 @@ import { stripe } from "@/lib/stripe-connect";
  * reports its capability flags. Side effect: syncs `tenant.stripeOnboarded` to
  * the account's `charges_enabled` so the checkout path reflects reality.
  *
- * AUTH: same POC rule as the connect route — valid admin session belonging to a
- * platform-owner tenant.
+ * AUTH (P10): operator-only via `requirePlatformOperator` (the `as-platform-session`
+ * cookie). No longer reads `isPlatformOwner` or any store-admin session.
  *
  * Returns: { chargesEnabled, payoutsEnabled, detailsSubmitted, onboarded }
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  let adminTenantId = (session as { tenantId?: string }).tenantId;
-  if (!adminTenantId) {
-    const admin = await prisma.adminUser.findUnique({
-      where: { id: session.id },
-      select: { tenantId: true },
-    });
-    adminTenantId = admin?.tenantId ?? undefined;
-  }
-  const ownerTenant = adminTenantId
-    ? await prisma.tenant.findUnique({
-        where: { id: adminTenantId },
-        select: { isPlatformOwner: true },
-      })
-    : null;
-  if (!ownerTenant?.isPlatformOwner) {
-    return NextResponse.json(
-      { error: "forbidden", message: "Stripe status is restricted to platform-owner admins." },
-      { status: 403 },
-    );
+  try {
+    await requirePlatformOperator(req);
+  } catch (err) {
+    const res = platformAuthErrorResponse(err);
+    if (res) return res;
+    throw err;
   }
 
   const { id: tenantId } = await params;

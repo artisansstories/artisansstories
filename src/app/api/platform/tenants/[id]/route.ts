@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAdmin, platformAuthErrorResponse } from "@/lib/platform-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import {
   CHECKOUT_MODES,
   TENANT_STATUSES,
@@ -14,7 +14,7 @@ import {
  *   GET   → tenant detail incl. theme, Stripe status flags, API-key + product counts.
  *   PATCH → update name / status / platformFeeBps / checkoutMode.
  *
- * AUTH: requirePlatformAdmin (platform-owner admin session).
+ * AUTH: requirePlatformOperator — operator `as-platform-session` cookie (P10).
  */
 
 export async function GET(
@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;
@@ -86,7 +86,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;

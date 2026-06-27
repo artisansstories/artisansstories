@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAdmin, platformAuthErrorResponse } from "@/lib/platform-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import { generateApiKey } from "@/lib/api-key";
 import { DEFAULT_SCOPES, unknownScopes } from "@/lib/platform-tenants";
 
@@ -12,7 +12,7 @@ import { DEFAULT_SCOPES, unknownScopes } from "@/lib/platform-tenants";
  *            { name, scopes?: string[], env?: "live" | "test" }
  *   GET  → list keys (metadata only — NEVER the raw token or hash).
  *
- * AUTH: requirePlatformAdmin (platform-owner admin session).
+ * AUTH: requirePlatformOperator — operator `as-platform-session` cookie (P10).
  */
 
 interface MintBody {
@@ -26,7 +26,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;
@@ -119,7 +119,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;

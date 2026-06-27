@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAdmin, platformAuthErrorResponse } from "@/lib/platform-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 
 /**
  * DELETE /api/platform/tenants/[id]/api-keys/[keyId] — revoke an API key (P6)
@@ -10,14 +10,14 @@ import { requirePlatformAdmin, platformAuthErrorResponse } from "@/lib/platform-
  * with a non-null `revokedAt`, so a revoked key stops authenticating immediately.
  * Idempotent: re-revoking an already-revoked key returns its existing revokedAt.
  *
- * AUTH: requirePlatformAdmin (platform-owner admin session).
+ * AUTH: requirePlatformOperator — operator `as-platform-session` cookie (P10).
  */
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; keyId: string }> },
 ) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;

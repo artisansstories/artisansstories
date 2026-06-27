@@ -75,6 +75,48 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Public platform-operator paths that don't need an operator session.
+  const isPlatformPublic =
+    pathname === "/platform/login" ||
+    pathname === "/platform/login/" ||
+    pathname.startsWith("/api/auth/platform/");
+
+  // Protect /platform/* UI routes (operator app). Edge-safe JWT check only —
+  // identity/isActive is enforced in-route by requirePlatformOperator.
+  if (pathname.startsWith("/platform") && !isPlatformPublic) {
+    // Preserve the intended destination so login can return the operator there.
+    const intended = pathname + request.nextUrl.search;
+    const loginUrl = new URL("/platform/login", request.url);
+    if (intended && intended !== "/platform") {
+      loginUrl.searchParams.set("callbackUrl", intended);
+    }
+    const token = request.cookies.get("as-platform-session")?.value;
+    if (!token) {
+      return NextResponse.redirect(loginUrl);
+    }
+    try {
+      await jwtVerify(token, SECRET);
+    } catch {
+      const res = NextResponse.redirect(loginUrl);
+      res.cookies.delete("as-platform-session");
+      return res;
+    }
+  }
+
+  // Protect /api/platform/* routes. MUST precede the generic `/api` allow below,
+  // or these would fall through unprotected. (/api/auth/platform/* is public.)
+  if (pathname.startsWith("/api/platform")) {
+    const token = request.cookies.get("as-platform-session")?.value;
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    try {
+      await jwtVerify(token, SECRET);
+    } catch {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+
   // Always allow API routes, static files, account routes, and public pages
   if (
     pathname.startsWith("/api") ||

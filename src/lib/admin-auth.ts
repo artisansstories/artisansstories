@@ -13,6 +13,15 @@ export interface AdminSession {
   role: string;
   /** Owning tenant. Optional for back-compat with sessions minted before P2. */
   tenantId?: string;
+  /**
+   * Impersonation claims (P10). Present ONLY when a platform operator minted this
+   * admin session via `/api/platform/tenants/[id]/impersonate`. Additive and
+   * optional — normal store-admin logins never set these, so existing behavior
+   * (and tenant scoping, which keys off `tenantId`) is unchanged. A store admin
+   * can never set these: only the operator-gated endpoint can.
+   */
+  impersonatedBy?: string;
+  impersonatorEmail?: string;
 }
 
 export async function createAdminSession(user: AdminSession) {

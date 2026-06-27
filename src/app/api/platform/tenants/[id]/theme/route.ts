@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import { DEFAULT_THEME, resolveTheme, validateThemeInput } from "@/lib/theme";
 
 /**
@@ -10,59 +10,25 @@ import { DEFAULT_THEME, resolveTheme, validateThemeInput } from "@/lib/theme";
  *   PUT  → validate the body with the theming guardrails, then upsert the
  *          TenantTheme. 400 + { errors } on any validation failure.
  *
- * AUTH posture matches the sibling Stripe Connect route: a valid admin session
- * that belongs to the platform-owner tenant (`isPlatformOwner = true`). Theming
- * another tenant's storefront is a platform-operator action, not something an
- * arbitrary tenant admin should do to an arbitrary tenant id.
+ * AUTH (P10): operator-only via `requirePlatformOperator` (the `as-platform-session`
+ * cookie). Theming another tenant's storefront is a platform-operator action; it
+ * no longer reads `isPlatformOwner` or any store-admin session.
  *
  * TenantTheme is NOT in TENANT_SCOPED_MODELS, so we use the raw `prisma` client
  * and key explicitly by `tenantId`.
  */
 
-async function requirePlatformOwner(): Promise<
-  { ok: true } | { ok: false; res: NextResponse }
-> {
-  const session = await getAdminSession();
-  if (!session) {
-    return { ok: false, res: NextResponse.json({ error: "unauthorized" }, { status: 401 }) };
-  }
-
-  // Resolve the admin's tenant (sessions minted before P2 carry no tenantId).
-  let adminTenantId = (session as { tenantId?: string }).tenantId;
-  if (!adminTenantId) {
-    const admin = await prisma.adminUser.findUnique({
-      where: { id: session.id },
-      select: { tenantId: true },
-    });
-    adminTenantId = admin?.tenantId ?? undefined;
-  }
-
-  const ownerTenant = adminTenantId
-    ? await prisma.tenant.findUnique({
-        where: { id: adminTenantId },
-        select: { isPlatformOwner: true },
-      })
-    : null;
-
-  if (!ownerTenant?.isPlatformOwner) {
-    return {
-      ok: false,
-      res: NextResponse.json(
-        { error: "forbidden", message: "Theme management is restricted to platform-owner admins." },
-        { status: 403 },
-      ),
-    };
-  }
-
-  return { ok: true };
-}
-
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requirePlatformOwner();
-  if (!auth.ok) return auth.res;
+  try {
+    await requirePlatformOperator(req);
+  } catch (err) {
+    const res = platformAuthErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
 
   const { id: tenantId } = await params;
 
@@ -88,8 +54,13 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requirePlatformOwner();
-  if (!auth.ok) return auth.res;
+  try {
+    await requirePlatformOperator(req);
+  } catch (err) {
+    const res = platformAuthErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
 
   const { id: tenantId } = await params;
 

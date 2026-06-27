@@ -105,6 +105,23 @@ enum PlatformOperatorRole {
   OPERATOR
 }
 
+// PlatformAuditLog (P10) — append-only record of operator actions that cross the
+// tenant boundary (notably impersonation start/stop). Platform-global, not
+// tenant-scoped; an operator has no tenantId, and `tenantId` here names the
+// TARGET tenant of the action, not the operator's own.
+model PlatformAuditLog {
+  id            String   @id @default(cuid())
+  operatorId    String
+  operatorEmail String
+  action        String // e.g. "impersonate.start", "impersonate.stop"
+  tenantId      String?
+  detail        String?
+  createdAt     DateTime @default(now())
+
+  @@index([operatorId])
+  @@index([tenantId])
+}
+
 // ---------------------------------------------------------------------------
 
 model StoreSettings {

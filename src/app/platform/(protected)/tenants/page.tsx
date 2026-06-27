@@ -3,10 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 
 /**
- * Platform onboarding console (P6) — lightweight operator UI over the
- * `/api/platform/**` APIs. Lists tenants, creates new ones, and mints a scoped
- * API key (shown exactly once). All endpoints are platform-owner protected; a
- * non-owner admin will get 403s and see the error banner.
+ * Operator tenant console (P10) — moved out of the store admin (`/admin/platform`)
+ * into the standalone operator app. Lists tenants, creates new ones, mints scoped
+ * API keys (shown once), and starts an audited impersonation session into any
+ * store's /admin. All endpoints are operator-cookie protected.
  */
 
 interface TenantRow {
@@ -30,9 +30,11 @@ interface MintedKey {
 
 const ALL_SCOPES = ["store:read", "store:write", "checkout:create"] as const;
 
+const ACCENT = "#3D4F7C";
+
 const card: React.CSSProperties = {
   background: "#fff",
-  border: "1px solid rgba(0,0,0,0.08)",
+  border: "1px solid rgba(45,59,85,0.10)",
   borderRadius: 12,
   padding: 20,
 };
@@ -44,23 +46,31 @@ const input: React.CSSProperties = {
 };
 const btn: React.CSSProperties = {
   padding: "8px 14px", borderRadius: 8, border: "none", cursor: "pointer",
-  background: "#8B6914", color: "#fff", fontWeight: 600, fontSize: 14,
+  background: ACCENT, color: "#fff", fontWeight: 600, fontSize: 14,
 };
 const btnGhost: React.CSSProperties = {
-  ...btn, background: "rgba(139,105,20,0.1)", color: "#8B6914",
+  ...btn, background: "rgba(61,79,124,0.1)", color: ACCENT,
 };
 
-export default function PlatformPage() {
+/** POST to the impersonation start endpoint via a real form so the browser
+ * follows the server redirect into /admin (and carries the freshly-set cookie). */
+function startImpersonation(tenantId: string) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = `/api/platform/tenants/${tenantId}/impersonate`;
+  document.body.appendChild(form);
+  form.submit();
+}
+
+export default function PlatformTenantsPage() {
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // New-tenant form.
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [creating, setCreating] = useState(false);
 
-  // Mint-key modal state.
   const [mintFor, setMintFor] = useState<TenantRow | null>(null);
   const [keyName, setKeyName] = useState("");
   const [keyScopes, setKeyScopes] = useState<string[]>(["store:read", "checkout:create"]);
@@ -85,9 +95,7 @@ export default function PlatformPage() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   async function createTenant(e: React.FormEvent) {
     e.preventDefault();
@@ -144,10 +152,10 @@ export default function PlatformPage() {
   }
 
   return (
-    <div style={{ padding: "24px clamp(16px,4vw,32px)", maxWidth: 1000, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Platform — Tenants</h1>
-      <p style={{ color: "#666", fontSize: 14, marginBottom: 24 }}>
-        Onboard a tenant, then mint a scoped API key for their storefront integration.
+    <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#222b40" }}>Tenants</h1>
+      <p style={{ color: "#7a8296", fontSize: 14, marginBottom: 24 }}>
+        Onboard a tenant, mint a scoped API key, or impersonate a store&apos;s admin for support.
       </p>
 
       {error && (
@@ -158,7 +166,7 @@ export default function PlatformPage() {
 
       {/* New tenant form */}
       <form onSubmit={createTenant} style={{ ...card, marginBottom: 24 }}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14 }}>New tenant</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: "#222b40" }}>New tenant</h2>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div>
             <label style={label}>Name</label>
@@ -176,7 +184,7 @@ export default function PlatformPage() {
 
       {/* Tenant list */}
       <div style={card}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14 }}>Tenants</h2>
+        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: "#222b40" }}>All tenants</h2>
         {loading ? (
           <p style={{ color: "#888" }}>Loading…</p>
         ) : tenants.length === 0 ? (
@@ -197,13 +205,16 @@ export default function PlatformPage() {
               <tbody>
                 {tenants.map((t) => (
                   <tr key={t.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-                    <td style={{ padding: "10px 8px", fontWeight: 600 }}>{t.name}</td>
+                    <td style={{ padding: "10px 8px", fontWeight: 600 }}>
+                      <a href={`/platform/tenants/${t.id}`} style={{ color: "#222b40", textDecoration: "none" }}>{t.name}</a>
+                    </td>
                     <td style={{ padding: "10px 8px", color: "#666" }}>{t.slug}</td>
                     <td style={{ padding: "10px 8px" }}>{t.status}</td>
                     <td style={{ padding: "10px 8px" }}>{t.stripeOnboarded ? "✓ onboarded" : "—"}</td>
                     <td style={{ padding: "10px 8px" }}>{t.productCount}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "right" }}>
-                      <button style={btnGhost} onClick={() => setMintFor(t)}>Mint API key</button>
+                    <td style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button style={{ ...btnGhost, marginRight: 8 }} onClick={() => setMintFor(t)}>Mint API key</button>
+                      <button style={btn} onClick={() => startImpersonation(t.id)}>Impersonate</button>
                     </td>
                   </tr>
                 ))}
@@ -216,17 +227,17 @@ export default function PlatformPage() {
       {/* Mint-key modal */}
       {mintFor && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
           onClick={(e) => { if (e.target === e.currentTarget) closeMintModal(); }}
         >
           <div style={{ ...card, width: "100%", maxWidth: 480 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Mint API key</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: "#222b40" }}>Mint API key</h2>
             <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>for <strong>{mintFor.name}</strong></p>
 
             {minted ? (
               <div>
                 <p style={{ fontSize: 13, color: "#a01818", fontWeight: 600, marginBottom: 8 }}>{minted.warning}</p>
-                <code style={{ display: "block", padding: 12, background: "#f5f2ea", borderRadius: 8, fontSize: 13, wordBreak: "break-all", marginBottom: 12 }}>
+                <code style={{ display: "block", padding: 12, background: "#eef1f7", borderRadius: 8, fontSize: 13, wordBreak: "break-all", marginBottom: 12 }}>
                   {minted.token}
                 </code>
                 <p style={{ fontSize: 12, color: "#666", marginBottom: 16 }}>
@@ -264,6 +275,8 @@ export default function PlatformPage() {
           </div>
         </div>
       )}
+
+      <style>{`a:hover { text-decoration: underline !important; }`}</style>
     </div>
   );
 }

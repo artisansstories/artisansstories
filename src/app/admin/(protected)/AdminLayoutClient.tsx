@@ -24,7 +24,6 @@ const NAV_ITEMS = [
   { href: "/admin/landing-page", label: "Landing Page", icon: IconHome, mobileShow: false },
   { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false },
   { href: "/admin/team", label: "Team", icon: IconTeam, mobileShow: false },
-  { href: "/admin/platform", label: "Platform", icon: IconUsers, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
 ];
 
@@ -92,14 +91,22 @@ export interface AdminSessionProp {
   role: string;
 }
 
+export interface ImpersonationProp {
+  impersonatorEmail: string;
+  tenantName: string;
+  adminEmail: string;
+}
+
 export function AdminLayoutClient({
   children,
   session,
+  impersonation = null,
   storeName = "Artisans Stories",
   adminLogoSize = 280,
 }: {
   children: React.ReactNode;
   session: AdminSessionProp | null;
+  impersonation?: ImpersonationProp | null;
   storeName?: string;
   adminLogoSize?: number;
 }) {
@@ -217,7 +224,27 @@ export function AdminLayoutClient({
         </div>
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <header style={{ height: 58, background: "#fff", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", position: "sticky", top: 0, zIndex: 30, gap: 12 }}>
+          <div style={{ position: "sticky", top: 0, zIndex: 35 }}>
+          {impersonation && (
+            <form method="POST" action="/api/platform/impersonate/stop" style={{
+              display: "flex", alignItems: "center", justifyContent: "center", flexWrap: "wrap", gap: 12,
+              background: "linear-gradient(90deg,#9a1f1f,#c0392b)", color: "#fff",
+              padding: "9px 16px", fontFamily: "'Inter',sans-serif", fontSize: 13.5, lineHeight: 1.4,
+            }}>
+              <span style={{ fontWeight: 600 }}>
+                ⚠️ PLATFORM OPERATOR — impersonating <strong>{impersonation.tenantName}</strong> as {impersonation.adminEmail}
+                <span style={{ opacity: 0.8 }}> (operator {impersonation.impersonatorEmail})</span>
+              </span>
+              <button type="submit" style={{
+                background: "#fff", color: "#9a1f1f", border: "none", borderRadius: 7,
+                padding: "5px 12px", fontWeight: 700, fontSize: 12.5, cursor: "pointer",
+                fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap",
+              }}>
+                Exit impersonation
+              </button>
+            </form>
+          )}
+          <header style={{ height: 58, background: "#fff", borderBottom: "1px solid #ede8df", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", zIndex: 30, gap: 12 }}>
             <button onClick={() => setSidebarOpen(true)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b5540", padding: 6, display: "flex", alignItems: "center" }} className="admin-hamburger">
               <IconMenu size={22} />
             </button>
@@ -232,6 +259,7 @@ export function AdminLayoutClient({
               </div>
             </div>
           </header>
+          </div>
 
           <main className="admin-main-padding" style={{ flex: 1, padding: "clamp(16px,3vw,32px)", overflowX: "hidden", overflowY: "auto", height: "calc(100dvh - 58px)" }}>
             {children}

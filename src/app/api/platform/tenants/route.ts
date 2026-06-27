@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requirePlatformAdmin, platformAuthErrorResponse } from "@/lib/platform-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import {
   CHECKOUT_MODES,
   isValidSlug,
@@ -13,8 +13,8 @@ import {
  *   POST → create a tenant (+ default TenantTheme + default StoreSettings).
  *   GET  → list tenants with summary fields (incl. product count).
  *
- * AUTH: requirePlatformAdmin — a valid admin session belonging to the
- * platform-owner tenant. See src/lib/platform-auth.ts for the full posture.
+ * AUTH: requirePlatformOperator — operator `as-platform-session` cookie (P10).
+ * See src/lib/platform-auth.ts (now a shim over platform-session.ts).
  *
  * Tenant / TenantTheme / StoreSettings are written via the raw `prisma` client
  * with explicit `tenantId`: there is no request-scoped tenant for a *create*,
@@ -30,7 +30,7 @@ interface CreateTenantBody {
 
 export async function POST(req: NextRequest) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    await requirePlatformAdmin(req);
+    await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;

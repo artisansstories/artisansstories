@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAdminSession } from "@/lib/admin-auth";
+import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import {
   createConnectAccount,
   createAccountOnboardingLink,
@@ -22,42 +22,20 @@ import {
  *   - otherwise → create a fresh Standard account, persist its id on the tenant,
  *     mint an onboarding link, and return { url } for the tenant to complete KYC.
  *
- * AUTH (POC decision): we require a VALID admin session AND that the admin
- * belongs to the platform-owner tenant (`isPlatformOwner = true`). This keeps
- * onboarding a platform-operator action rather than something any tenant admin
- * can do to an arbitrary tenant id. If the session predates P2 and carries no
- * tenantId, we resolve it from the AdminUser row. Tighten to a dedicated
- * platform-operator role post-POC.
+ * AUTH (P10): operator-only via `requirePlatformOperator` (the `as-platform-session`
+ * cookie). Onboarding a tenant onto Stripe is a platform-operator action; it no
+ * longer reads `isPlatformOwner` or any store-admin session.
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
-  if (!session) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  // Resolve the admin's tenant and require it to be the platform owner.
-  let adminTenantId = (session as { tenantId?: string }).tenantId;
-  if (!adminTenantId) {
-    const admin = await prisma.adminUser.findUnique({
-      where: { id: session.id },
-      select: { tenantId: true },
-    });
-    adminTenantId = admin?.tenantId ?? undefined;
-  }
-  const ownerTenant = adminTenantId
-    ? await prisma.tenant.findUnique({
-        where: { id: adminTenantId },
-        select: { isPlatformOwner: true },
-      })
-    : null;
-  if (!ownerTenant?.isPlatformOwner) {
-    return NextResponse.json(
-      { error: "forbidden", message: "Stripe Connect onboarding is restricted to platform-owner admins." },
-      { status: 403 },
-    );
+  try {
+    await requirePlatformOperator(req);
+  } catch (err) {
+    const res = platformAuthErrorResponse(err);
+    if (res) return res;
+    throw err;
   }
 
   const { id: tenantId } = await params;
