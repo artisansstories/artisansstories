@@ -173,7 +173,12 @@ async function main() {
       variant = { id: product.variants[0].id };
     }
 
-    // ── 6. checkout with valid scope + valid variant → ok:true, numeric amount
+    // ── 6. checkout with valid scope + valid variant → defined P4 contract ──
+    // Tenant zero is checkoutMode="embedded", so the v1 Connect-redirect endpoint
+    // returns a 409 embedded contract (it keeps its existing embedded
+    // PaymentIntent flow and must NOT open a Connect session). We assert the
+    // endpoint passed validation/pricing and short-circuited with that contract
+    // — not the old stub.
     {
       const res = await checkoutRoute.POST(
         new NextRequest(`${base}/api/v1/store/checkout/session`, {
@@ -186,11 +191,12 @@ async function main() {
           }),
         }),
       );
-      if (res.status !== 200) fail(`checkout status ${res.status}, expected 200`);
+      if (res.status !== 409) fail(`checkout status ${res.status}, expected 409 (embedded tenant)`);
       const body = await res.json();
-      if (body.ok !== true) fail("checkout did not return ok:true");
-      if (typeof body.amountSubtotal !== "number") fail("checkout amountSubtotal is not a number");
-      if (body.amountSubtotal <= 0) fail(`checkout amountSubtotal=${body.amountSubtotal}, expected > 0`);
+      if (body.ok !== false) fail("embedded checkout should return ok:false");
+      if (body.error !== "checkout_mode_embedded") {
+        fail(`checkout error=${body.error}, expected checkout_mode_embedded`);
+      }
     }
 
     // ── 7. checkout with store:read-only key → 403 ──────────────────────────

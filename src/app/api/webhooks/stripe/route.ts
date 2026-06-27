@@ -140,6 +140,82 @@ export async function POST(request: NextRequest) {
         break;
       }
 
+      // ── Stripe Connect (P4) ───────────────────────────────────────────────
+      // Connected-account events arrive on this same endpoint with `event.account`
+      // set to the `acct_…` id. Tenant is a platform/global model, so these use
+      // the raw client keyed by the globally-unique Stripe ids (account id /
+      // checkout session id) — consistent with the embedded handlers above.
+      case "account.updated": {
+        const account = event.data.object;
+        // Only flip onboarding on when the account can actually take charges.
+        if (account.charges_enabled) {
+          const updated = await prisma.tenant.updateMany({
+            where: { stripeConnectAccountId: account.id },
+            data: { stripeOnboarded: true },
+          });
+          if (updated.count > 0) {
+            console.log(`Tenant onboarded (charges_enabled) for account: ${account.id}`);
+          }
+        }
+        break;
+      }
+
+      case "checkout.session.completed": {
+        const checkoutSession = event.data.object;
+        // Reconcile the PENDING Order we recorded before the redirect. Keyed by
+        // the globally-unique checkout session id (raw client, intentional).
+        const order = await prisma.order.findFirst({
+          where: { stripeCheckoutSessionId: checkoutSession.id },
+          select: { id: true, tenantId: true, orderNumber: true, email: true },
+        });
+
+        if (!order) {
+          // Could be an embedded-flow session or a session we don't track — be
+          // tolerant and acknowledge so Stripe doesn't retry forever.
+          console.log(`No tracked Order for checkout session: ${checkoutSession.id}`);
+          break;
+        }
+
+        const paymentIntentId =
+          typeof checkoutSession.payment_intent === "string"
+            ? checkoutSession.payment_intent
+            : checkoutSession.payment_intent?.id ?? null;
+        const customerEmail =
+          checkoutSession.customer_details?.email || checkoutSession.customer_email || order.email || "";
+
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            financialStatus: "PAID",
+            status: "PROCESSING",
+            ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+            ...(customerEmail ? { email: customerEmail } : {}),
+          },
+        });
+
+        // Record the confirmation/receipt. tenantId is set EXPLICITLY from the
+        // order so the EmailLog row is owned by the correct tenant (the raw
+        // client does not auto-scope writes).
+        try {
+          await prisma.emailLog.create({
+            data: {
+              tenantId: order.tenantId,
+              type: "ORDER_CONFIRMATION",
+              direction: "OUTBOUND",
+              toEmail: customerEmail || order.email || "",
+              subject: `Order confirmation ${order.orderNumber}`,
+              relatedId: order.id,
+              relatedType: "Order",
+            },
+          });
+        } catch (emailErr) {
+          console.error("Webhook: failed to write order-confirmation EmailLog:", emailErr);
+        }
+
+        console.log(`Connect checkout completed → Order ${order.orderNumber} PAID/PROCESSING`);
+        break;
+      }
+
       default:
         // Ignore unhandled event types
         break;
