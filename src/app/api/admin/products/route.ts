@@ -8,7 +8,7 @@ async function makeUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let attempt = 0;
   while (true) {
-    const existing = await prisma.product.findUnique({ where: { slug } });
+    const existing = await prisma.product.findFirst({ where: { slug } });
     if (!existing) return slug;
     attempt++;
     slug = `${base}-${attempt}`;

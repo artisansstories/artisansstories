@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const existing = await prisma.adminUser.findUnique({ where: { email: normalizedEmail } });
+    const existing = await prisma.adminUser.findFirst({ where: { email: normalizedEmail } });
     if (existing) {
       return NextResponse.json({ error: "An admin with this email already exists" }, { status: 409 });
     }

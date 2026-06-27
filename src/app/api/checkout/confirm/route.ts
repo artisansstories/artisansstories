@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     const orderNumber = `AS-${Date.now()}`;
 
     // Find or create Customer
-    let customer = await prisma.customer.findUnique({ where: { email } });
+    let customer = await prisma.customer.findFirst({ where: { email } });
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     let validatedDiscountCode: string | undefined;
     let discountRecord: { id: string; type: string; value: number } | null = null;
     if (discountCode) {
-      const discount = await prisma.discount.findUnique({
+      const discount = await prisma.discount.findFirst({
         where: { code: discountCode.toUpperCase() },
       });
       if (discount && discount.isActive) {

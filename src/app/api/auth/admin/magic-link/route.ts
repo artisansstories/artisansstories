@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check DB — always return success to avoid leaking which emails are allowed
-    const adminUser = await prisma.adminUser.findUnique({ where: { email } });
+    const adminUser = await prisma.adminUser.findFirst({ where: { email } });
     if (!adminUser || !adminUser.isActive) {
       return NextResponse.json({ success: true });
     }

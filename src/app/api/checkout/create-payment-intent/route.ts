@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     let taxableShipping = shippingTotal;
 
     if (discountCode) {
-      const discount = await prisma.discount.findUnique({
+      const discount = await prisma.discount.findFirst({
         where: { code: discountCode.toUpperCase() },
       });
       if (discount && discount.isActive) {

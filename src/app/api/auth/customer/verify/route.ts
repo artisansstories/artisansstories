@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Find or create customer
-  let customer = await prisma.customer.findUnique({ where: { email: record.email } });
+  let customer = await prisma.customer.findFirst({ where: { email: record.email } });
   if (!customer) {
     customer = await prisma.customer.create({
       data: { email: record.email },

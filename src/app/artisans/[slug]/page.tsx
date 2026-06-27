@@ -14,7 +14,7 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const artisan = await prisma.artisan.findUnique({ where: { slug } });
+  const artisan = await prisma.artisan.findFirst({ where: { slug } });
   if (!artisan) return {};
   return {
     title: artisan.metaTitle ?? `${artisan.name} — Artisan at Artisans Stories`,
@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function ArtisanProfilePage({ params }: PageProps) {
   const { slug } = await params;
 
-  const artisan = await prisma.artisan.findUnique({
+  const artisan = await prisma.artisan.findFirst({
     where: { slug, status: "ACTIVE" },
     include: {
       images: { orderBy: { position: "asc" } },

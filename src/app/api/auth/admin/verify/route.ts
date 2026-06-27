@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Verify still active in DB
-  const adminUser = await prisma.adminUser.findUnique({ where: { email: record.email } });
+  const adminUser = await prisma.adminUser.findFirst({ where: { email: record.email } });
   if (!adminUser || !adminUser.isActive) {
     return NextResponse.redirect(`${siteUrl}/admin/login?error=unauthorized`);
   }

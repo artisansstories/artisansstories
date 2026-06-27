@@ -61,7 +61,7 @@ async function main() {
 
   // ─── Admin User ───────────────────────────────────────────────────────────
   await prisma.adminUser.upsert({
-    where: { email: "anna@artisansstories.com" },
+    where: { tenantId_email: { tenantId: "tenant_artisans_stories", email: "anna@artisansstories.com" } },
     update: {},
     create: {
       email: "anna@artisansstories.com",
@@ -163,7 +163,7 @@ async function main() {
 
   for (const cat of categories) {
     await prisma.category.upsert({
-      where: { slug: cat.slug },
+      where: { tenantId_slug: { tenantId: "tenant_artisans_stories", slug: cat.slug } },
       update: {},
       create: {
         id: cat.id,

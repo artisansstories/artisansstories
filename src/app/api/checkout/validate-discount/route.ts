@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ valid: false, error: "Code and subtotal are required" }, { status: 400 });
     }
 
-    const discount = await prisma.discount.findUnique({
+    const discount = await prisma.discount.findFirst({
       where: { code: code.toUpperCase() },
     });
 

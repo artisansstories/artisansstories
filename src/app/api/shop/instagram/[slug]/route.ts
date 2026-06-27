@@ -18,7 +18,7 @@ export async function GET(
   const { slug } = await params;
   const limit = parseInt(request.nextUrl.searchParams.get("limit") ?? "9");
 
-  const artisan = await prisma.artisan.findUnique({
+  const artisan = await prisma.artisan.findFirst({
     where: { slug, status: "ACTIVE" },
     select: { igAccessToken: true, igTokenExpiry: true, igUserId: true, featuredPosts: true },
   });
