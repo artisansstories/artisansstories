@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const log = await prisma.emailLog.findUnique({ where: { id } });
+    const log = await db.emailLog.findUnique({ where: { id } });
     if (!log) {
       return NextResponse.json({ error: "Email log not found" }, { status: 404 });
     }

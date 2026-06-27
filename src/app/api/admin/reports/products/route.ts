@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 export async function GET() {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     // Aggregate order items by product
-    const orderItems = await prisma.orderItem.findMany({
+    const orderItems = await db.orderItem.findMany({
       where: { productId: { not: null } },
       select: {
         productId: true,
@@ -48,7 +48,7 @@ export async function GET() {
       .sort((a, b) => b.unitsSold - a.unitsSold)
       .slice(0, 10);
     // Low stock: fetch all tracked inventory and filter in JS (Prisma can't compare two fields)
-    const allInventory = await prisma.inventory.findMany({
+    const allInventory = await db.inventory.findMany({
       where: { trackedInventory: true },
       include: {
         variant: {

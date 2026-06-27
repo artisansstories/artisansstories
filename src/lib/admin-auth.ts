@@ -11,6 +11,8 @@ export interface AdminSession {
   email: string;
   name: string;
   role: string;
+  /** Owning tenant. Optional for back-compat with sessions minted before P2. */
+  tenantId?: string;
 }
 
 export async function createAdminSession(user: AdminSession) {

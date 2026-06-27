@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 // GET /api/shop/inventory?variantIds=id1,id2,id3
 // Returns { [variantId]: availableQty } for each variant
 export async function GET(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForHost(request);
     const { searchParams } = new URL(request.url);
     const raw = searchParams.get("variantIds") ?? "";
     const variantIds = raw.split(",").map(s => s.trim()).filter(Boolean);
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({});
     }
 
-    const inventories = await prisma.inventory.findMany({
+    const inventories = await db.inventory.findMany({
       where: { variantId: { in: variantIds } },
       select: { variantId: true, quantity: true, reservedQuantity: true, trackedInventory: true, allowBackorder: true },
     });

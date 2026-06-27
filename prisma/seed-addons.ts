@@ -31,6 +31,7 @@ async function main() {
     await prisma.productAddon.upsert({
       where: { productId_type: { productId: product.id, type: 'LASER_MONOGRAM' } },
       create: {
+        tenantId: 'tenant_artisans_stories',
         productId: product.id,
         type: 'LASER_MONOGRAM',
         isEnabled: true,

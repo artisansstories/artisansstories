@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccountSession } from '@/lib/account-session';
-import { prisma } from '@/lib/prisma';
+import { getTenantPrismaForHost } from '@/lib/tenant-context';
 import { Resend } from 'resend';
 import { ReturnReason } from '@prisma/client';
 import { logEmail } from '@/lib/email-log';
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const db = await getTenantPrismaForHost(request);
     const body = await request.json();
     const { orderId, items, customerNote } = body as {
       orderId: string;
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify order belongs to this customer
-    const order = await prisma.order.findFirst({
+    const order = await db.order.findFirst({
       where: { id: orderId, customerId: session.id },
       include: { items: true },
     });
@@ -46,12 +47,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const returnRequest = await prisma.return.create({
+    const returnRequest = await db.return.create({
       data: {
+        tenantId: db.$tenantId,
         orderId,
         customerNote,
         items: {
           create: items.map(item => ({
+            tenantId: db.$tenantId,
             orderItemId: item.orderItemId,
             quantity: item.quantity,
             reason: item.reason,
@@ -67,7 +70,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Send notification email to admin
-    const settings = await prisma.storeSettings.findUnique({ where: { id: 'singleton' } });
+    const settings = await db.storeSettings.findUnique({ where: { id: 'singleton' } });
     const notifyEmail = settings?.orderNotificationEmail ?? settings?.contactEmail ?? process.env.RESEND_FROM ?? 'hello@artisansstories.com';
     const fromEmail = process.env.RESEND_FROM ?? 'hello@artisansstories.com';
 

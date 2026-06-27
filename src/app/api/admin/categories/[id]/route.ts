@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -20,10 +21,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const category = await prisma.category.findUnique({
+    const category = await db.category.findUnique({
       where: { id },
       include: {
         parent: { select: { id: true, name: true, slug: true } },
@@ -55,10 +56,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const existing = await prisma.category.findUnique({ where: { id } });
+    const existing = await db.category.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
@@ -81,7 +82,7 @@ export async function PUT(
     if (body.imageUrl !== undefined) updateData.imageUrl = body.imageUrl;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
     if (body.position !== undefined) updateData.position = body.position;
-    const category = await prisma.category.update({
+    const category = await db.category.update({
       where: { id },
       data: updateData,
       include: {
@@ -101,10 +102,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const existing = await prisma.category.findUnique({
+    const existing = await db.category.findUnique({
       where: { id },
       include: { _count: { select: { products: true } } },
     });
@@ -120,7 +121,7 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    await prisma.category.delete({ where: { id } });
+    await db.category.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/admin/categories/[id] error:", err);

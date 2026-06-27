@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const StripeSDK = require("stripe");
+// Stripe webhooks are a platform/global integration: every Order touched here is
+// located by a globally-unique Stripe id (stripePaymentIntentId), which Stripe —
+// not our tenant model — owns. These updates therefore use the raw, unscoped
+// client intentionally (no create() runs here, only updates keyed by Stripe id).
 import { prisma } from "@/lib/prisma";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

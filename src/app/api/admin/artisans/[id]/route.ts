@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const db = await getTenantPrismaForAdmin();
     await requireAdminSession();
     const { id } = await params;
-    const artisan = await prisma.artisan.findUnique({
+    const artisan = await db.artisan.findUnique({
       where: { id },
       include: {
         images: { orderBy: { position: "asc" } },
@@ -23,12 +24,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const db = await getTenantPrismaForAdmin();
     await requireAdminSession();
     const { id } = await params;
     const body = await request.json();
 
     // Lock slug after first active publish
-    const existing = await prisma.artisan.findUnique({ where: { id }, select: { slug: true, status: true } });
+    const existing = await db.artisan.findUnique({ where: { id }, select: { slug: true, status: true } });
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
     const slug = existing.status === "ACTIVE" ? existing.slug : (body.slug || existing.slug);
 
@@ -58,13 +60,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       isFeatured: body.isFeatured ?? false,
     };
 
-    await prisma.artisan.update({ where: { id }, data: updateData });
+    await db.artisan.update({ where: { id }, data: updateData });
 
     // Rebuild images
     if (Array.isArray(body.images)) {
-      await prisma.artisanImage.deleteMany({ where: { artisanId: id } });
+      await db.artisanImage.deleteMany({ where: { artisanId: id } });
       if (body.images.length > 0) {
-        await prisma.artisanImage.createMany({
+        await db.artisanImage.createMany({
           data: body.images.map((img: Record<string, unknown>, i: number) => ({
             artisanId: id,
             url: img.url as string,
@@ -79,7 +81,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
-    const updated = await prisma.artisan.findUnique({
+    const updated = await db.artisan.findUnique({
       where: { id },
       include: { images: { orderBy: { position: "asc" } }, products: true },
     });
@@ -98,9 +100,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const db = await getTenantPrismaForAdmin();
     await requireAdminSession();
     const { id } = await params;
-    await prisma.artisan.delete({ where: { id } });
+    await db.artisan.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[DELETE /api/admin/artisans/[id]]", err);

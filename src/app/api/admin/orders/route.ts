@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { OrderStatus, FinancialStatus, Prisma } from "@prisma/client";
 export async function GET(request: NextRequest) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status") ?? "";
     const financialStatus = searchParams.get("financialStatus") ?? "";
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
       where.createdAt = { ...((where.createdAt as object) ?? {}), lte: end };
     }
     if (exportCsv) {
-      const orders = await prisma.order.findMany({
+      const orders = await db.order.findMany({
         where,
         orderBy: { createdAt: "desc" },
         include: {
@@ -67,8 +66,8 @@ export async function GET(request: NextRequest) {
       });
     }
     const [total, orders] = await Promise.all([
-      prisma.order.count({ where }),
-      prisma.order.findMany({
+      db.order.count({ where }),
+      db.order.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
     if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -16,7 +17,7 @@ export async function PUT(
     const body = await request.json() as { role?: string; isActive?: boolean };
     const { role, isActive } = body;
 
-    const target = await prisma.adminUser.findUnique({ where: { id } });
+    const target = await db.adminUser.findUnique({ where: { id } });
     if (!target) {
       return NextResponse.json({ error: "Admin not found" }, { status: 404 });
     }
@@ -30,7 +31,7 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    const updated = await prisma.adminUser.update({
+    const updated = await db.adminUser.update({
       where: { id },
       data: {
         ...(role !== undefined && { role: role as "ADMIN" | "EDITOR" }),
@@ -51,6 +52,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
     if (!session || session.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden — only SUPER_ADMIN can remove admins" }, { status: 403 });
@@ -62,12 +64,12 @@ export async function DELETE(
       return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
     }
 
-    const target = await prisma.adminUser.findUnique({ where: { id } });
+    const target = await db.adminUser.findUnique({ where: { id } });
     if (!target) {
       return NextResponse.json({ error: "Admin not found" }, { status: 404 });
     }
 
-    await prisma.adminUser.delete({ where: { id } });
+    await db.adminUser.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (err) {

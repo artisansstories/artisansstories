@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 interface IGMedia {
   id: string;
@@ -15,10 +15,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const db = await getTenantPrismaForHost(request);
   const { slug } = await params;
   const limit = parseInt(request.nextUrl.searchParams.get("limit") ?? "9");
 
-  const artisan = await prisma.artisan.findFirst({
+  const artisan = await db.artisan.findFirst({
     where: { slug, status: "ACTIVE" },
     select: { igAccessToken: true, igTokenExpiry: true, igUserId: true, featuredPosts: true },
   });

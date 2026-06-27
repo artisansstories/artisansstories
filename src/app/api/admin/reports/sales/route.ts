@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 export async function GET(request: NextRequest) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const searchParams = request.nextUrl.searchParams;
     const now = new Date();
     const defaultEnd = new Date(now);
@@ -22,14 +22,14 @@ export async function GET(request: NextRequest) {
     const prevEnd = new Date(startDate.getTime() - 1);
     const prevStart = new Date(prevEnd.getTime() - periodMs);
     const [orders, prevOrders] = await Promise.all([
-      prisma.order.findMany({
+      db.order.findMany({
         where: {
           createdAt: { gte: startDate, lte: endDate },
           financialStatus: "PAID",
         },
         select: { total: true, createdAt: true },
       }),
-      prisma.order.findMany({
+      db.order.findMany({
         where: {
           createdAt: { gte: prevStart, lte: prevEnd },
           financialStatus: "PAID",

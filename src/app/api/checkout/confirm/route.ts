@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const StripeSDK = require("stripe");
 import { prisma } from "@/lib/prisma";
+import { getTenantPrisma } from "@/lib/tenant-prisma";
+import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { Prisma } from "@prisma/client";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
 import { logEmail } from "@/lib/email-log";
@@ -72,6 +74,10 @@ function sanitizeAddons(addons?: AddonPayload[]): AddonPayload[] | undefined {
 
 export async function POST(request: NextRequest) {
   try {
+    // Storefront checkout: resolve the tenant from the request host.
+    const tenantId = resolveTenantFromHost(request);
+    const db = getTenantPrisma(tenantId);
+
     const body = await request.json();
     const {
       paymentIntentId,
@@ -120,7 +126,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for duplicate order
-    const existingOrder = await prisma.order.findFirst({
+    const existingOrder = await db.order.findFirst({
       where: { stripePaymentIntentId: paymentIntentId },
     });
     if (existingOrder) {
@@ -134,10 +140,11 @@ export async function POST(request: NextRequest) {
     const orderNumber = `AS-${Date.now()}`;
 
     // Find or create Customer
-    let customer = await prisma.customer.findFirst({ where: { email } });
+    let customer = await db.customer.findFirst({ where: { email } });
     if (!customer) {
-      customer = await prisma.customer.create({
+      customer = await db.customer.create({
         data: {
+          tenantId,
           email,
           phone: phone || null,
           firstName: shippingAddress.firstName,
@@ -148,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch variants from DB for productSnapshot and price calculation
     const variantIds = items.map((i) => i.variantId);
-    const variants = await prisma.productVariant.findMany({
+    const variants = await db.productVariant.findMany({
       where: { id: { in: variantIds } },
       include: {
         product: {
@@ -168,7 +175,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch shipping rate
-    const shippingRate = await prisma.shippingRate.findUnique({
+    const shippingRate = await db.shippingRate.findUnique({
       where: { id: shippingRateId },
     });
     const shippingTotal = shippingRate?.price ?? 0;
@@ -178,7 +185,7 @@ export async function POST(request: NextRequest) {
     let validatedDiscountCode: string | undefined;
     let discountRecord: { id: string; type: string; value: number } | null = null;
     if (discountCode) {
-      const discount = await prisma.discount.findFirst({
+      const discount = await db.discount.findFirst({
         where: { code: discountCode.toUpperCase() },
       });
       if (discount && discount.isActive) {
@@ -217,9 +224,10 @@ export async function POST(request: NextRequest) {
     const total = Math.max(0, subtotal - discountTotal + shippingTotal + taxTotal);
 
     // Create Order and OrderItems in a transaction
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await db.$transaction(async (tx) => {
       const newOrder = await tx.order.create({
         data: {
+          tenantId,
           orderNumber,
           customerId: customer!.id,
           email,
@@ -246,6 +254,9 @@ export async function POST(request: NextRequest) {
                 null;
 
               return {
+                // Nested relation creates bypass the scoped-client extension,
+                // so stamp tenantId explicitly on each OrderItem.
+                tenantId,
                 productId: item.productId || null,
                 variantId: item.variantId,
                 title: item.name,
@@ -288,8 +299,9 @@ export async function POST(request: NextRequest) {
       consumedOrderItemIds.add(orderItem.id);
       if (item.addons && item.addons.length > 0) {
         try {
-          await prisma.orderItemAddon.createMany({
+          await db.orderItemAddon.createMany({
             data: item.addons.map(addon => ({
+              tenantId,
               orderItemId: orderItem.id,
               type: addon.type as 'LASER_MONOGRAM',
               data: addon.data as Prisma.JsonObject,
@@ -310,7 +322,7 @@ export async function POST(request: NextRequest) {
           reference: orderNumber,
           metadata: { orderId: order.id },
         });
-        await prisma.order.update({
+        await db.order.update({
           where: { id: order.id },
           data: { stripeTaxTransactionId: taxTransaction.id },
         });
@@ -325,7 +337,7 @@ export async function POST(request: NextRequest) {
       const variant = variants.find((v) => v.id === item.variantId);
       if (variant?.inventory) {
         try {
-          await prisma.inventory.update({
+          await db.inventory.update({
             where: { variantId: item.variantId },
             data: { quantity: { decrement: item.quantity } },
           });
@@ -336,7 +348,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update Customer totals
-    await prisma.customer.update({
+    await db.customer.update({
       where: { id: customer.id },
       data: {
         totalOrders: { increment: 1 },
@@ -350,7 +362,7 @@ export async function POST(request: NextRequest) {
 
     // Update Discount usageCount
     if (discountRecord) {
-      await prisma.discount.update({
+      await db.discount.update({
         where: { id: discountRecord.id },
         data: { usageCount: { increment: 1 } },
       });
@@ -361,8 +373,11 @@ export async function POST(request: NextRequest) {
     try {
       const mlToken = crypto.randomBytes(32).toString("hex");
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+      // MagicLinkToken is keyed by a global secret token and stays on the raw
+      // client; stamp tenantId explicitly.
       await prisma.magicLinkToken.create({
         data: {
+          tenantId,
           token: mlToken,
           email,
           type: "CUSTOMER",
@@ -419,7 +434,7 @@ export async function POST(request: NextRequest) {
         }),
       });
       const confirmHtml = orderConfirmationHtml({ orderNumber, email, items: emailItems, subtotal, shippingTotal, taxTotal, discountTotal, total, shippingAddress, viewOrderUrl });
-      await logEmail({ type: "ORDER_CONFIRMATION", toEmail: email, subject: `Order Confirmed — ${orderNumber}`, bodyHtml: confirmHtml, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+      await logEmail({ tenantId, type: "ORDER_CONFIRMATION", toEmail: email, subject: `Order Confirmed — ${orderNumber}`, bodyHtml: confirmHtml, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     } catch (emailErr) {
       console.error("Failed to send confirmation email:", emailErr);
     }

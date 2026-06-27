@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await db.order.findUnique({ where: { id } });
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
     if (!["SHIPPED", "FULFILLED"].includes(order.status)) {
       return NextResponse.json({ error: "Order must be shipped before marking delivered" }, { status: 400 });
     }
 
-    const updated = await prisma.order.update({
+    const updated = await db.order.update({
       where: { id },
       data: { status: "DELIVERED" },
     });

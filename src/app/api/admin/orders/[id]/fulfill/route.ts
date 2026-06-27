@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { orderShippedHtml } from "@/lib/emails/order-shipped";
 import { logEmail } from "@/lib/email-log";
@@ -20,18 +21,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = (await request.json()) as FulfillBody;
-    const order = await prisma.order.findUnique({
+    const order = await db.order.findUnique({
       where: { id },
       include: { items: true },
     });
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
     // Create fulfillment record
-    const fulfillment = await prisma.fulfillment.create({
+    const fulfillment = await db.fulfillment.create({
       data: {
+        tenantId: db.$tenantId,
         orderId: id,
         status: "SUCCESS",
         trackingCompany: body.trackingCompany,
@@ -46,14 +47,14 @@ export async function POST(
     // Update fulfillment status on order items
     await Promise.all(
       body.items.map((fi) =>
-        prisma.orderItem.update({
+        db.orderItem.update({
           where: { id: fi.orderItemId },
           data: { fulfillmentStatus: "fulfilled" },
         })
       )
     );
     // Check if all items are now fulfilled
-    const updatedItems = await prisma.orderItem.findMany({ where: { orderId: id } });
+    const updatedItems = await db.orderItem.findMany({ where: { orderId: id } });
     const allFulfilled = updatedItems.every((item) => item.fulfillmentStatus === "fulfilled");
 
     // Capture payment if authorized (manual capture mode)
@@ -72,7 +73,7 @@ export async function POST(
     if (allFulfilled) {
       // If tracking was provided, order is now SHIPPED; otherwise FULFILLED (packed, awaiting carrier)
       const newStatus = body.trackingNumber?.trim() ? "SHIPPED" : "FULFILLED";
-      await prisma.order.update({
+      await db.order.update({
         where: { id },
         data: {
           status: newStatus,
@@ -99,6 +100,7 @@ export async function POST(
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
         await prisma.magicLinkToken.create({
           data: {
+            tenantId: db.$tenantId,
             token: mlToken,
             email: order.email,
             type: "CUSTOMER",

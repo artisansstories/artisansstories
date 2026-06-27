@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { RateCondition } from "@prisma/client";
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; rateId: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { rateId } = await params;
     const body = await request.json();
     const { name, condition, minValue, maxValue, price, isActive } = body;
-    const rate = await prisma.shippingRate.update({
+    const rate = await db.shippingRate.update({
       where: { id: rateId },
       data: {
         ...(name !== undefined && { name: name.trim() }),
@@ -35,10 +35,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; rateId: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { rateId } = await params;
-    await prisma.shippingRate.delete({ where: { id: rateId } });
+    await db.shippingRate.delete({ where: { id: rateId } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/admin/shipping/[id]/rates/[rateId] error:", err);

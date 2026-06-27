@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { logEmail } from "@/lib/email-log";
@@ -16,13 +16,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json() as { amount?: number; reason?: string };
 
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await db.order.findUnique({ where: { id } });
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
     if (!["PAID", "PARTIALLY_REFUNDED"].includes(order.financialStatus)) {
@@ -57,7 +58,7 @@ export async function POST(
     const newFinancialStatus = isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED";
     const newStatus = isFullRefund ? "REFUNDED" : order.status;
 
-    await prisma.order.update({
+    await db.order.update({
       where: { id },
       data: {
         financialStatus: newFinancialStatus,

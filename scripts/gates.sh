@@ -9,16 +9,18 @@ report() { echo "GATE_$1: $2"; }
 
 run_gate_A() {
   echo "=== GATE A: build/type ==="
-  npx tsc --noEmit 2>&1 | tail -30
-  if [ ${pipestatus[1]} -ne 0 ]; then report A "RED (tsc errors)"; return 1; fi
+  npx tsc --noEmit > /tmp/gate-A.out 2>&1; local rc=$?
+  tail -30 /tmp/gate-A.out
+  if [ "$rc" -ne 0 ]; then report A "RED (tsc errors)"; return 1; fi
   report A "GREEN"; return 0
 }
 
 run_gate_C() {
   echo "=== GATE C: tenant isolation ==="
   if [ -f scripts/test-isolation.ts ]; then
-    npx tsx scripts/test-isolation.ts 2>&1 | tail -40
-    if [ ${pipestatus[1]} -ne 0 ]; then report C "RED (cross-tenant leak or test fail)"; return 1; fi
+    npx tsx scripts/test-isolation.ts > /tmp/gate-C.out 2>&1; local rc=$?
+    tail -40 /tmp/gate-C.out
+    if [ "$rc" -ne 0 ]; then report C "RED (cross-tenant leak or test fail)"; return 1; fi
     report C "GREEN"; return 0
   else
     report C "SKIP (no test-isolation.ts yet)"; return 0
@@ -28,8 +30,9 @@ run_gate_C() {
 run_gate_B() {
   echo "=== GATE B: api smoke ==="
   if [ -f scripts/test-api.ts ]; then
-    npx tsx scripts/test-api.ts 2>&1 | tail -40
-    if [ ${pipestatus[1]} -ne 0 ]; then report B "RED (api smoke fail)"; return 1; fi
+    npx tsx scripts/test-api.ts > /tmp/gate-B.out 2>&1; local rc=$?
+    tail -40 /tmp/gate-B.out
+    if [ "$rc" -ne 0 ]; then report B "RED (api smoke fail)"; return 1; fi
     report B "GREEN"; return 0
   else
     report B "SKIP (no test-api.ts yet)"; return 0
@@ -39,8 +42,9 @@ run_gate_B() {
 run_gate_D() {
   echo "=== GATE D: payments ==="
   if [ -f scripts/test-payments.ts ]; then
-    npx tsx scripts/test-payments.ts 2>&1 | tail -40
-    if [ ${pipestatus[1]} -ne 0 ]; then report D "RED (payments fail)"; return 1; fi
+    npx tsx scripts/test-payments.ts > /tmp/gate-D.out 2>&1; local rc=$?
+    tail -40 /tmp/gate-D.out
+    if [ "$rc" -ne 0 ]; then report D "RED (payments fail)"; return 1; fi
     report D "GREEN"; return 0
   else
     report D "SKIP (no test-payments.ts yet)"; return 0
@@ -49,8 +53,9 @@ run_gate_D() {
 
 run_gate_E() {
   echo "=== GATE E: visual (build proxy) ==="
-  npm run build 2>&1 | tail -20
-  if [ ${pipestatus[1]} -ne 0 ]; then report E "RED (next build fail)"; return 1; fi
+  npm run build > /tmp/gate-E.out 2>&1; local rc=$?
+  tail -20 /tmp/gate-E.out
+  if [ "$rc" -ne 0 ]; then report E "RED (next build fail)"; return 1; fi
   report E "GREEN (build ok; visual scoring runs in orchestrator)"; return 0
 }
 

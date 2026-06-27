@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { logEmail } from "@/lib/email-log";
 
@@ -10,6 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { replyText: string };
 
@@ -17,14 +18,15 @@ export async function POST(
       return NextResponse.json({ error: "Reply text is required" }, { status: 400 });
     }
 
-    const contactMsg = await prisma.contactMessage.findUnique({ where: { id } });
+    const contactMsg = await db.contactMessage.findUnique({ where: { id } });
     if (!contactMsg) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
     // Save reply to DB first
-    const savedReply = await prisma.contactReply.create({
+    const savedReply = await db.contactReply.create({
       data: {
+        tenantId: db.$tenantId,
         contactMessageId: id,
         body: body.replyText.trim(),
         direction: "OUTBOUND",
@@ -69,7 +71,7 @@ export async function POST(
     await logEmail({ type: "CONTACT_REPLY", toEmail: contactMsg.email, subject: `Re: ${contactMsg.subject}`, bodyHtml: replyBodyHtml ?? contactReplyHtml, resendId: replyResult.data?.id, relatedId: id, relatedType: "CONTACT" });
 
     // Mark as REPLIED
-    const updated = await prisma.contactMessage.update({
+    const updated = await db.contactMessage.update({
       where: { id },
       data: { status: "REPLIED" },
       include: { replies: { orderBy: { createdAt: "asc" } } },

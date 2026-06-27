@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { checkTracking } from "@/lib/tracking";
 
 /**
@@ -10,8 +10,9 @@ import { checkTracking } from "@/lib/tracking";
  */
 export async function POST() {
   try {
+    const db = await getTenantPrismaForAdmin();
     // Find all SHIPPED orders that have a tracking number
-    const shippedOrders = await prisma.order.findMany({
+    const shippedOrders = await db.order.findMany({
       where: { status: "SHIPPED" },
       include: {
         fulfillments: {
@@ -46,7 +47,7 @@ export async function POST() {
 
       let changed = false;
       if (result.status === "delivered") {
-        await prisma.order.update({
+        await db.order.update({
           where: { id: order.id },
           data: { status: "DELIVERED" },
         });

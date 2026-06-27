@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const StripeSDK = require("stripe");
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const stripe = new StripeSDK(process.env.STRIPE_SECRET_KEY!, { apiVersion: "2025-01-27.acacia" }) as any;
@@ -48,6 +48,7 @@ interface ShippingAddress {
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForHost(request);
     const body = await request.json();
     const { items, email, shippingAddress, shippingRateId, discountCode } = body as {
       items: CheckoutItem[];
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch variants from DB to get current prices + inventory
     const variantIds = items.map((i) => i.variantId);
-    const variants = await prisma.productVariant.findMany({
+    const variants = await db.productVariant.findMany({
       where: { id: { in: variantIds } },
       include: { product: true, inventory: true },
     });
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch shipping rate from DB
-    const shippingRate = await prisma.shippingRate.findUnique({
+    const shippingRate = await db.shippingRate.findUnique({
       where: { id: shippingRateId, isActive: true },
     });
     if (!shippingRate) {
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
     let taxableShipping = shippingTotal;
 
     if (discountCode) {
-      const discount = await prisma.discount.findFirst({
+      const discount = await db.discount.findFirst({
         where: { code: discountCode.toUpperCase() },
       });
       if (discount && discount.isActive) {

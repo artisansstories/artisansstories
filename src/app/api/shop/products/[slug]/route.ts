@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForHost(_request);
     const { slug } = await params;
 
-    const product = await prisma.product.findFirst({
+    const product = await db.product.findFirst({
       where: { slug, status: "ACTIVE" },
       include: {
         images: { orderBy: { position: "asc" } },
@@ -42,7 +43,7 @@ export async function GET(
     }
 
     // Fetch global disclaimer from StoreSettings
-    const storeSettings = await prisma.storeSettings.findUnique({
+    const storeSettings = await db.storeSettings.findUnique({
       where: { id: "singleton" },
       select: { productDisclaimer: true },
     });
@@ -51,7 +52,7 @@ export async function GET(
     const firstCategoryId = product.categories[0]?.category?.id;
     let relatedProducts: typeof relatedRaw = [];
     const relatedRaw = await (firstCategoryId
-      ? prisma.product.findMany({
+      ? db.product.findMany({
           where: {
             status: "ACTIVE",
             id: { not: product.id },

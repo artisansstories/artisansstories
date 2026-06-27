@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 const DEFAULT_MONOGRAM_CONFIG = {
   fonts: ["Anonymous Pro", "Happy Monkey", "Oregano"],
@@ -12,9 +12,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
 
-    const addons = await prisma.productAddon.findMany({
+    const addons = await db.productAddon.findMany({
       where: { productId: id },
       orderBy: { sortOrder: "asc" },
     });
@@ -31,6 +32,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json();
     const { type, isEnabled } = body as { type: string; isEnabled: boolean };
@@ -44,15 +46,16 @@ export async function PUT(
     }
 
     // Verify product exists
-    const product = await prisma.product.findUnique({ where: { id } });
+    const product = await db.product.findUnique({ where: { id } });
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
     // Upsert the addon
-    const addon = await prisma.productAddon.upsert({
+    const addon = await db.productAddon.upsert({
       where: { productId_type: { productId: id, type: "LASER_MONOGRAM" } },
       create: {
+        tenantId: db.$tenantId,
         productId: id,
         type: "LASER_MONOGRAM",
         isEnabled,

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { status?: string; notes?: string };
 
-    const message = await prisma.contactMessage.update({
+    const message = await db.contactMessage.update({
       where: { id },
       data: {
         ...(body.status !== undefined && { status: body.status as "UNREAD" | "READ" | "REPLIED" | "ARCHIVED" }),

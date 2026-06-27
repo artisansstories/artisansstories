@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForHost(request);
     const body = await request.json();
     const { code, subtotal } = body as { code: string; subtotal: number };
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ valid: false, error: "Code and subtotal are required" }, { status: 400 });
     }
 
-    const discount = await prisma.discount.findFirst({
+    const discount = await db.discount.findFirst({
       where: { code: code.toUpperCase() },
     });
 

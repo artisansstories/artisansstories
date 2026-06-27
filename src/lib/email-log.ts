@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_TENANT_ID } from "@/lib/tenant-context";
 
 export type EmailLogType =
   | "ORDER_CONFIRMATION"
@@ -26,6 +27,11 @@ export interface LogEmailParams {
   relatedId?: string;
   relatedType?: string;
   direction?: "OUTBOUND" | "INBOUND";
+  /**
+   * Owning tenant. Optional for behavior compatibility — defaults to tenant zero
+   * (single-tenant today). Callers that have resolved a tenant SHOULD pass it.
+   */
+  tenantId?: string;
 }
 
 /**
@@ -35,6 +41,7 @@ export async function logEmail(params: LogEmailParams): Promise<void> {
   try {
     await prisma.emailLog.create({
       data: {
+        tenantId: params.tenantId ?? DEFAULT_TENANT_ID,
         type: params.type,
         direction: params.direction ?? "OUTBOUND",
         toEmail: params.toEmail,

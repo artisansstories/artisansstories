@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAccountSession } from '@/lib/account-session';
-import { prisma } from '@/lib/prisma';
+import { getTenantPrismaForHost } from '@/lib/tenant-context';
 
 export async function GET() {
   const session = await getAccountSession();
@@ -9,7 +9,8 @@ export async function GET() {
   }
 
   try {
-    const orders = await prisma.order.findMany({
+    const db = await getTenantPrismaForHost();
+    const orders = await db.order.findMany({
       where: { customerId: session.id },
       orderBy: { createdAt: 'desc' },
       include: {

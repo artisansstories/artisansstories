@@ -8,14 +8,14 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Multi-tenancy (P1)
+// Multi-tenancy (P1 + P2)
 // ---------------------------------------------------------------------------
-// tenantId is added to every tenant-owned model below as a plain scalar with a
-// @default pointing at the platform-owner ("tenant zero") id. This keeps the
-// column NOT NULL while preserving today's single-tenant behavior and keeping
-// the existing codebase type-clean (no explicit tenantId required on creates
-// yet). The default is a TEMPORARY bridge — P2 introduces tenant resolution and
-// must remove these defaults and thread tenantId explicitly. See scripts/P1-NOTES.md.
+// tenantId is a required, NOT NULL scalar on every tenant-owned model below.
+// The P1 migration bridge (@default("tenant_artisans_stories")) was REMOVED in
+// P2: writes now go through the tenant-scoped Prisma client (src/lib/tenant-
+// prisma.ts), which injects tenantId on every create/where. Because tenantId no
+// longer carries a default it is required in Prisma's create-input types, so
+// `tsc` proves no unscoped write can omit it. See scripts/P2-NOTES.md.
 
 model Tenant {
   id                     String         @id @default(cuid())
@@ -73,7 +73,7 @@ enum TenantStatus {
 
 model StoreSettings {
   id                     String   @id @default(cuid())
-  tenantId               String   @default("tenant_artisans_stories")
+  tenantId               String
   storeName              String   @default("Artisans Stories")
   storeDescription       String?
   storeLogo              String?
@@ -109,7 +109,7 @@ model StoreSettings {
 
 model AdminUser {
   id        String    @id @default(cuid())
-  tenantId  String    @default("tenant_artisans_stories")
+  tenantId  String
   email     String
   name      String
   role      AdminRole @default(EDITOR)
@@ -125,7 +125,7 @@ model AdminUser {
 
 model MagicLinkToken {
   id        String    @id @default(cuid())
-  tenantId  String    @default("tenant_artisans_stories")
+  tenantId  String
   token     String    @unique
   email     String
   type      TokenType @default(CUSTOMER)
@@ -140,7 +140,7 @@ model MagicLinkToken {
 
 model Category {
   id          String            @id @default(cuid())
-  tenantId    String            @default("tenant_artisans_stories")
+  tenantId    String
   slug        String
   name        String
   description String?
@@ -160,7 +160,7 @@ model Category {
 
 model Product {
   id               String               @id @default(cuid())
-  tenantId         String               @default("tenant_artisans_stories")
+  tenantId         String
   slug             String
   name             String
   description      String?
@@ -211,7 +211,7 @@ model Product {
 }
 
 model ProductCategory {
-  tenantId   String   @default("tenant_artisans_stories")
+  tenantId   String
   productId  String
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -223,7 +223,7 @@ model ProductCategory {
 
 model ProductOption {
   id        String   @id @default(cuid())
-  tenantId  String   @default("tenant_artisans_stories")
+  tenantId  String
   productId String
   name      String
   values    String[]
@@ -236,7 +236,7 @@ model ProductOption {
 
 model ProductVariant {
   id              String         @id @default(cuid())
-  tenantId        String         @default("tenant_artisans_stories")
+  tenantId        String
   productId       String
   name            String
   optionValues    Json
@@ -261,7 +261,7 @@ model ProductVariant {
 
 model ProductImage {
   id        String          @id @default(cuid())
-  tenantId  String          @default("tenant_artisans_stories")
+  tenantId  String
   productId String
   variantId String?
   url       String
@@ -282,7 +282,7 @@ model ProductImage {
 
 model Inventory {
   id                String         @id @default(cuid())
-  tenantId          String         @default("tenant_artisans_stories")
+  tenantId          String
   variantId         String         @unique
   quantity          Int            @default(0)
   reservedQuantity  Int            @default(0)
@@ -298,7 +298,7 @@ model Inventory {
 
 model InventoryLog {
   id          String    @id @default(cuid())
-  tenantId    String    @default("tenant_artisans_stories")
+  tenantId    String
   inventoryId String
   delta       Int
   reason      String
@@ -311,7 +311,7 @@ model InventoryLog {
 
 model Customer {
   id               String    @id @default(cuid())
-  tenantId         String    @default("tenant_artisans_stories")
+  tenantId         String
   email            String
   firstName        String?
   lastName         String?
@@ -335,7 +335,7 @@ model Customer {
 
 model Address {
   id          String      @id @default(cuid())
-  tenantId    String      @default("tenant_artisans_stories")
+  tenantId    String
   customerId  String?
   type        AddressType @default(SHIPPING)
   firstName   String
@@ -359,7 +359,7 @@ model Address {
 
 model Order {
   id                      String          @id @default(cuid())
-  tenantId                String          @default("tenant_artisans_stories")
+  tenantId                String
   orderNumber             String
   customerId              String?
   status                  OrderStatus     @default(PENDING)
@@ -397,7 +397,7 @@ model Order {
 
 model OrderItem {
   id                String           @id @default(cuid())
-  tenantId          String           @default("tenant_artisans_stories")
+  tenantId          String
   orderId           String
   productId         String?
   variantId         String?
@@ -423,7 +423,7 @@ model OrderItem {
 
 model Fulfillment {
   id                String            @id @default(cuid())
-  tenantId          String            @default("tenant_artisans_stories")
+  tenantId          String
   orderId           String
   status            FulfillmentStatus @default(PENDING)
   trackingCompany   String?
@@ -444,7 +444,7 @@ model Fulfillment {
 
 model Return {
   id             String       @id @default(cuid())
-  tenantId       String       @default("tenant_artisans_stories")
+  tenantId       String
   orderId        String
   status         ReturnStatus @default(REQUESTED)
   customerNote   String?
@@ -463,7 +463,7 @@ model Return {
 
 model ReturnItem {
   id          String       @id @default(cuid())
-  tenantId    String       @default("tenant_artisans_stories")
+  tenantId    String
   returnId    String
   orderItemId String
   quantity    Int
@@ -477,7 +477,7 @@ model ReturnItem {
 
 model Discount {
   id                 String       @id @default(cuid())
-  tenantId           String       @default("tenant_artisans_stories")
+  tenantId           String
   code               String
   type               DiscountType
   value              Int
@@ -500,7 +500,7 @@ model Discount {
 
 model ShippingZone {
   id        String         @id @default(cuid())
-  tenantId  String         @default("tenant_artisans_stories")
+  tenantId  String
   name      String
   countries String[]
   regions   String[]
@@ -515,7 +515,7 @@ model ShippingZone {
 
 model ShippingRate {
   id        String        @id @default(cuid())
-  tenantId  String        @default("tenant_artisans_stories")
+  tenantId  String
   zoneId    String
   name      String
   condition RateCondition @default(FLAT)
@@ -531,7 +531,7 @@ model ShippingRate {
 
 model Review {
   id               String       @id @default(cuid())
-  tenantId         String       @default("tenant_artisans_stories")
+  tenantId         String
   productId        String
   customerId       String?
   orderId          String?
@@ -551,7 +551,7 @@ model Review {
 
 model WelcomeEmailTemplate {
   id                   String   @id @default(cuid())
-  tenantId             String   @default("tenant_artisans_stories")
+  tenantId             String
   logoUrl              String?
   headerBgColor        String?
   cardBgColor          String?
@@ -591,7 +591,7 @@ model WelcomeEmailTemplate {
 
 model Artisan {
   id                 String           @id @default(cuid())
-  tenantId           String           @default("tenant_artisans_stories")
+  tenantId           String
   slug               String
   name               String
   status             ArtisanStatus    @default(DRAFT)
@@ -629,7 +629,7 @@ model Artisan {
 
 model ArtisanImage {
   id        String               @id @default(cuid())
-  tenantId  String               @default("tenant_artisans_stories")
+  tenantId  String
   artisanId String
   url       String
   urlThumb  String?
@@ -645,7 +645,7 @@ model ArtisanImage {
 }
 
 model ProductArtisan {
-  tenantId  String  @default("tenant_artisans_stories")
+  tenantId  String
   productId String
   artisanId String
   artisan   Artisan @relation(fields: [artisanId], references: [id], onDelete: Cascade)
@@ -657,7 +657,7 @@ model ProductArtisan {
 
 model LinkTreeSettings {
   id              String    @id @default(cuid())
-  tenantId        String    @default("tenant_artisans_stories")
+  tenantId        String
   title           String    @default("Link Hub")
   description     String?
   logoUrl         String?
@@ -679,7 +679,7 @@ model LinkTreeSettings {
 
 model LinkTreeLink {
   id               String             @id @default(cuid())
-  tenantId         String             @default("tenant_artisans_stories")
+  tenantId         String
   title            String
   url              String
   description      String?
@@ -695,7 +695,7 @@ model LinkTreeLink {
 
 model LinkTreeClickLog {
   id           String       @id
-  tenantId     String       @default("tenant_artisans_stories")
+  tenantId     String
   linkId       String
   clickedAt    DateTime?    @default(now()) @db.Timestamp(6)
   userAgent    String?
@@ -824,7 +824,7 @@ enum ArtisanImageCategory {
 
 model ContactMessage {
   id        String               @id @default(cuid())
-  tenantId  String               @default("tenant_artisans_stories")
+  tenantId  String
   name      String
   email     String
   subject   String               @default("General Inquiry")
@@ -847,7 +847,7 @@ enum ContactMessageStatus {
 
 model ContactReply {
   id               String         @id @default(cuid())
-  tenantId         String         @default("tenant_artisans_stories")
+  tenantId         String
   contactMessageId String
   body             String
   direction        ReplyDirection @default(OUTBOUND)
@@ -865,7 +865,7 @@ enum ReplyDirection {
 
 model EmailLog {
   id          String         @id @default(cuid())
-  tenantId    String         @default("tenant_artisans_stories")
+  tenantId    String
   type        EmailLogType
   direction   EmailDirection @default(OUTBOUND)
   toEmail     String
@@ -904,7 +904,7 @@ enum EmailDirection {
 
 model KBArticle {
   id          String   @id @default(cuid())
-  tenantId    String   @default("tenant_artisans_stories")
+  tenantId    String
   title       String
   slug        String
   category    String
@@ -924,7 +924,7 @@ enum AddonType {
 
 model ProductAddon {
   id        String    @id @default(cuid())
-  tenantId  String    @default("tenant_artisans_stories")
+  tenantId  String
   productId String
   type      AddonType
   isEnabled Boolean   @default(true)
@@ -940,7 +940,7 @@ model ProductAddon {
 
 model OrderItemAddon {
   id          String    @id @default(cuid())
-  tenantId    String    @default("tenant_artisans_stories")
+  tenantId    String
   orderItemId String
   type        AddonType
   data        Json

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 export async function GET() {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const [totalCustomers, allCustomers] = await Promise.all([
-      prisma.customer.count(),
-      prisma.customer.findMany({
+      db.customer.count(),
+      db.customer.findMany({
         select: {
           id: true,
           email: true,
