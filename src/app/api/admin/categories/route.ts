@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
@@ -7,7 +8,7 @@ async function makeUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let attempt = 0;
   while (true) {
-    const existing = await prisma.category.findUnique({ where: { slug } });
+    const existing = await prisma.category.findFirst({ where: { slug } });
     if (!existing) return slug;
     attempt++;
     slug = `${base}-${attempt}`;
@@ -15,9 +16,9 @@ async function makeUniqueSlug(base: string): Promise<string> {
 }
 export async function GET(_request: NextRequest) {
   try {
-    
-    
-    const categories = await prisma.category.findMany({
+    const db = await getTenantPrismaForAdmin();
+
+    const categories = await db.category.findMany({
       orderBy: { position: "asc" },
       include: {
         parent: { select: { id: true, name: true, slug: true } },
@@ -33,8 +34,8 @@ export async function GET(_request: NextRequest) {
 }
 export async function POST(request: NextRequest) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const body = await request.json() as {
       name: string;
       description?: string;
@@ -48,10 +49,11 @@ export async function POST(request: NextRequest) {
     }
     const baseSlug = generateSlug(body.name);
     const slug = await makeUniqueSlug(baseSlug);
-    const maxPosition = await prisma.category.aggregate({ _max: { position: true } });
+    const maxPosition = await db.category.aggregate({ _max: { position: true } });
     const position = body.position ?? (maxPosition._max.position ?? 0) + 1;
-    const category = await prisma.category.create({
+    const category = await db.category.create({
       data: {
+        tenantId: db.$tenantId,
         name: body.name,
         slug,
         description: body.description,

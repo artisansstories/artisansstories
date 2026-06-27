@@ -1,5 +1,6 @@
 // Email builder that uses database template or falls back to hardcoded
 import { Client } from "pg";
+import { DEFAULT_TENANT_ID } from "@/lib/tenant-context";
 
 interface SocialLink {
   id: string;
@@ -50,11 +51,12 @@ interface EmailTemplate {
   signatureData: SignatureData | null;
 }
 
-async function fetchTemplateFromDB(): Promise<EmailTemplate | null> {
+async function fetchTemplateFromDB(tenantId: string = DEFAULT_TENANT_ID): Promise<EmailTemplate | null> {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
-    const result = await client.query(`SELECT * FROM "WelcomeEmailTemplate" WHERE id = 'welcome'`);
+    // Raw pg bypasses the scoped client; WelcomeEmailTemplate is one-per-tenant.
+    const result = await client.query(`SELECT * FROM "WelcomeEmailTemplate" WHERE "tenantId" = $1`, [tenantId]);
     return result.rows[0] as EmailTemplate;
   } catch (error) {
     console.error("Failed to fetch email template from DB:", error);

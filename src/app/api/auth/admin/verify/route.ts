@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { createAdminSession } from "@/lib/admin-auth";
 
 export async function GET(request: NextRequest) {
@@ -24,8 +25,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/admin/login?error=used`);
   }
 
+  // The magic-link token carries the tenant it was issued for; scope the admin
+  // lookup to that tenant.
+  const db = getTenantPrisma(record.tenantId);
+
   // Verify still active in DB
-  const adminUser = await prisma.adminUser.findUnique({ where: { email: record.email } });
+  const adminUser = await db.adminUser.findFirst({ where: { email: record.email } });
   if (!adminUser || !adminUser.isActive) {
     return NextResponse.redirect(`${siteUrl}/admin/login?error=unauthorized`);
   }
@@ -41,6 +46,7 @@ export async function GET(request: NextRequest) {
     email: adminUser.email,
     name: adminUser.name,
     role: adminUser.role,
+    tenantId: adminUser.tenantId,
   });
 
   return NextResponse.redirect(`${siteUrl}/admin`);

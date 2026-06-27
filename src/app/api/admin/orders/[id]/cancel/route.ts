@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { orderCancelledHtml } from "@/lib/emails/order-cancelled";
@@ -20,9 +20,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = (await request.json()) as CancelBody;
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await db.order.findUnique({ where: { id } });
     if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
     if (order.status === "CANCELLED" || order.status === "REFUNDED") {
       return NextResponse.json({ error: "Order is already cancelled or refunded" }, { status: 400 });
@@ -60,7 +61,7 @@ export async function POST(
       }
     }
 
-    const updatedOrder = await prisma.order.update({
+    const updatedOrder = await db.order.update({
       where: { id },
       data: {
         status: "CANCELLED",
@@ -73,7 +74,7 @@ export async function POST(
     // Send cancellation email
     try {
       const customer = updatedOrder.customerId
-        ? await prisma.customer.findUnique({ where: { id: updatedOrder.customerId }, select: { firstName: true } })
+        ? await db.customer.findUnique({ where: { id: updatedOrder.customerId }, select: { firstName: true } })
         : null;
       const refunded = newFinancialStatus === "REFUNDED";
       const html = orderCancelledHtml({

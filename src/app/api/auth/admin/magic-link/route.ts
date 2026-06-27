@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrisma } from "@/lib/tenant-prisma";
+import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { logEmail } from "@/lib/email-log";
@@ -60,16 +62,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Valid email required" }, { status: 400 });
     }
 
+    // Admin login-by-email: resolve the tenant from the request host.
+    const tenantId = resolveTenantFromHost(request);
+    const db = getTenantPrisma(tenantId);
+
     // Check DB — always return success to avoid leaking which emails are allowed
-    const adminUser = await prisma.adminUser.findUnique({ where: { email } });
+    const adminUser = await db.adminUser.findFirst({ where: { email } });
     if (!adminUser || !adminUser.isActive) {
       return NextResponse.json({ success: true });
     }
 
-    // Rate limit: max 3 tokens per email per 5 minutes
+    // Rate limit: max 3 tokens per email per 5 minutes. MagicLinkToken is keyed
+    // by a global secret token, so it stays on the raw client — we scope these
+    // by tenantId explicitly.
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const recentTokens = await prisma.magicLinkToken.count({
-      where: { email, type: "ADMIN", createdAt: { gte: fiveMinutesAgo } },
+      where: { tenantId, email, type: "ADMIN", createdAt: { gte: fiveMinutesAgo } },
     });
     if (recentTokens >= 3) {
       return NextResponse.json({ success: true });
@@ -77,14 +85,14 @@ export async function POST(request: NextRequest) {
 
     // Clean up expired tokens
     await prisma.magicLinkToken.deleteMany({
-      where: { email, type: "ADMIN", expiresAt: { lt: new Date() } },
+      where: { tenantId, email, type: "ADMIN", expiresAt: { lt: new Date() } },
     });
 
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await prisma.magicLinkToken.create({
-      data: { token, email, type: "ADMIN", expiresAt },
+      data: { tenantId, token, email, type: "ADMIN", expiresAt },
     });
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
@@ -97,7 +105,7 @@ export async function POST(request: NextRequest) {
       html: adminMagicLinkEmail(magicLink),
     });
 
-    await logEmail({ type: "MAGIC_LINK_ADMIN", toEmail: email, subject: "Your Artisans' Stories admin sign-in link", resendId: adminMlResult.data?.id, relatedType: "ADMIN" });
+    await logEmail({ tenantId, type: "MAGIC_LINK_ADMIN", toEmail: email, subject: "Your Artisans' Stories admin sign-in link", resendId: adminMlResult.data?.id, relatedType: "ADMIN" });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Admin magic link error:", err);

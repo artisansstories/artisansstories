@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { ProductStatus, ProductDiscountType, ProductPromoTheme } from "@prisma/client";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -21,10 +22,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const product = await prisma.product.findUnique({
+    const product = await db.product.findUnique({
       where: { id },
       include: {
         categories: { include: { category: true } },
@@ -50,10 +51,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const existing = await prisma.product.findUnique({ where: { id } });
+    const existing = await db.product.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
@@ -155,11 +156,11 @@ export async function PUT(
     if (body.showcaseImages !== undefined) updateData.showcaseImages = body.showcaseImages;
     // Update artisan link (ProductArtisan join table)
     if (body.artisanId !== undefined) {
-      await prisma.productArtisan.deleteMany({ where: { productId: id } });
+      await db.productArtisan.deleteMany({ where: { productId: id } });
       if (body.artisanId) {
-        await prisma.productArtisan.create({ data: { productId: id, artisanId: body.artisanId } });
+        await db.productArtisan.create({ data: { tenantId: db.$tenantId, productId: id, artisanId: body.artisanId } });
         // Backfill denormalized artisanName for backward compat
-        const artisan = await prisma.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
+        const artisan = await db.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
         if (artisan) updateData.artisanName = artisan.name;
       } else {
         updateData.artisanName = null;
@@ -170,15 +171,16 @@ export async function PUT(
     if (body.categoryIds !== undefined) {
       updateData.categories = {
         deleteMany: {},
-        create: body.categoryIds.map((categoryId) => ({ categoryId })),
+        create: body.categoryIds.map((categoryId) => ({ categoryId, tenantId: db.$tenantId })),
       };
     }
     // Update options if provided — delete all existing and re-insert
     if (body.options !== undefined) {
-      await prisma.productOption.deleteMany({ where: { productId: id } });
+      await db.productOption.deleteMany({ where: { productId: id } });
       if (body.options.length > 0) {
-        await prisma.productOption.createMany({
+        await db.productOption.createMany({
           data: body.options.map((o, i) => ({
+            tenantId: db.$tenantId,
             productId: id,
             name: o.name,
             values: o.values,
@@ -192,14 +194,14 @@ export async function PUT(
     if (body.variants !== undefined) {
       const incomingIds = body.variants.filter(v => v.id).map(v => v.id as string);
       // Delete variants not in incoming list
-      await prisma.productVariant.deleteMany({
+      await db.productVariant.deleteMany({
         where: { productId: id, id: { notIn: incomingIds } },
       });
       // Upsert each variant
       for (const v of body.variants) {
         if (v.id) {
           // Update existing
-          await prisma.productVariant.update({
+          await db.productVariant.update({
             where: { id: v.id },
             data: {
               name: v.name,
@@ -210,15 +212,16 @@ export async function PUT(
             },
           });
           // Update inventory quantity
-          await prisma.inventory.upsert({
+          await db.inventory.upsert({
             where: { variantId: v.id },
             update: { quantity: v.quantity ?? 0 },
-            create: { variantId: v.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+            create: { tenantId: db.$tenantId, variantId: v.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
           });
         } else {
           // Create new variant
-          const newVariant = await prisma.productVariant.create({
+          const newVariant = await db.productVariant.create({
             data: {
+              tenantId: db.$tenantId,
               productId: id,
               name: v.name,
               sku: v.sku || null,
@@ -227,8 +230,8 @@ export async function PUT(
               position: v.position,
             },
           });
-          await prisma.inventory.create({
-            data: { variantId: newVariant.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+          await db.inventory.create({
+            data: { tenantId: db.$tenantId, variantId: newVariant.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
           });
         }
       }
@@ -238,8 +241,9 @@ export async function PUT(
     // Note: done AFTER variants so new variant IDs are available for variantId FK
     if (body.images !== undefined) {
       // Refresh variant list to get new IDs for any just-created variants
-      const freshVariants = await prisma.productVariant.findMany({ where: { productId: id } });
+      const freshVariants = await db.productVariant.findMany({ where: { productId: id } });
       const resolvedImages = body.images.map((img, i) => ({
+        tenantId: db.$tenantId,
         productId: id,
         url: img.url,
         urlMedium: img.urlMedium ?? null,
@@ -251,12 +255,12 @@ export async function PUT(
         variantId: img.variantId && freshVariants.some(v => v.id === img.variantId) ? img.variantId : null,
       }));
       console.log('[PUT products] saving images with variantIds:', resolvedImages.map(img => img.variantId));
-      await prisma.productImage.deleteMany({ where: { productId: id } });
+      await db.productImage.deleteMany({ where: { productId: id } });
       if (resolvedImages.length > 0) {
-        await prisma.productImage.createMany({ data: resolvedImages });
+        await db.productImage.createMany({ data: resolvedImages });
       }
     }
-    const product = await prisma.product.update({
+    const product = await db.product.update({
       where: { id },
       data: updateData,
       include: {
@@ -280,14 +284,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const existing = await prisma.product.findUnique({ where: { id } });
+    const existing = await db.product.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
-    await prisma.product.delete({ where: { id } });
+    await db.product.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/admin/products/[id] error:", err);

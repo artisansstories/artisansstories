@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForHost(request);
     const { searchParams } = request.nextUrl;
     const categorySlug = searchParams.get("category");
     const sort = searchParams.get("sort") ?? "featured";
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [products, total] = await Promise.all([
-      prisma.product.findMany({
+      db.product.findMany({
         where,
         orderBy,
         skip,
@@ -91,11 +93,11 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.product.count({ where }),
+      db.product.count({ where }),
     ]);
 
     // Fetch categories for filter sidebar (active only)
-    const categories = await prisma.category.findMany({
+    const categories = await db.category.findMany({
       where: { isActive: true, parentId: null },
       select: { id: true, slug: true, name: true },
       orderBy: { position: "asc" },

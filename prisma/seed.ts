@@ -42,6 +42,7 @@ async function main() {
     update: {},
     create: {
       id: "singleton",
+      tenantId: "tenant_artisans_stories",
       storeName: "Artisans Stories",
       storeDescription:
         "Handmade artisan crafts from El Salvador's most talented artisans.",
@@ -61,9 +62,10 @@ async function main() {
 
   // ─── Admin User ───────────────────────────────────────────────────────────
   await prisma.adminUser.upsert({
-    where: { email: "anna@artisansstories.com" },
+    where: { tenantId_email: { tenantId: "tenant_artisans_stories", email: "anna@artisansstories.com" } },
     update: {},
     create: {
+      tenantId: "tenant_artisans_stories",
       email: "anna@artisansstories.com",
       name: "Anna Kool",
       role: "SUPER_ADMIN",
@@ -78,6 +80,7 @@ async function main() {
     update: {},
     create: {
       id: "us-domestic",
+      tenantId: "tenant_artisans_stories",
       name: "US Domestic",
       countries: ["US"],
       regions: [],
@@ -92,6 +95,7 @@ async function main() {
     update: {},
     create: {
       id: "us-flat",
+      tenantId: "tenant_artisans_stories",
       zoneId: usDomestic.id,
       name: "Standard Shipping",
       condition: "FLAT",
@@ -106,6 +110,7 @@ async function main() {
     update: {},
     create: {
       id: "us-free-over-75",
+      tenantId: "tenant_artisans_stories",
       zoneId: usDomestic.id,
       name: "Free Shipping (orders over $75)",
       condition: "ORDER_VALUE",
@@ -120,6 +125,7 @@ async function main() {
     update: {},
     create: {
       id: "international",
+      tenantId: "tenant_artisans_stories",
       name: "International",
       countries: [],
       regions: [],
@@ -133,6 +139,7 @@ async function main() {
     update: {},
     create: {
       id: "intl-flat",
+      tenantId: "tenant_artisans_stories",
       zoneId: international.id,
       name: "International Shipping",
       condition: "FLAT",
@@ -163,10 +170,11 @@ async function main() {
 
   for (const cat of categories) {
     await prisma.category.upsert({
-      where: { slug: cat.slug },
+      where: { tenantId_slug: { tenantId: "tenant_artisans_stories", slug: cat.slug } },
       update: {},
       create: {
         id: cat.id,
+        tenantId: "tenant_artisans_stories",
         slug: cat.slug,
         name: cat.name,
         position: cat.position,

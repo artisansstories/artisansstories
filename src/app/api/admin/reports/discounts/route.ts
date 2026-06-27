@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 export async function GET() {
   try {
-    
-    
-    const discounts = await prisma.discount.findMany({
+    const db = await getTenantPrismaForAdmin();
+
+    const discounts = await db.discount.findMany({
       orderBy: { usageCount: "desc" },
     });
     // For each discount, compute total revenue from orders using that code
     const discountCodes = discounts.map((d) => d.code);
-    const ordersByCode = await prisma.order.groupBy({
+    const ordersByCode = await db.order.groupBy({
       by: ["discountCode"],
       where: { discountCode: { in: discountCodes }, financialStatus: "PAID" },
       _sum: { total: true },

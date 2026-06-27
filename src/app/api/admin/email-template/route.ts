@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { Client } from "pg";
+import { resolveTenantFromAdminSession, DEFAULT_TENANT_ID } from "@/lib/tenant-context";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+// Raw `pg` SQL bypasses the scoped Prisma client; WelcomeEmailTemplate is
+// one-per-tenant, so each statement is scoped to the admin's tenant by hand.
+
 export async function GET() {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
+    const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
     await client.connect();
-    const result = await client.query(`SELECT * FROM "WelcomeEmailTemplate" WHERE id = 'welcome'`);
+    const result = await client.query(`SELECT * FROM "WelcomeEmailTemplate" WHERE "tenantId" = $1`, [tenantId]);
     return NextResponse.json({ template: result.rows[0] || null });
   } catch (error) {
     console.error("Failed to fetch email template:", error);
@@ -21,6 +26,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
+    const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
     const body = await req.json();
     await client.connect();
 
@@ -58,7 +64,7 @@ export async function POST(req: Request) {
          "socialLinks" = $29::jsonb,
          "signatureData" = $30::jsonb,
          "updatedAt" = NOW()
-       WHERE id = 'welcome'
+       WHERE "tenantId" = $31
        RETURNING *`,
       [
         body.logoUrl,
@@ -91,6 +97,7 @@ export async function POST(req: Request) {
         body.bodyHtml,
         body.socialLinks ? JSON.stringify(body.socialLinks) : null,
         body.signatureData ? JSON.stringify(body.signatureData) : null,
+        tenantId,
       ]
     );
 

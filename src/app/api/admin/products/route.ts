@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { ProductStatus, ProductDiscountType, ProductPromoTheme, Prisma } from "@prisma/client";
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -8,7 +9,7 @@ async function makeUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let attempt = 0;
   while (true) {
-    const existing = await prisma.product.findUnique({ where: { slug } });
+    const existing = await prisma.product.findFirst({ where: { slug } });
     if (!existing) return slug;
     attempt++;
     slug = `${base}-${attempt}`;
@@ -16,8 +17,8 @@ async function makeUniqueSlug(base: string): Promise<string> {
 }
 export async function GET(request: NextRequest) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get("search") ?? "";
     const status = searchParams.get("status") ?? "";
@@ -39,8 +40,8 @@ export async function GET(request: NextRequest) {
       where.categories = { some: { categoryId } };
     }
     const [total, products] = await Promise.all([
-      prisma.product.count({ where }),
-      prisma.product.findMany({
+      db.product.count({ where }),
+      db.product.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,
@@ -97,8 +98,8 @@ export async function GET(request: NextRequest) {
 }
 export async function POST(request: NextRequest) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const body = await request.json() as {
       name: string;
       description?: string;
@@ -145,8 +146,9 @@ export async function POST(request: NextRequest) {
     }
     const baseSlug = generateSlug(body.name);
     const slug = await makeUniqueSlug(baseSlug);
-    const product = await prisma.product.create({
+    const product = await db.product.create({
       data: {
+        tenantId: db.$tenantId,
         name: body.name,
         slug,
         description: body.description,
@@ -175,12 +177,13 @@ export async function POST(request: NextRequest) {
         showcaseImages: body.showcaseImages ?? [],
         categories: body.categoryIds?.length
           ? {
-              create: body.categoryIds.map((categoryId) => ({ categoryId })),
+              create: body.categoryIds.map((categoryId) => ({ categoryId, tenantId: db.$tenantId })),
             }
           : undefined,
         images: body.images?.length
           ? {
               create: body.images.map((img, i) => ({
+                tenantId: db.$tenantId,
                 url: img.url,
                 urlMedium: img.urlMedium ?? null,
                 urlThumb: img.urlThumb ?? null,
@@ -194,11 +197,13 @@ export async function POST(request: NextRequest) {
         variants: {
           create: [
             {
+              tenantId: db.$tenantId,
               name: "Default",
               optionValues: {},
               position: 0,
               inventory: {
                 create: {
+                  tenantId: db.$tenantId,
                   quantity: 0,
                   reservedQuantity: 0,
                   lowStockThreshold: 5,
@@ -219,9 +224,9 @@ export async function POST(request: NextRequest) {
     });
     // Link artisan via join table if provided
     if (body.artisanId) {
-      await prisma.productArtisan.create({ data: { productId: product.id, artisanId: body.artisanId } });
-      const artisan = await prisma.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
-      if (artisan) await prisma.product.update({ where: { id: product.id }, data: { artisanName: artisan.name } });
+      await db.productArtisan.create({ data: { tenantId: db.$tenantId, productId: product.id, artisanId: body.artisanId } });
+      const artisan = await db.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
+      if (artisan) await db.product.update({ where: { id: product.id }, data: { artisanName: artisan.name } });
     }
     return NextResponse.json({ product }, { status: 201 });
   } catch (err) {

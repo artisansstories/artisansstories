@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { generateProductSKU, generateVariantSKU } from "@/lib/sku";
 
 export async function POST(req: NextRequest) {
@@ -9,6 +9,8 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const db = await getTenantPrismaForAdmin();
 
   const body = await req.json() as {
     type: string;
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
   if (type === "product") {
     for (let i = 0; i < 10; i++) {
       const sku = generateProductSKU(categoryName);
-      const existing = await prisma.product.findUnique({ where: { sku } });
+      const existing = await db.product.findFirst({ where: { sku } });
       if (!existing) return NextResponse.json({ sku });
     }
     return NextResponse.json({ error: "Could not generate unique SKU" }, { status: 500 });
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (!productSku) return NextResponse.json({ error: "productSku required" }, { status: 400 });
     for (let i = 0; i < 10; i++) {
       const sku = generateVariantSKU(productSku, optionValues ?? []);
-      const existing = await prisma.productVariant.findUnique({ where: { sku } });
+      const existing = await db.productVariant.findFirst({ where: { sku } });
       if (!existing) return NextResponse.json({ sku });
     }
     return NextResponse.json({ error: "Could not generate unique SKU" }, { status: 500 });

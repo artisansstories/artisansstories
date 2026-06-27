@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccountSession } from '@/lib/account-session';
-import { prisma } from '@/lib/prisma';
+import { getTenantPrismaForHost } from '@/lib/tenant-context';
 
 export async function PUT(
   request: NextRequest,
@@ -14,8 +14,9 @@ export async function PUT(
   const { id } = await params;
 
   try {
+    const db = await getTenantPrismaForHost(request);
     // Verify the address belongs to this customer
-    const existing = await prisma.address.findFirst({
+    const existing = await db.address.findFirst({
       where: { id, customerId: session.id },
     });
 
@@ -42,13 +43,13 @@ export async function PUT(
 
     // If setting as default, unset all others for this customer
     if (isDefault) {
-      await prisma.address.updateMany({
+      await db.address.updateMany({
         where: { customerId: session.id, id: { not: id } },
         data: { isDefault: false },
       });
     }
 
-    const address = await prisma.address.update({
+    const address = await db.address.update({
       where: { id },
       data: {
         ...(firstName !== undefined && { firstName }),
@@ -86,8 +87,9 @@ export async function DELETE(
   const { id } = await params;
 
   try {
+    const db = await getTenantPrismaForHost(request);
     // Verify the address belongs to this customer
-    const existing = await prisma.address.findFirst({
+    const existing = await db.address.findFirst({
       where: { id, customerId: session.id },
     });
 
@@ -95,7 +97,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Address not found' }, { status: 404 });
     }
 
-    await prisma.address.delete({ where: { id } });
+    await db.address.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (err) {

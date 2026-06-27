@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { returnRejectedHtml } from "@/lib/emails/return-rejected";
 import { logEmail } from "@/lib/email-log";
@@ -9,14 +9,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { reason: string };
     if (!body.reason) {
       return NextResponse.json({ error: "Reason is required" }, { status: 400 });
     }
-    const ret = await prisma.return.findUnique({
+    const ret = await db.return.findUnique({
       where: { id },
       include: {
         order: { select: { id: true, orderNumber: true, email: true } },
@@ -31,7 +30,7 @@ export async function POST(
     if (ret.status !== "REQUESTED" && ret.status !== "APPROVED") {
       return NextResponse.json({ error: "Return cannot be rejected in its current status" }, { status: 400 });
     }
-    const updated = await prisma.return.update({
+    const updated = await db.return.update({
       where: { id },
       data: {
         status: "REJECTED",

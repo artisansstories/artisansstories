@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Prisma } from "@prisma/client";
 
 /**
@@ -15,6 +15,7 @@ import { Prisma } from "@prisma/client";
  */
 export async function GET(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const sp = request.nextUrl.searchParams;
     const filter = (sp.get("filter") ?? "ALL").toUpperCase();
     const page = Math.max(1, parseInt(sp.get("page") ?? "1", 10));
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     const [conversations, convTotal, unreadCount, emailLogs, emailTotal] = await Promise.all([
       includeConversations
-        ? prisma.contactMessage.findMany({
+        ? db.contactMessage.findMany({
             where: convWhere,
             orderBy: { createdAt: "desc" },
             include: { replies: { orderBy: { createdAt: "asc" } } },
@@ -38,22 +39,22 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
 
       includeConversations
-        ? prisma.contactMessage.count({ where: convWhere })
+        ? db.contactMessage.count({ where: convWhere })
         : Promise.resolve(0),
 
-      prisma.contactMessage.count({ where: { status: "UNREAD" } }),
+      db.contactMessage.count({ where: { status: "UNREAD" } }),
 
       // Exclude CONTACT_INBOUND and CONTACT_REPLY from email log —
       // those are already represented as ContactMessage conversation threads.
       includeTransactional
-        ? prisma.emailLog.findMany({
+        ? db.emailLog.findMany({
             where: { type: { notIn: ["CONTACT_INBOUND", "CONTACT_REPLY"] } },
             orderBy: { createdAt: "desc" },
           })
         : Promise.resolve([]),
 
       includeTransactional
-        ? prisma.emailLog.count({ where: { type: { notIn: ["CONTACT_INBOUND", "CONTACT_REPLY"] } } })
+        ? db.emailLog.count({ where: { type: { notIn: ["CONTACT_INBOUND", "CONTACT_REPLY"] } } })
         : Promise.resolve(0),
     ]);
 

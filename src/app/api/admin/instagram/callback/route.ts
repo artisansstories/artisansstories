@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${siteUrl}/api/admin/instagram/callback`;
 
   try {
+    const db = await getTenantPrismaForAdmin();
     // Exchange code for short-lived token
     const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
       method: "POST",
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     const expiry = new Date(Date.now() + expiresIn * 1000);
 
-    await prisma.artisan.update({
+    await db.artisan.update({
       where: { id: artisanId },
       data: {
         igAccessToken: longToken,

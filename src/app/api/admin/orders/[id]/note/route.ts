@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 interface NoteBody {
   adminNote: string;
 }
@@ -8,11 +8,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = (await request.json()) as NoteBody;
-    const order = await prisma.order.update({
+    const order = await db.order.update({
       where: { id },
       data: { adminNote: body.adminNote },
     });

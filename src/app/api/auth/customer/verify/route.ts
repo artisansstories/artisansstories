@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { createCustomerSession } from "@/lib/customer-auth";
 
 export async function GET(request: NextRequest) {
@@ -24,11 +25,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/account/login?error=used", request.url));
   }
 
+  // The magic-link token carries the tenant it was issued for; scope all
+  // customer reads/writes to that tenant.
+  const db = getTenantPrisma(record.tenantId);
+
   // Find or create customer
-  let customer = await prisma.customer.findUnique({ where: { email: record.email } });
+  let customer = await db.customer.findFirst({ where: { email: record.email } });
   if (!customer) {
-    customer = await prisma.customer.create({
-      data: { email: record.email },
+    customer = await db.customer.create({
+      data: { email: record.email, tenantId: db.$tenantId },
     });
   }
 

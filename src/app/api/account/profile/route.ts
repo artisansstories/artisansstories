@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccountSession } from '@/lib/account-session';
-import { prisma } from '@/lib/prisma';
+import { getTenantPrismaForHost } from '@/lib/tenant-context';
 
 export async function GET() {
   const session = await getAccountSession();
@@ -9,7 +9,8 @@ export async function GET() {
   }
 
   try {
-    const customer = await prisma.customer.findUnique({
+    const db = await getTenantPrismaForHost();
+    const customer = await db.customer.findUnique({
       where: { id: session.id },
       select: {
         id: true,
@@ -43,10 +44,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
+    const db = await getTenantPrismaForHost(request);
     const body = await request.json();
     const { firstName, lastName, phone, acceptsMarketing } = body;
 
-    const customer = await prisma.customer.update({
+    const customer = await db.customer.update({
       where: { id: session.id },
       data: {
         ...(firstName !== undefined && { firstName }),

@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const order = await prisma.order.findUnique({
+    const order = await db.order.findUnique({
       where: { id },
       include: {
         customer: true,

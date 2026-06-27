@@ -7,8 +7,73 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---------------------------------------------------------------------------
+// Multi-tenancy (P1 + P2)
+// ---------------------------------------------------------------------------
+// tenantId is a required, NOT NULL scalar on every tenant-owned model below.
+// The P1 migration bridge (@default("tenant_artisans_stories")) was REMOVED in
+// P2: writes now go through the tenant-scoped Prisma client (src/lib/tenant-
+// prisma.ts), which injects tenantId on every create/where. Because tenantId no
+// longer carries a default it is required in Prisma's create-input types, so
+// `tsc` proves no unscoped write can omit it. See scripts/P2-NOTES.md.
+
+model Tenant {
+  id                     String         @id @default(cuid())
+  slug                   String         @unique
+  name                   String
+  status                 TenantStatus   @default(ACTIVE)
+  isPlatformOwner        Boolean        @default(false)
+  stripeConnectAccountId String?
+  stripeOnboarded        Boolean        @default(false)
+  platformFeeBps         Int            @default(300)
+  checkoutMode           String         @default("embedded") // "embedded" | "connect_redirect"
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  apiKeys                TenantApiKey[]
+  theme                  TenantTheme?
+}
+
+model TenantApiKey {
+  id         String    @id @default(cuid())
+  tenantId   String
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  keyHash    String    @unique
+  prefix     String
+  scopes     String[]  @default(["store:read"])
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tenantId])
+}
+
+model TenantTheme {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logoUrl        String?
+  faviconUrl     String?
+  primaryColor   String   @default("#1f6feb")
+  secondaryColor String   @default("#0b3d91")
+  accentColor    String   @default("#ff7a18")
+  fontHeading    String   @default("Inter")
+  fontBody       String   @default("Inter")
+  radius         String   @default("md")
+  updatedAt      DateTime @updatedAt
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+// ---------------------------------------------------------------------------
+
 model StoreSettings {
-  id                     String   @id @default("singleton")
+  id                     String   @id @default(cuid())
+  tenantId               String
   storeName              String   @default("Artisans Stories")
   storeDescription       String?
   storeLogo              String?
@@ -37,21 +102,30 @@ model StoreSettings {
   updatedAt              DateTime @updatedAt
   adminLogoSize          Int      @default(280)
   productDisclaimer      String?  @default("Each piece is handcrafted by skilled artisans, making every item one-of-a-kind. Natural materials, hand-dyeing, weaving, and hand-finishing mean slight variations in color, texture, size, and pattern from piece to piece — and from the photos shown. These natural differences are not defects; they are the hallmark of authentic handmade craftsmanship and make your piece uniquely yours. We stand behind the quality of every item we sell.")
+
+  @@unique([tenantId])
+  @@index([tenantId])
 }
 
 model AdminUser {
   id        String    @id @default(cuid())
-  email     String    @unique
+  tenantId  String
+  email     String
   name      String
   role      AdminRole @default(EDITOR)
   isActive  Boolean   @default(true)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-  phone     String?   @unique
+  phone     String?
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, phone])
+  @@index([tenantId])
 }
 
 model MagicLinkToken {
   id        String    @id @default(cuid())
+  tenantId  String
   token     String    @unique
   email     String
   type      TokenType @default(CUSTOMER)
@@ -61,11 +135,13 @@ model MagicLinkToken {
 
   @@index([email])
   @@index([token])
+  @@index([tenantId])
 }
 
 model Category {
   id          String            @id @default(cuid())
-  slug        String            @unique
+  tenantId    String
+  slug        String
   name        String
   description String?
   imageUrl    String?
@@ -77,45 +153,49 @@ model Category {
   parent      Category?         @relation("CategoryTree", fields: [parentId], references: [id])
   children    Category[]        @relation("CategoryTree")
   products    ProductCategory[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
 }
 
 model Product {
-  id               String            @id @default(cuid())
-  slug             String            @unique
+  id               String               @id @default(cuid())
+  tenantId         String
+  slug             String
   name             String
   description      String?
   story            String?
-  status           ProductStatus     @default(DRAFT)
+  status           ProductStatus        @default(DRAFT)
   price            Int
   compareAtPrice   Int?
   discountType     ProductDiscountType?
   promoLabel       String?
   promoTheme       ProductPromoTheme?
   costPrice        Int?
-  sku              String?           @unique
+  sku              String?
   barcode          String?
   weight           Float?
-  weightUnit       String            @default("oz")
+  weightUnit       String               @default("oz")
   length           Float?
   width            Float?
   height           Float?
-  dimensionUnit    String            @default("in")
+  dimensionUnit    String               @default("in")
   tags             String[]
   artisanName      String?
-  originCountry    String            @default("El Salvador")
+  originCountry    String               @default("El Salvador")
   materialsUsed    String[]
-  isFeatured       Boolean           @default(false)
-  isDigital        Boolean           @default(false)
-  requiresShipping Boolean           @default(true)
+  isFeatured       Boolean              @default(false)
+  isDigital        Boolean              @default(false)
+  requiresShipping Boolean              @default(true)
   taxCategory      String?
   taxCode          String?
   seoTitle         String?
   seoDescription   String?
-  totalSold        Int               @default(0)
+  totalSold        Int                  @default(0)
   disclaimer       String?
-  showcaseImages   Json              @default("[]")
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  showcaseImages   Json                 @default("[]")
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
   orderItems       OrderItem[]
   artisans         ProductArtisan[]
   categories       ProductCategory[]
@@ -124,33 +204,43 @@ model Product {
   variants         ProductVariant[]
   reviews          Review[]
   addons           ProductAddon[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, sku])
+  @@index([tenantId])
 }
 
 model ProductCategory {
+  tenantId   String
   productId  String
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([productId, categoryId])
+  @@index([tenantId])
 }
 
 model ProductOption {
   id        String   @id @default(cuid())
+  tenantId  String
   productId String
   name      String
   values    String[]
   position  Int      @default(0)
   createdAt DateTime @default(now())
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model ProductVariant {
   id              String         @id @default(cuid())
+  tenantId        String
   productId       String
   name            String
   optionValues    Json
-  sku             String?        @unique
+  sku             String?
   barcode         String?
   price           Int?
   costPrice       Int?
@@ -164,10 +254,14 @@ model ProductVariant {
   orderItems      OrderItem[]
   images          ProductImage[]
   product         Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
 }
 
 model ProductImage {
   id        String          @id @default(cuid())
+  tenantId  String
   productId String
   variantId String?
   url       String
@@ -182,10 +276,13 @@ model ProductImage {
   createdAt DateTime        @default(now())
   product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
   variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([tenantId])
 }
 
 model Inventory {
   id                String         @id @default(cuid())
+  tenantId          String
   variantId         String         @unique
   quantity          Int            @default(0)
   reservedQuantity  Int            @default(0)
@@ -195,21 +292,27 @@ model Inventory {
   updatedAt         DateTime       @updatedAt
   variant           ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
   logs              InventoryLog[]
+
+  @@index([tenantId])
 }
 
 model InventoryLog {
   id          String    @id @default(cuid())
+  tenantId    String
   inventoryId String
   delta       Int
   reason      String
   note        String?
   createdAt   DateTime  @default(now())
   inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Customer {
   id               String    @id @default(cuid())
-  email            String    @unique
+  tenantId         String
+  email            String
   firstName        String?
   lastName         String?
   phone            String?
@@ -225,10 +328,14 @@ model Customer {
   addresses        Address[]
   orders           Order[]
   reviews          Review[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
 }
 
 model Address {
   id          String      @id @default(cuid())
+  tenantId    String
   customerId  String?
   type        AddressType @default(SHIPPING)
   firstName   String
@@ -246,11 +353,14 @@ model Address {
   isDefault   Boolean     @default(false)
   createdAt   DateTime    @default(now())
   customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Order {
   id                      String          @id @default(cuid())
-  orderNumber             String          @unique
+  tenantId                String
+  orderNumber             String
   customerId              String?
   status                  OrderStatus     @default(PENDING)
   financialStatus         FinancialStatus @default(PENDING)
@@ -280,10 +390,14 @@ model Order {
   customer                Customer?       @relation(fields: [customerId], references: [id])
   items                   OrderItem[]
   returns                 Return[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
 }
 
 model OrderItem {
-  id                String          @id @default(cuid())
+  id                String           @id @default(cuid())
+  tenantId          String
   orderId           String
   productId         String?
   variantId         String?
@@ -292,21 +406,24 @@ model OrderItem {
   sku               String?
   quantity          Int
   price             Int
-  totalDiscount     Int             @default(0)
+  totalDiscount     Int              @default(0)
   total             Int
   productSnapshot   Json
-  requiresShipping  Boolean         @default(true)
+  requiresShipping  Boolean          @default(true)
   fulfillmentStatus String?
-  createdAt         DateTime        @default(now())
-  order             Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product           Product?        @relation(fields: [productId], references: [id])
-  variant           ProductVariant? @relation(fields: [variantId], references: [id])
+  createdAt         DateTime         @default(now())
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product?         @relation(fields: [productId], references: [id])
+  variant           ProductVariant?  @relation(fields: [variantId], references: [id])
   returnItems       ReturnItem[]
   addons            OrderItemAddon[]
+
+  @@index([tenantId])
 }
 
 model Fulfillment {
   id                String            @id @default(cuid())
+  tenantId          String
   orderId           String
   status            FulfillmentStatus @default(PENDING)
   trackingCompany   String?
@@ -321,10 +438,13 @@ model Fulfillment {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Return {
   id             String       @id @default(cuid())
+  tenantId       String
   orderId        String
   status         ReturnStatus @default(REQUESTED)
   customerNote   String?
@@ -337,10 +457,13 @@ model Return {
   updatedAt      DateTime     @updatedAt
   order          Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   items          ReturnItem[]
+
+  @@index([tenantId])
 }
 
 model ReturnItem {
   id          String       @id @default(cuid())
+  tenantId    String
   returnId    String
   orderItemId String
   quantity    Int
@@ -348,11 +471,14 @@ model ReturnItem {
   note        String?
   orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   return      Return       @relation(fields: [returnId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Discount {
   id                 String       @id @default(cuid())
-  code               String       @unique
+  tenantId           String
+  code               String
   type               DiscountType
   value              Int
   minimumOrderAmount Int?
@@ -367,10 +493,14 @@ model Discount {
   isActive           Boolean      @default(true)
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
 }
 
 model ShippingZone {
   id        String         @id @default(cuid())
+  tenantId  String
   name      String
   countries String[]
   regions   String[]
@@ -379,10 +509,13 @@ model ShippingZone {
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   rates     ShippingRate[]
+
+  @@index([tenantId])
 }
 
 model ShippingRate {
   id        String        @id @default(cuid())
+  tenantId  String
   zoneId    String
   name      String
   condition RateCondition @default(FLAT)
@@ -392,10 +525,13 @@ model ShippingRate {
   isActive  Boolean       @default(true)
   createdAt DateTime      @default(now())
   zone      ShippingZone  @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model Review {
   id               String       @id @default(cuid())
+  tenantId         String
   productId        String
   customerId       String?
   orderId          String?
@@ -409,10 +545,13 @@ model Review {
   updatedAt        DateTime     @updatedAt
   customer         Customer?    @relation(fields: [customerId], references: [id])
   product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model WelcomeEmailTemplate {
-  id                   String   @id @default("welcome")
+  id                   String   @id @default(cuid())
+  tenantId             String
   logoUrl              String?
   headerBgColor        String?
   cardBgColor          String?
@@ -445,11 +584,15 @@ model WelcomeEmailTemplate {
   bodyHtml             String?
   socialLinks          Json?
   signatureData        Json?
+
+  @@unique([tenantId])
+  @@index([tenantId])
 }
 
 model Artisan {
   id                 String           @id @default(cuid())
-  slug               String           @unique
+  tenantId           String
+  slug               String
   name               String
   status             ArtisanStatus    @default(DRAFT)
   tagline            String?
@@ -479,10 +622,14 @@ model Artisan {
   storyLabel         String?
   images             ArtisanImage[]
   products           ProductArtisan[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
 }
 
 model ArtisanImage {
   id        String               @id @default(cuid())
+  tenantId  String
   artisanId String
   url       String
   urlThumb  String?
@@ -493,19 +640,24 @@ model ArtisanImage {
   position  Int                  @default(0)
   createdAt DateTime             @default(now())
   artisan   Artisan              @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model ProductArtisan {
+  tenantId  String
   productId String
   artisanId String
   artisan   Artisan @relation(fields: [artisanId], references: [id], onDelete: Cascade)
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@id([productId, artisanId])
+  @@index([tenantId])
 }
 
 model LinkTreeSettings {
-  id              String    @id @default("singleton")
+  id              String    @id @default(cuid())
+  tenantId        String
   title           String    @default("Link Hub")
   description     String?
   logoUrl         String?
@@ -520,10 +672,14 @@ model LinkTreeSettings {
   backgroundColor String?   @default("#FFFBF0")
   buttonColor     String?   @default("#8B6914")
   textColor       String?   @default("#1F2937")
+
+  @@unique([tenantId])
+  @@index([tenantId])
 }
 
 model LinkTreeLink {
   id               String             @id @default(cuid())
+  tenantId         String
   title            String
   url              String
   description      String?
@@ -533,16 +689,21 @@ model LinkTreeLink {
   updatedAt        DateTime?          @default(now()) @updatedAt @db.Timestamp(6)
   clicks           Int?               @default(0)
   LinkTreeClickLog LinkTreeClickLog[]
+
+  @@index([tenantId])
 }
 
 model LinkTreeClickLog {
   id           String       @id
+  tenantId     String
   linkId       String
   clickedAt    DateTime?    @default(now()) @db.Timestamp(6)
   userAgent    String?
   referrer     String?
   ip           String?
   LinkTreeLink LinkTreeLink @relation(fields: [linkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenantId])
 }
 
 enum AdminRole {
@@ -663,6 +824,7 @@ enum ArtisanImageCategory {
 
 model ContactMessage {
   id        String               @id @default(cuid())
+  tenantId  String
   name      String
   email     String
   subject   String               @default("General Inquiry")
@@ -672,6 +834,8 @@ model ContactMessage {
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
   replies   ContactReply[]
+
+  @@index([tenantId])
 }
 
 enum ContactMessageStatus {
@@ -683,12 +847,15 @@ enum ContactMessageStatus {
 
 model ContactReply {
   id               String         @id @default(cuid())
+  tenantId         String
   contactMessageId String
   body             String
   direction        ReplyDirection @default(OUTBOUND)
   senderName       String         @default("Artisans' Stories")
   createdAt        DateTime       @default(now())
   contactMessage   ContactMessage @relation(fields: [contactMessageId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 enum ReplyDirection {
@@ -697,17 +864,20 @@ enum ReplyDirection {
 }
 
 model EmailLog {
-  id           String        @id @default(cuid())
-  type         EmailLogType
-  direction    EmailDirection @default(OUTBOUND)
-  toEmail      String
-  fromEmail    String        @default("hello@artisansstories.com")
-  subject      String
-  bodyHtml     String?       @db.Text
-  resendId     String?
-  relatedId    String?
-  relatedType  String?
-  createdAt    DateTime      @default(now())
+  id          String         @id @default(cuid())
+  tenantId    String
+  type        EmailLogType
+  direction   EmailDirection @default(OUTBOUND)
+  toEmail     String
+  fromEmail   String         @default("hello@artisansstories.com")
+  subject     String
+  bodyHtml    String?        @db.Text
+  resendId    String?
+  relatedId   String?
+  relatedType String?
+  createdAt   DateTime       @default(now())
+
+  @@index([tenantId])
 }
 
 enum EmailLogType {
@@ -733,15 +903,19 @@ enum EmailDirection {
 }
 
 model KBArticle {
-  id           String   @id @default(cuid())
-  title        String
-  slug         String   @unique
-  category     String
-  excerpt      String
-  content      String   @db.Text
-  readTimeMin  Int      @default(3)
-  publishedAt  DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  slug        String
+  category    String
+  excerpt     String
+  content     String   @db.Text
+  readTimeMin Int      @default(3)
+  publishedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
 }
 
 enum AddonType {
@@ -750,6 +924,7 @@ enum AddonType {
 
 model ProductAddon {
   id        String    @id @default(cuid())
+  tenantId  String
   productId String
   type      AddonType
   isEnabled Boolean   @default(true)
@@ -760,14 +935,18 @@ model ProductAddon {
   product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([productId, type])
+  @@index([tenantId])
 }
 
 model OrderItemAddon {
   id          String    @id @default(cuid())
+  tenantId    String
   orderItemId String
   type        AddonType
   data        Json
   price       Int       @default(0)
   createdAt   DateTime  @default(now())
   orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { logEmail } from "@/lib/email-log";
@@ -63,10 +64,16 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Rate limit: max 3 tokens per email per 5 minutes
+    // Customer login-by-email: resolve the tenant from the request host.
+    const tenantId = resolveTenantFromHost(request);
+
+    // Rate limit: max 3 tokens per email per 5 minutes. MagicLinkToken is keyed
+    // by a global secret token, so it stays on the raw client — scoped by
+    // tenantId explicitly here.
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const recentTokens = await prisma.magicLinkToken.count({
       where: {
+        tenantId,
         email: normalizedEmail,
         type: "CUSTOMER",
         createdAt: { gte: fiveMinutesAgo },
@@ -79,6 +86,7 @@ export async function POST(request: NextRequest) {
     // Clean up expired tokens for this email
     await prisma.magicLinkToken.deleteMany({
       where: {
+        tenantId,
         email: normalizedEmail,
         type: "CUSTOMER",
         expiresAt: { lt: new Date() },
@@ -90,6 +98,7 @@ export async function POST(request: NextRequest) {
 
     await prisma.magicLinkToken.create({
       data: {
+        tenantId,
         token,
         email: normalizedEmail,
         type: "CUSTOMER",
@@ -107,7 +116,7 @@ export async function POST(request: NextRequest) {
       subject: "Your Artisans' Stories sign-in link",
       html: customerMagicLinkEmail(magicLink),
     });
-    await logEmail({ type: "MAGIC_LINK_CUSTOMER", toEmail: normalizedEmail, subject: "Your Artisans' Stories sign-in link", resendId: mlResult.data?.id, relatedType: "CUSTOMER" });
+    await logEmail({ tenantId, type: "MAGIC_LINK_CUSTOMER", toEmail: normalizedEmail, subject: "Your Artisans' Stories sign-in link", resendId: mlResult.data?.id, relatedType: "CUSTOMER" });
 
     return NextResponse.json({ success: true, message: "Check your email for a sign-in link." });
   } catch (err) {

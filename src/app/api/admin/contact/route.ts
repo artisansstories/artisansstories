@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const searchParams = request.nextUrl.searchParams;
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
@@ -15,15 +16,15 @@ export async function GET(request: NextRequest) {
     }
 
     const [messages, total, unreadCount] = await Promise.all([
-      prisma.contactMessage.findMany({
+      db.contactMessage.findMany({
         where,
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
         include: { replies: { orderBy: { createdAt: "asc" } } },
       }),
-      prisma.contactMessage.count({ where }),
-      prisma.contactMessage.count({ where: { status: "UNREAD" } }),
+      db.contactMessage.count({ where }),
+      db.contactMessage.count({ where: { status: "UNREAD" } }),
     ]);
 
     return NextResponse.json({

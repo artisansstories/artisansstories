@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function GET() {
   try {
-    const admins = await prisma.adminUser.findMany({
+    const db = await getTenantPrismaForAdmin();
+    const admins = await db.adminUser.findMany({
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -24,6 +25,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
     if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -42,13 +44,14 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.toLowerCase().trim();
 
-    const existing = await prisma.adminUser.findUnique({ where: { email: normalizedEmail } });
+    const existing = await db.adminUser.findFirst({ where: { email: normalizedEmail } });
     if (existing) {
       return NextResponse.json({ error: "An admin with this email already exists" }, { status: 409 });
     }
 
-    const newAdmin = await prisma.adminUser.create({
+    const newAdmin = await db.adminUser.create({
       data: {
+        tenantId: db.$tenantId,
         name,
         email: normalizedEmail,
         role: role as "ADMIN" | "EDITOR",

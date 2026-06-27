@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { DiscountType } from "@prisma/client";
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
 export async function GET(_request: NextRequest, { params }: RouteContext) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    const discount = await prisma.discount.findUnique({ where: { id } });
+    const discount = await db.discount.findUnique({ where: { id } });
     if (!discount) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json({ discount });
   } catch (err) {
@@ -19,8 +19,8 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
 }
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
     const body = await request.json() as {
       code?: string;
@@ -36,7 +36,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       endsAt?: string | null;
       isActive?: boolean;
     };
-    const discount = await prisma.discount.update({
+    const discount = await db.discount.update({
       where: { id },
       data: {
         ...(body.code !== undefined && { code: body.code.trim().toUpperCase() }),
@@ -67,11 +67,11 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 }
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
     const body = await request.json() as { isActive: boolean };
-    const discount = await prisma.discount.update({
+    const discount = await db.discount.update({
       where: { id },
       data: { isActive: body.isActive },
     });
@@ -83,10 +83,10 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 }
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
+
     const { id } = await params;
-    await prisma.discount.delete({ where: { id } });
+    await db.discount.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("DELETE /api/admin/discounts/[id] error:", err);

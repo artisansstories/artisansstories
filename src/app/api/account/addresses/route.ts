@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccountSession } from '@/lib/account-session';
-import { prisma } from '@/lib/prisma';
+import { getTenantPrismaForHost } from '@/lib/tenant-context';
 import { AddressType } from '@prisma/client';
 
 export async function GET() {
@@ -10,7 +10,8 @@ export async function GET() {
   }
 
   try {
-    const addresses = await prisma.address.findMany({
+    const db = await getTenantPrismaForHost();
+    const addresses = await db.address.findMany({
       where: { customerId: session.id },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     });
@@ -28,6 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const db = await getTenantPrismaForHost(request);
     const body = await request.json();
     const {
       type,
@@ -52,14 +54,15 @@ export async function POST(request: NextRequest) {
 
     // If setting as default, unset all others
     if (isDefault) {
-      await prisma.address.updateMany({
+      await db.address.updateMany({
         where: { customerId: session.id },
         data: { isDefault: false },
       });
     }
 
-    const address = await prisma.address.create({
+    const address = await db.address.create({
       data: {
+        tenantId: db.$tenantId,
         customerId: session.id,
         type: (type as AddressType) ?? AddressType.SHIPPING,
         firstName,

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrisma } from "@/lib/tenant-prisma";
+import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
+    const tenantId = resolveTenantFromHost(request);
+    const db = getTenantPrisma(tenantId);
+
     const body = await request.json();
     const { name, email, subject, message } = body;
 
@@ -36,8 +40,9 @@ export async function POST(request: NextRequest) {
     });
 
     // Save to database (non-blocking — don't fail the response if this errors)
-    await prisma.contactMessage.create({
+    await db.contactMessage.create({
       data: {
+        tenantId: db.$tenantId,
         name,
         email,
         subject: subject || "General Inquiry",
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
       },
     }).catch((err: unknown) => console.error("Failed to save contact message to DB:", err));
     // Log inbound contact as email log entry
-    await logEmail({ type: "CONTACT_INBOUND", direction: "INBOUND", toEmail: "anna@artisansstories.com", fromEmail: email, subject: subject || "General Inquiry", resendId: contactNotifyResult.data?.id, relatedType: "CONTACT" });
+    await logEmail({ tenantId, type: "CONTACT_INBOUND", direction: "INBOUND", toEmail: "anna@artisansstories.com", fromEmail: email, subject: subject || "General Inquiry", resendId: contactNotifyResult.data?.id, relatedType: "CONTACT" });
 
     return NextResponse.json({ success: true });
   } catch (error) {

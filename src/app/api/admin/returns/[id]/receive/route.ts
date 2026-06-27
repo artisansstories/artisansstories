@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -8,19 +8,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const ret = await prisma.return.findUnique({ where: { id } });
+    const ret = await db.return.findUnique({ where: { id } });
     if (!ret) return NextResponse.json({ error: "Return not found" }, { status: 404 });
     if (ret.status !== "APPROVED") {
       return NextResponse.json({ error: "Return must be APPROVED before marking as received" }, { status: 400 });
     }
-    const retWithOrder = await prisma.return.findUnique({
+    const retWithOrder = await db.return.findUnique({
       where: { id },
       include: { order: { select: { email: true, orderNumber: true, id: true } } },
     });
-    const updated = await prisma.return.update({
+    const updated = await db.return.update({
       where: { id },
       data: { status: "RECEIVED" },
     });

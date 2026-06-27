@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { resolveTenantFromAdminSession, DEFAULT_TENANT_ID } from "@/lib/tenant-context";
 import { Client } from "pg";
 
 const DB = process.env.DATABASE_URL!;
 
 export async function GET(req: NextRequest) {
   await requireAdminSession();
+  // Raw pg bypasses the scoped client — filter every query by tenant.
+  const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.trim() ?? "";
@@ -15,12 +18,12 @@ export async function GET(req: NextRequest) {
   await client.connect();
 
   try {
+    const params: string[] = [tenantId];
     let query = `
       SELECT id, title, slug, category, excerpt, "readTimeMin", "publishedAt", "updatedAt", content
       FROM "KBArticle"
-      WHERE 1=1
+      WHERE "tenantId" = $1
     `;
-    const params: string[] = [];
 
     if (search) {
       params.push(`%${search}%`);
@@ -58,7 +61,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Distinct categories
-    const catResult = await client.query(`SELECT DISTINCT category FROM "KBArticle" ORDER BY category`);
+    const catResult = await client.query(`SELECT DISTINCT category FROM "KBArticle" WHERE "tenantId" = $1 ORDER BY category`, [tenantId]);
     const categories = catResult.rows.map((r) => r.category);
 
     return NextResponse.json({ articles, categories });

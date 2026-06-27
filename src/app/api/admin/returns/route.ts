@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { ReturnStatus, Prisma } from "@prisma/client";
 export async function GET(request: NextRequest) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get("status") ?? "";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -14,8 +13,8 @@ export async function GET(request: NextRequest) {
       where.status = status as ReturnStatus;
     }
     const [total, returns] = await Promise.all([
-      prisma.return.count({ where }),
-      prisma.return.findMany({
+      db.return.count({ where }),
+      db.return.findMany({
         where,
         skip: (page - 1) * limit,
         take: limit,

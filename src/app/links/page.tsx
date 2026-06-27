@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import TrackedLink from "@/components/TrackedLink";
+import { DEFAULT_TENANT_ID } from "@/lib/tenant-context";
 
 // Force dynamic rendering - links can change anytime
 export const dynamic = 'force-dynamic';
@@ -30,9 +31,12 @@ async function getLinktreeData() {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     await client.connect();
-    
-    const settingsResult = await client.query(`SELECT * FROM "LinkTreeSettings" WHERE id = 'singleton'`);
-    const linksResult = await client.query(`SELECT * FROM "LinkTreeLink" WHERE "isEnabled" = true ORDER BY "sortOrder" ASC`);
+
+    // Public Link Tree for the primary domain → tenant zero. Raw pg bypasses the
+    // scoped client, so the tenant filter is applied by hand.
+    const tenantId = DEFAULT_TENANT_ID;
+    const settingsResult = await client.query(`SELECT * FROM "LinkTreeSettings" WHERE "tenantId" = $1`, [tenantId]);
+    const linksResult = await client.query(`SELECT * FROM "LinkTreeLink" WHERE "tenantId" = $1 AND "isEnabled" = true ORDER BY "sortOrder" ASC`, [tenantId]);
     
     const settings = settingsResult.rows[0] as Settings | undefined;
     const links = linksResult.rows as Link[];

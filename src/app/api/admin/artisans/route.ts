@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function GET() {
   try {
+    const db = await getTenantPrismaForAdmin();
     await requireAdminSession();
-    const artisans = await prisma.artisan.findMany({
+    const artisans = await db.artisan.findMany({
       include: {
         images: { orderBy: { position: "asc" }, take: 1 },
         products: true,
@@ -21,11 +22,13 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForAdmin();
     await requireAdminSession();
     const body = await request.json();
     const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const artisan = await prisma.artisan.create({
+    const artisan = await db.artisan.create({
       data: {
+        tenantId: db.$tenantId,
         slug,
         name: body.name,
         status: body.status ?? "DRAFT",

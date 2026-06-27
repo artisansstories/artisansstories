@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { requireAdminSession } from "@/lib/admin-auth";
 
 export async function POST(request: NextRequest) {
@@ -8,8 +8,9 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const db = await getTenantPrismaForAdmin();
   const { artisanId } = await request.json() as { artisanId: string };
-  await prisma.artisan.update({
+  await db.artisan.update({
     where: { id: artisanId },
     data: { igAccessToken: null, igUserId: null, igTokenExpiry: null },
   });

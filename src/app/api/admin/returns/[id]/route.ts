@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const ret = await prisma.return.findUnique({
+    const ret = await db.return.findUnique({
       where: { id },
       include: {
         order: {
@@ -53,11 +52,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { adminNote?: string };
-    const ret = await prisma.return.update({
+    const ret = await db.return.update({
       where: { id },
       data: { adminNote: body.adminNote },
     });

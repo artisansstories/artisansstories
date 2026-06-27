@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { refundIssuedHtml } from "@/lib/emails/refund-issued";
@@ -10,14 +10,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    
-    
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { amount: number; restock: boolean };
     if (body.amount === undefined || body.amount === null || body.amount < 0) {
       return NextResponse.json({ error: "Invalid refund amount" }, { status: 400 });
     }
-    const ret = await prisma.return.findUnique({
+    const ret = await db.return.findUnique({
       where: { id },
       include: {
         order: {
@@ -64,7 +63,7 @@ export async function POST(
     const isPartial = body.amount < order.total;
     const newFinancialStatus = isPartial ? "PARTIALLY_REFUNDED" : "REFUNDED";
     const [updated] = await Promise.all([
-      prisma.return.update({
+      db.return.update({
         where: { id },
         data: {
           status: "REFUNDED",
@@ -74,7 +73,7 @@ export async function POST(
           restockItems: body.restock,
         },
       }),
-      prisma.order.update({
+      db.order.update({
         where: { id: order.id },
         data: {
           financialStatus: newFinancialStatus,
@@ -88,7 +87,7 @@ export async function POST(
       for (const returnItem of ret.items) {
         const orderItem = returnItem.orderItem;
         if (orderItem.variantId) {
-          await prisma.inventory.update({
+          await db.inventory.update({
             where: { variantId: orderItem.variantId },
             data: { quantity: { increment: returnItem.quantity } },
           });

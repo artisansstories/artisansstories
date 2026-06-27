@@ -21,6 +21,7 @@ async function main() {
       },
       create: {
         id: "singleton",
+        tenantId: "tenant_artisans_stories",
         productDisclaimer: DEFAULT_DISCLAIMER,
       },
     });

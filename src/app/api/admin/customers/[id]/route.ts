@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
 
-    const customer = await prisma.customer.findUnique({
+    const customer = await db.customer.findUnique({
       where: { id },
       include: {
         addresses: { orderBy: { isDefault: "desc" } },
@@ -69,10 +70,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { notes?: string; tags?: string[] };
 
-    const customer = await prisma.customer.update({
+    const customer = await db.customer.update({
       where: { id },
       data: {
         ...(body.notes !== undefined && { notes: body.notes }),

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getTenantPrismaForHost } from "@/lib/tenant-context";
 
 export async function GET(request: NextRequest) {
   try {
+    const db = await getTenantPrismaForHost(request);
     const { searchParams } = new URL(request.url);
     const countryCode = searchParams.get("countryCode") || "US";
     // subtotal in cents, passed by checkout page
     const subtotal = parseInt(searchParams.get("subtotal") ?? "0", 10);
 
     // Find active shipping zones that include this country
-    const zones = await prisma.shippingZone.findMany({
+    const zones = await db.shippingZone.findMany({
       where: {
         isActive: true,
         countries: { has: countryCode },
