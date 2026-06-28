@@ -8,6 +8,7 @@ import {
   type CheckoutMode,
   type TenantStatusValue,
 } from "@/lib/platform-tenants";
+import { provisionTenantDomain } from "@/lib/tenant-domain-provisioner";
 import type { Prisma } from "@prisma/client";
 
 /**
@@ -32,8 +33,9 @@ interface CreateTenantBody {
 }
 
 export async function POST(req: NextRequest) {
+  let operator;
   try {
-    await requirePlatformOperator(req);
+    operator = await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;
@@ -112,6 +114,27 @@ export async function POST(req: NextRequest) {
     return t;
   });
 
+  // Auto-provision the tenant's subdomain (Cloudflare DNS + Vercel domain).
+  // NON-FATAL: a failure here never blocks tenant creation — we surface a
+  // `domainProvisioned` flag and audit the outcome so an operator can retry.
+  const provision = await provisionTenantDomain(tenant.slug);
+  const domainProvisioned = provision.cloudflare && provision.vercel;
+
+  await prisma.platformAuditLog.create({
+    data: {
+      operatorId: operator.id,
+      operatorEmail: operator.email,
+      action: "tenant.domain_provisioned",
+      tenantId: tenant.id,
+      detail: JSON.stringify({
+        slug: tenant.slug,
+        cloudflare: provision.cloudflare,
+        vercel: provision.vercel,
+        ...(provision.error ? { error: provision.error } : {}),
+      }),
+    },
+  });
+
   return NextResponse.json(
     {
       id: tenant.id,
@@ -122,6 +145,7 @@ export async function POST(req: NextRequest) {
       checkoutMode: tenant.checkoutMode,
       stripeOnboarded: tenant.stripeOnboarded,
       createdAt: tenant.createdAt,
+      domainProvisioned,
     },
     { status: 201 },
   );

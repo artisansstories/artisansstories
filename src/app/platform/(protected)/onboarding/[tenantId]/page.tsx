@@ -384,6 +384,17 @@ function CreateStep({ status, tenantName }: { status: OnboardingStatus; tenantNa
         <div><span style={{ color: MUTED }}>Slug</span><br /><code>{status.slug}</code></div>
         <div><span style={{ color: MUTED }}>Hosted at</span><br /><code>/t/{status.slug}</code></div>
       </div>
+
+      {/* Store URL chip — the tenant's own subdomain. DNS + cert were provisioned
+          at creation time; this is display-only (copyable). */}
+      <div style={{ marginTop: 16 }}>
+        <span style={{ color: MUTED, fontSize: 13 }}>Your store URL</span>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginTop: 6, marginLeft: 0, padding: "8px 14px", borderRadius: 999, background: "rgba(61,79,124,0.08)", border: "1px solid rgba(61,79,124,0.18)" }}>
+          <code style={{ fontSize: 14, color: ACCENT, fontWeight: 600 }}>{status.slug}.artisansstories.com</code>
+          <CopyButton value={`${status.slug}.artisansstories.com`} label="Copy" />
+        </div>
+      </div>
+
       <p style={microcopy}>
         The store, its default theme, and store settings already exist. Next: brand it, connect
         Stripe, add a product, mint a key — then take it live.
