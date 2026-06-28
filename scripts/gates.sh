@@ -30,6 +30,12 @@ run_gate_C() {
     tail -40 /tmp/gate-C-upload.out
     if [ "$urc" -ne 0 ]; then report C "RED (upload prefix leak or test fail)"; return 1; fi
   fi
+  # Admin upload tenant-prefix (U4): NEW product/store uploads → tenants/{id}/...
+  if [ -f scripts/test-admin-upload-prefix.ts ]; then
+    npx tsx scripts/test-admin-upload-prefix.ts > /tmp/gate-C-admin-upload.out 2>&1; local arc=$?
+    tail -40 /tmp/gate-C-admin-upload.out
+    if [ "$arc" -ne 0 ]; then report C "RED (admin upload prefix leak or test fail)"; return 1; fi
+  fi
   report C "GREEN"; return 0
 }
 

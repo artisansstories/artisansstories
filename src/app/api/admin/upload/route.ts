@@ -58,11 +58,18 @@ async function generateAltText(
 }
 
 export async function POST(request: NextRequest) {
+  let session;
   try {
-    await requireAdminSession();
+    session = await requireAdminSession();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Tenant prefix is derived ONLY from the authenticated admin session — the same
+  // source the scoped Prisma client keys off (`session.tenantId`), so an
+  // operator impersonating a tenant writes under that tenant's prefix too. The
+  // request body can never steer it. If tenant is unknown (legacy session minted
+  // before P2), fall back to the historical flat key so the upload still works.
+  const tenantId = session.tenantId;
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -116,7 +123,9 @@ export async function POST(request: NextRequest) {
     ]);
     const timestamp = Date.now();
     const random = Math.random().toString(36).slice(2, 8);
-    const baseName = `products/${timestamp}-${random}`;
+    const baseName = tenantId
+      ? `tenants/${tenantId}/products/${timestamp}-${random}`
+      : `products/${timestamp}-${random}`;
     const fullKey = `${baseName}.webp`;
     const mediumKey = `${baseName}-medium.webp`;
     const thumbKey = `${baseName}-thumb.webp`;
