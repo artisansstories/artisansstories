@@ -1,6 +1,9 @@
 import React from "react";
 import Image from "next/image";
 import { Cormorant_Garamond, Inter } from "next/font/google";
+import { headers } from "next/headers";
+import { parseTenantHost } from "@/lib/tenant-host";
+import { prisma } from "@/lib/prisma";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -17,10 +20,29 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "Secure Checkout — Artisans' Stories",
+  title: "Secure Checkout",
 };
 
-export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
+async function resolveTenantBranding(): Promise<{ logoUrl: string | null; storeName: string }> {
+  try {
+    const host = (await headers()).get("host");
+    const routing = parseTenantHost(host);
+    if (routing.kind === "root") return { logoUrl: null, storeName: "Artisans\' Stories" };
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: routing.slug },
+      select: { name: true, theme: { select: { logoUrl: true } } },
+    });
+    return {
+      logoUrl: tenant?.theme?.logoUrl ?? null,
+      storeName: tenant?.name ?? "Store",
+    };
+  } catch {
+    return { logoUrl: null, storeName: "Artisans\' Stories" };
+  }
+}
+
+export default async function CheckoutLayout({ children }: { children: React.ReactNode }) {
+  const { logoUrl, storeName } = await resolveTenantBranding();
   return (
     <div
       className={`${cormorant.variable} ${inter.variable}`}
@@ -64,15 +86,27 @@ export default function CheckoutLayout({ children }: { children: React.ReactNode
           }}
         >
           <a href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center" }}>
-            <Image
-              src="/logo-color.png"
-              alt="Artisans' Stories"
-              width={160}
-              height={43}
-              style={{ width: 140, height: "auto" }}
-              priority
-              unoptimized
-            />
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt={storeName}
+                width={160}
+                height={43}
+                style={{ width: 140, height: "auto" }}
+                priority
+                unoptimized
+              />
+            ) : (
+              <Image
+                src="/logo-color.png"
+                alt="Artisans\' Stories"
+                width={160}
+                height={43}
+                style={{ width: 140, height: "auto" }}
+                priority
+                unoptimized
+              />
+            )}
           </a>
 
           <div

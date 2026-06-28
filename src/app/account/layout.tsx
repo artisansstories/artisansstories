@@ -1,9 +1,40 @@
 import { getAccountSession } from '@/lib/account-session';
 import Image from 'next/image';
 import AccountNav from './AccountNav';
+import { headers } from 'next/headers';
+import { parseTenantHost } from '@/lib/tenant-host';
+import { prisma } from '@/lib/prisma';
+
+async function resolveTenantBranding(): Promise<{ logoUrl: string | null; storeName: string; contactEmail: string }> {
+  try {
+    const host = (await headers()).get('host');
+    const routing = parseTenantHost(host);
+    if (routing.kind === 'root') return { logoUrl: null, storeName: "Artisans' Stories", contactEmail: 'hello@artisansstories.com' };
+    const tenant = await prisma.tenant.findUnique({
+      where: { slug: routing.slug },
+      select: { id: true, name: true, theme: { select: { logoUrl: true } } },
+    });
+    const storeSettings = tenant
+      ? await prisma.storeSettings.findFirst({
+          where: { tenantId: tenant.id },
+          select: { contactEmail: true },
+        })
+      : null;
+    return {
+      logoUrl: tenant?.theme?.logoUrl ?? null,
+      storeName: tenant?.name ?? 'Store',
+      contactEmail: storeSettings?.contactEmail ?? 'hello@artisansstories.com',
+    };
+  } catch {
+    return { logoUrl: null, storeName: "Artisans' Stories", contactEmail: 'hello@artisansstories.com' };
+  }
+}
 
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const session = await getAccountSession();
+  const [session, { logoUrl, storeName, contactEmail }] = await Promise.all([
+    getAccountSession(),
+    resolveTenantBranding(),
+  ]);
 
   return (
     <>
@@ -41,15 +72,27 @@ export default async function AccountLayout({ children }: { children: React.Reac
           }}>
             {/* Logo */}
             <a href="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <Image
-                src="/logo-color.png"
-                alt="Artisans' Stories"
-                width={320}
-                height={86}
-                style={{ width: 'clamp(130px, 34vw, 260px)', height: 'auto' }}
-                unoptimized
-                priority
-              />
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt={storeName}
+                  width={320}
+                  height={86}
+                  style={{ width: 'clamp(130px, 34vw, 260px)', height: 'auto' }}
+                  unoptimized
+                  priority
+                />
+              ) : (
+                <Image
+                  src="/logo-color.png"
+                  alt="Artisans' Stories"
+                  width={320}
+                  height={86}
+                  style={{ width: 'clamp(130px, 34vw, 260px)', height: 'auto' }}
+                  unoptimized
+                  priority
+                />
+              )}
             </a>
 
             {/* Account nav — client component (event handlers not allowed in server components) */}
@@ -72,10 +115,10 @@ export default async function AccountLayout({ children }: { children: React.Reac
           textAlign: 'center',
         }}>
           <p style={{ fontSize: 12, color: '#b09878', fontFamily: "'Inter', sans-serif" }}>
-            &copy; {new Date().getFullYear()} Artisans&apos; Stories &nbsp;&middot;&nbsp;
+            &copy; {new Date().getFullYear()} {storeName} &nbsp;&middot;&nbsp;
             <a href="/" style={{ color: '#8B6914' }}>Shop</a>
             &nbsp;&middot;&nbsp;
-            <a href="mailto:hello@artisansstories.com" style={{ color: '#8B6914' }}>Contact</a>
+            <a href={`mailto:${contactEmail}`} style={{ color: '#8B6914' }}>Contact</a>
           </p>
         </footer>
 

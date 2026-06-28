@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveTenantFromHost } from "@/lib/tenant-context";
+import { originFromRequest } from "@/lib/tenant-host";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { getEmailBranding, emailLogoHtml, type EmailBranding } from "@/lib/email-branding";
@@ -107,7 +108,9 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+    // Use the origin the customer is actually on (tenant subdomain or apex) so
+    // the verify link lands on the correct host and the cookie is scoped correctly.
+    const siteUrl = originFromRequest(request);
     const magicLink = `${siteUrl}/api/auth/customer/verify?token=${encodeURIComponent(token)}`;
 
     const branding = await getEmailBranding(tenantId);
