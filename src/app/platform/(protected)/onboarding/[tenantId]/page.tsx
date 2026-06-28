@@ -1241,6 +1241,8 @@ function GoLiveStep({
   const hostedUrl = `${origin}/t/${status.slug}`;
 
   async function goLive() {
+    // Going live publishes the storefront to the public — confirm first (P2-1).
+    if (!window.confirm("Take this store live? Its storefront becomes publicly sellable immediately.")) return;
     setBusy(true);
     setErr(null);
     setMissing(null);

@@ -45,6 +45,7 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
 type SortCol = "createdAt" | "name";
 
 const ACCENT = "#3D4F7C";
+const GREEN = "#1c7c4a";
 
 /** Compact created-date for the list column. */
 function fmtDate(iso: string): string {
@@ -134,8 +135,11 @@ function SortHeader({
 }
 
 /** POST to the impersonation start endpoint via a real form so the browser
- * follows the server redirect into /admin (and carries the freshly-set cookie). */
-function startImpersonation(tenantId: string) {
+ * follows the server redirect into /admin (and carries the freshly-set cookie).
+ * Impersonation mints an admin session into someone's store and is audited, so
+ * it confirms first (P2-1). */
+function startImpersonation(tenantId: string, name: string) {
+  if (!window.confirm(`Enter ${name}'s admin as operator? This action is audited.`)) return;
   const form = document.createElement("form");
   form.method = "POST";
   form.action = `/api/platform/tenants/${tenantId}/impersonate`;
@@ -290,12 +294,22 @@ export default function PlatformTenantsPage() {
     }
   }
 
-  function closeMintModal() {
+  const closeMintModal = useCallback(() => {
     setMintFor(null);
     setKeyName("");
     setKeyScopes(["store:read", "checkout:create"]);
     setMinted(null);
-  }
+  }, []);
+
+  // ESC closes the mint-key modal (a11y, P2-3).
+  useEffect(() => {
+    if (!mintFor) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeMintModal();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mintFor, closeMintModal]);
 
   return (
     <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -397,11 +411,11 @@ export default function PlatformTenantsPage() {
                     <td style={{ padding: "10px 8px" }}>
                       <ViewStoreLink slug={t.slug} live={t.storeEnabled && t.status === "ACTIVE"} />
                     </td>
-                    <td style={{ padding: "10px 8px" }}>{t.stripeOnboarded ? "✓ onboarded" : "—"}</td>
+                    <td style={{ padding: "10px 8px", color: t.stripeOnboarded ? GREEN : "#9a3838" }}>{t.stripeOnboarded ? "Onboarded" : "Not onboarded"}</td>
                     <td style={{ padding: "10px 8px" }}>{t.productCount}</td>
                     <td style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
                       <button style={{ ...btnGhost, marginRight: 8 }} onClick={() => setMintFor(t)}>Mint API key</button>
-                      <button style={{ ...btn, marginRight: 8 }} onClick={() => startImpersonation(t.id)}>Impersonate</button>
+                      <button style={{ ...btn, marginRight: 8 }} onClick={() => startImpersonation(t.id, t.name)}>Impersonate</button>
                       {!t.isPlatformOwner && (
                         t.status === "ARCHIVED" || t.status === "SUSPENDED" ? (
                           <button style={{ ...linkBtn, opacity: busyId === t.id ? 0.5 : 1 }} disabled={busyId === t.id} onClick={() => changeStatus(t, "ACTIVE")}>Reactivate</button>
@@ -424,7 +438,20 @@ export default function PlatformTenantsPage() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 16 }}
           onClick={(e) => { if (e.target === e.currentTarget) closeMintModal(); }}
         >
-          <div style={{ ...card, width: "100%", maxWidth: 480 }}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Mint API key for ${mintFor.name}`}
+            style={{ ...card, width: "100%", maxWidth: 480, position: "relative" }}
+          >
+            <button
+              type="button"
+              onClick={closeMintModal}
+              aria-label="Close"
+              style={{ position: "absolute", top: 14, right: 14, background: "transparent", border: "none", cursor: "pointer", fontSize: 22, lineHeight: 1, color: "#888", padding: 4 }}
+            >
+              ×
+            </button>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: "#222b40" }}>Mint API key</h2>
             <p style={{ color: "#666", fontSize: 13, marginBottom: 16 }}>for <strong>{mintFor.name}</strong></p>
 
@@ -442,7 +469,7 @@ export default function PlatformTenantsPage() {
             ) : (
               <form onSubmit={mintKey}>
                 <label style={label}>Key name</label>
-                <input style={input} value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Storefront integration" required />
+                <input autoFocus style={input} value={keyName} onChange={(e) => setKeyName(e.target.value)} placeholder="Storefront integration" required />
                 <label style={label}>Scopes</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
                   {ALL_SCOPES.map((s) => (

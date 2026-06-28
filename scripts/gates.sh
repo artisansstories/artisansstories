@@ -54,6 +54,12 @@ run_gate_C() {
     tail -40 /tmp/gate-C-stats.out
     if [ "$src" -ne 0 ]; then report C "RED (tenant stats fail)"; return 1; fi
   fi
+  # Audit-log viewer (A7): operator-gated + filtered/ordered rows.
+  if [ -f scripts/test-audit-log.ts ]; then
+    npx tsx scripts/test-audit-log.ts > /tmp/gate-C-audit.out 2>&1; local aurc=$?
+    tail -40 /tmp/gate-C-audit.out
+    if [ "$aurc" -ne 0 ]; then report C "RED (audit log fail)"; return 1; fi
+  fi
   report C "GREEN"; return 0
 }
 

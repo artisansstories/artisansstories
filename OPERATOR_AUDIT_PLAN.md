@@ -165,3 +165,34 @@ DELETE /api/platform/tenants/[id]        # NEW
 ---
 
 _All claims grounded in: `api/platform/tenants/[id]/route.ts` (GET+PATCH only), `tenants/page.tsx:215-218`, `tenants/[id]/page.tsx`, `schema.prisma:36-70/112-123`, `tenant-prisma.ts:38-73`, `storefront.ts:38`, `impersonate/route.ts:38`, `go-live/route.ts:63`, `lib/r2.ts`._
+
+---
+
+## EXECUTION RECORD (shipped)
+
+All seven phases executed via the gated loop. Author: Wayne Kool. The ask: close the **missing back half** of the operator lifecycle — give every store a **View** link and a **retire** path (archive + gated hard delete), make impersonation status-aware, make the tenant list usable at scale, surface ops stats, and finally make the **audit trail visible** and polish the console. **Additive throughout** — the only schema touch was `ARCHIVED` added to `TenantStatus` (A2); auth model unchanged (`requirePlatformOperator` everywhere). Two of Wayne's named items (no DELETE, no VIEW link) shipped first (A1/A3).
+
+| Phase | Commit | What shipped | Gates |
+|---|---|---|---|
+| **A1** | `50b9a53` | **View store** links on the Tenants list rows + detail header → `/t/{slug}` (new tab); `storeEnabled` surfaced on the list + detail payloads so non-live stores render a **"Preview (not live yet)"** label instead of springing a 404; same link dropped on the Stripe + Onboarding lists (P0-3 / P1-7). | tsc · build · full suite |
+| **A2** | `50b9a53` | Archive (soft, reversible) + Suspend/Reactivate buttons (P0-1 tier 1, P1-1, P0-5). `ARCHIVED` added to `TenantStatus`; storefront gate 404s on `ARCHIVED`; PATCH side-effects (revoke all keys on archive, audit `tenant.archive`/`tenant.suspend`/`tenant.reactivate`); house/`isPlatformOwner` hard-blocked (403 `platform_owner_protected`); default list hides archived (toggle to show). | tsc · build · full suite **+ test-tenant-lifecycle** |
+| **A3** | `8f31394` | Gated hard delete (P0-1 tier 2, P0-2, P1-8). `DELETE /api/platform/tenants/[id]`: typed-slug confirm (409 `slug_mismatch`), no-paid-orders gate (409 `has_paid_orders`), house guard (403 `platform_owner_undeletable`); **transactional sweep** over `TENANT_SCOPED_MODELS` in FK-safe leaf→root order (closes the silent-orphan landmine), with a startup completeness guard; pre-sweep snapshot audit `tenant.delete`; R2 prefix sweep (`deleteObjectsByPrefix`, best-effort); Stripe detach-only. Typed-slug modal in the UI. | tsc · build · full suite **+ test-tenant-delete** |
+| **A4** | `8f31394` | Impersonation safety (P0-4): `impersonate/route.ts` rejects `SUSPENDED`/`ARCHIVED` (403 `tenant_unavailable`) after load; `ACTIVE`/`PENDING` still allowed. | tsc · build · full suite **+ test-impersonation** |
+| **A5** | `67d23a5` | Tenant list usability (P1-2): server-side `?q=` (name/slug), `?status=`, `?sort=`/`?dir=`, `?includeArchived=1` on the tenants GET; search box (debounced), status filter, sortable Name/Created headers, created-date column, Show-archived toggle in the UI. | tsc · build · full suite |
+| **A6** | `67d23a5` | Per-tenant + dashboard ops stats (P1-3, P1-4): tenant-detail Overview gains orders / paid orders / paid revenue / customers (shared `PAID_FINANCIAL_STATUSES` with the delete gate); new `/api/platform/dashboard` aggregate (counts, revenue, needs-go-live list, recent). | tsc · build · full suite **+ test-tenant-stats** |
+| **A7** | (this) | **Audit-log viewer + console polish.** New `GET /api/platform/audit-log` (operator-gated; `?tenantId`/`?action`/`?limit`, newest-first, batched tenant-label resolve); new **Activity** page + nav link; tenant-detail **Recent activity** section filtered to the tenant. **Confirm dialogs** on impersonate (list + detail), sign-out, and go-live (P2-1). **A11y** (P2-3, P2-6): mint-key modal `role="dialog"`+`aria-modal`+ESC-to-close+labelled close+initial focus; nav/drawer `aria-label`/`aria-current`/`aria-modal`+ESC+`aria-expanded`; non-colour status labels (Flag "yes/no", list "Onboarded/Not onboarded"); tables `minWidth`+`overflowX:auto` for mobile. **Thin pages filled** (P1-5, P1-6): new `GET /api/platform/api-keys` cross-tenant inventory + API Keys page (counts, show-revoked toggle, per-tenant links); Stripe page gains "N/M onboarded" count, onboarded filter, name sort, and per-account + general Stripe-dashboard links (`stripeConnectAccountId` added to the list payload). New gate `test-audit-log` (operator-gated 401, newest-first ordering, tenantId/action/limit filters). | **full suite + test-audit-log** |
+
+### New surfaces (A7, as shipped)
+- **Endpoints (operator-gated):** `GET /api/platform/audit-log` · `GET /api/platform/api-keys`.
+- **Pages:** `/platform/activity` (audit viewer) · `/platform/api-keys` (now a real cross-tenant inventory, no longer a redirect stub) · Activity nav link in `PlatformLayoutClient`.
+- **Gate added:** `test-audit-log` (in `scripts/gates.sh`, gate C).
+- **No schema change in A7** (the only schema change across A1–A7 was `ARCHIVED`, in A2).
+
+### Deferred (NOT done in A7 — scoped out, safe follow-ups)
+- **Revoke-from-here on the API Keys inventory** — the cross-tenant page is read-only; revoke stays per-tenant (PATCH/key routes already exist). Deferred per task ("skip if it balloons") — a write action on an aggregate page warrants its own confirm + audit pass.
+- **Operator management on Settings** (invite/deactivate operators, P2-4 second half) — still identity-only; out of A7 scope, a dedicated release.
+- **Focus-trap (full) on modals** — modals get `role=dialog`/`aria-modal`/ESC/initial-focus/labelled-close, but not a complete tab-cycle trap. Acceptable baseline; a true trap is a shared-component a11y pass.
+- **Integration artifact versioning (P2-7)** — not a console dead-end; left as a follow-up.
+
+### Full gate suite (all green)
+`test-isolation` · `test-admin-scoping` · `test-operator-session` · `test-operator-authz` · `test-impersonation` · `test-onboarding-train` · `test-onboarding` · `test-upload-isolation` · `test-admin-upload-prefix` · `test-tenant-lifecycle` · `test-tenant-delete` · `test-tenant-stats` · `test-audit-log`

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { ActionChip, fmtAuditTime, fmtDetail } from "../../activity/page";
 
 /**
  * Tenant detail (P10) — operator view of a single tenant: theme summary, Stripe
@@ -36,6 +37,14 @@ interface TenantDetail {
     paidRevenueCents: number;
     customersCount: number;
   };
+}
+
+interface AuditEntry {
+  id: string;
+  operatorEmail: string;
+  action: string;
+  detail: string | null;
+  createdAt: string;
 }
 
 interface ApiKey {
@@ -118,7 +127,10 @@ function lifecycleErrorMessage(code: string, fallback: string, count?: number): 
   return fallback;
 }
 
-function startImpersonation(tenantId: string) {
+function startImpersonation(tenantId: string, name: string) {
+  // Impersonation mints an admin session into the store and is audited — confirm
+  // first (P2-1).
+  if (!window.confirm(`Enter ${name}'s admin as operator? This action is audited.`)) return;
   const form = document.createElement("form");
   form.method = "POST";
   form.action = `/api/platform/tenants/${tenantId}/impersonate`;
@@ -134,12 +146,17 @@ function fmtCents(cents: number): string {
 }
 
 function Flag({ on, label }: { on: boolean; label: string }) {
+  // Status is conveyed by glyph (✓/✗) + an explicit "yes/no" word, never by
+  // colour alone (a11y, P2-3).
   return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13,
-      color: on ? GREEN : "#9a3838",
-    }}>
-      <span>{on ? "✓" : "✗"}</span> {label}
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13,
+        color: on ? GREEN : "#9a3838",
+      }}
+    >
+      <span aria-hidden>{on ? "✓" : "✗"}</span> {label}
+      <span style={{ color: "#8a93a6" }}>— {on ? "yes" : "no"}</span>
     </span>
   );
 }
@@ -178,6 +195,7 @@ export default function TenantDetailPage() {
 
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [activity, setActivity] = useState<AuditEntry[]>([]);
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,10 +207,11 @@ export default function TenantDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [tRes, kRes, sRes] = await Promise.all([
+      const [tRes, kRes, sRes, aRes] = await Promise.all([
         fetch(`/api/platform/tenants/${id}`),
         fetch(`/api/platform/tenants/${id}/api-keys`),
         fetch(`/api/platform/tenants/${id}/onboarding-status`),
+        fetch(`/api/platform/audit-log?tenantId=${id}&limit=20`),
       ]);
       if (!tRes.ok) {
         const body = await tRes.json().catch(() => ({}));
@@ -205,6 +224,10 @@ export default function TenantDetailPage() {
       }
       if (sRes.ok) {
         setStatus(await sRes.json());
+      }
+      if (aRes.ok) {
+        const aBody = await aRes.json();
+        setActivity(aBody.entries ?? []);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load tenant");
@@ -312,7 +335,7 @@ export default function TenantDetailPage() {
               >
                 {tenant.storeEnabled && tenant.status === "ACTIVE" ? "View store ↗" : "Preview (not live yet) ↗"}
               </a>
-              <button style={btn} onClick={() => startImpersonation(tenant.id)}>Impersonate</button>
+              <button style={btn} onClick={() => startImpersonation(tenant.id, tenant.name)}>Impersonate</button>
               {/* Lifecycle — hidden entirely for the house/platform-owner tenant. */}
               {!tenant.isPlatformOwner && (
                 tenant.status === "ARCHIVED" || tenant.status === "SUSPENDED" ? (
@@ -459,6 +482,41 @@ export default function TenantDetailPage() {
                         <td style={{ padding: "10px 8px" }}><code>{k.prefix}</code></td>
                         <td style={{ padding: "10px 8px", color: "#666" }}>{k.scopes.join(", ")}</td>
                         <td style={{ padding: "10px 8px" }}>{k.revokedAt ? "revoked" : "active"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Recent activity (A7 / P2-5): the archive/delete/impersonate history
+              for THIS store, filtered to its tenantId. Read-only. */}
+          <div style={card}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#222b40" }}>Recent activity</h2>
+              <a href="/platform/activity" style={{ ...btnGhost, padding: "6px 12px", fontSize: 13 }}>All activity →</a>
+            </div>
+            {activity.length === 0 ? (
+              <p style={{ color: "#888", fontSize: 13 }}>No operator activity for this store yet.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 560 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#888", fontSize: 12 }}>
+                      <th style={{ padding: "8px 8px", whiteSpace: "nowrap" }}>Time</th>
+                      <th style={{ padding: "8px 8px" }}>Operator</th>
+                      <th style={{ padding: "8px 8px" }}>Action</th>
+                      <th style={{ padding: "8px 8px" }}>Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activity.map((a) => (
+                      <tr key={a.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                        <td style={{ padding: "10px 8px", color: "#666", whiteSpace: "nowrap" }}>{fmtAuditTime(a.createdAt)}</td>
+                        <td style={{ padding: "10px 8px", color: "#444" }}>{a.operatorEmail}</td>
+                        <td style={{ padding: "10px 8px" }}><ActionChip action={a.action} /></td>
+                        <td style={{ padding: "10px 8px", color: "#666" }}>{fmtDetail(a.detail)}</td>
                       </tr>
                     ))}
                   </tbody>

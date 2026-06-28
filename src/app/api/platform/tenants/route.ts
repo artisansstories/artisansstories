@@ -199,6 +199,7 @@ export async function GET(req: NextRequest) {
       name: true,
       status: true,
       isPlatformOwner: true,
+      stripeConnectAccountId: true,
       stripeOnboarded: true,
       createdAt: true,
     },

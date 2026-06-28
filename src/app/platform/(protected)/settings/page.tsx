@@ -33,6 +33,10 @@ export default async function PlatformSettingsPage() {
           This is a platform-operator session (<code>as-platform-session</code>) — fully separate from any
           store admin. Operator management arrives in a later release.
         </p>
+        <p style={{ marginTop: 12, fontSize: 13, color: "#7a8296", lineHeight: 1.6 }}>
+          Review audited operator actions (impersonation, go-live, tenant lifecycle) on the{" "}
+          <a href="/platform/activity" style={{ color: "#3D4F7C", fontWeight: 600, textDecoration: "none" }}>Activity</a> page.
+        </p>
       </div>
     </div>
   );
