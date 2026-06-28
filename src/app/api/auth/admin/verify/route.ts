@@ -3,9 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { createAdminSession } from "@/lib/admin-auth";
 import { safeAdminCallback } from "@/lib/safe-callback";
+import { originFromRequest } from "@/lib/tenant-context";
 
 export async function GET(request: NextRequest) {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+  // Redirect back to the SAME host the link was opened on (apex for tenant zero,
+  // the tenant's subdomain otherwise) so the host-scoped session cookie set just
+  // below stays valid on the destination /admin.
+  const siteUrl = originFromRequest(request);
   const token = request.nextUrl.searchParams.get("token");
   const callbackUrl = safeAdminCallback(request.nextUrl.searchParams.get("callbackUrl"));
 

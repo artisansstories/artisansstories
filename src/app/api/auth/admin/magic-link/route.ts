@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTenantPrisma } from "@/lib/tenant-prisma";
-import { resolveTenantFromHost } from "@/lib/tenant-context";
+import { resolveTenantFromHost, originFromRequest } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { logEmail } from "@/lib/email-log";
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Admin login-by-email: resolve the tenant from the request host.
-    const tenantId = resolveTenantFromHost(request);
+    const tenantId = await resolveTenantFromHost(request);
     const db = getTenantPrisma(tenantId);
 
     // Check DB — always return success to avoid leaking which emails are allowed
@@ -97,9 +97,12 @@ export async function POST(request: NextRequest) {
       data: { tenantId, token, email, type: "ADMIN", expiresAt },
     });
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
+    // Send the verify link back to the SAME host the admin signed in from, so
+    // the session cookie lands on the right domain (apex for tenant zero, the
+    // tenant's own subdomain otherwise — host-scoped cookies don't cross hosts).
+    const base = originFromRequest(request);
     const cbParam = callbackUrl && callbackUrl !== "/admin" ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : "";
-    const magicLink = `${siteUrl}/api/auth/admin/verify?token=${encodeURIComponent(token)}${cbParam}`;
+    const magicLink = `${base}/api/auth/admin/verify?token=${encodeURIComponent(token)}${cbParam}`;
 
     const adminMlResult = await resend.emails.send({
       from: `Artisans' Stories <${process.env.RESEND_FROM ?? "hello@artisansstories.com"}>`,

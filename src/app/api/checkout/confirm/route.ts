@@ -75,7 +75,7 @@ function sanitizeAddons(addons?: AddonPayload[]): AddonPayload[] | undefined {
 export async function POST(request: NextRequest) {
   try {
     // Storefront checkout: resolve the tenant from the request host.
-    const tenantId = resolveTenantFromHost(request);
+    const tenantId = await resolveTenantFromHost(request);
     const db = getTenantPrisma(tenantId);
 
     const body = await request.json();

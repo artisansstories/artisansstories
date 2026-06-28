@@ -8,7 +8,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
-    const tenantId = resolveTenantFromHost(request);
+    const tenantId = await resolveTenantFromHost(request);
     const db = getTenantPrisma(tenantId);
 
     const body = await request.json();

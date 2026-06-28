@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Customer login-by-email: resolve the tenant from the request host.
-    const tenantId = resolveTenantFromHost(request);
+    const tenantId = await resolveTenantFromHost(request);
 
     // Rate limit: max 3 tokens per email per 5 minutes. MagicLinkToken is keyed
     // by a global secret token, so it stays on the raw client — scoped by

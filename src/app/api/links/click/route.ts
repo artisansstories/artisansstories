@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     if (!linkId) return NextResponse.json({ error: "linkId required" }, { status: 400 });
 
     // Raw pg bypasses the scoped Prisma client — apply the tenant filter/stamp by hand.
-    const tenantId = resolveTenantFromHost(request);
+    const tenantId = await resolveTenantFromHost(request);
 
     const userAgent = request.headers.get("user-agent") ?? null;
     const referrer = request.headers.get("referer") ?? null;
