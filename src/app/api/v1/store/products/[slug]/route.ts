@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { withApiKey, corsPreflight, jsonOk, SCOPE_STORE_READ } from "@/lib/api-v1";
+import { withApiKey, corsPreflight, jsonOk, SCOPE_STORE_READ, productUrl } from "@/lib/api-v1";
 
 /**
  * GET /api/v1/store/products/[slug]
@@ -10,7 +10,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
-  return withApiKey(req, SCOPE_STORE_READ, async ({ db }) => {
+  return withApiKey(req, SCOPE_STORE_READ, async ({ db, tenantSlug }) => {
     const { slug } = await params;
 
     const product = await db.product.findFirst({
@@ -74,6 +74,7 @@ export async function GET(
       product: {
         id: product.id,
         slug: product.slug,
+        url: productUrl(tenantSlug, product.slug),
         name: product.name,
         description: product.description,
         story: product.story,

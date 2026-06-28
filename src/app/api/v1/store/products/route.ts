@@ -15,7 +15,7 @@ import {
  * src/app/api/shop/products (products[], total, page, totalPages, categories[]).
  */
 export async function GET(req: NextRequest) {
-  return withApiKey(req, SCOPE_STORE_READ, async ({ db }) => {
+  return withApiKey(req, SCOPE_STORE_READ, async ({ db, tenantSlug }) => {
     const { searchParams } = req.nextUrl;
     const categorySlug = searchParams.get("category");
     const q = searchParams.get("q")?.trim();
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     });
 
     return jsonOk({
-      products: products.map(mapProductCard),
+      products: products.map((p) => mapProductCard(p, tenantSlug)),
       total,
       page,
       totalPages: Math.ceil(total / limit),

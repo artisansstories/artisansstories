@@ -14,7 +14,7 @@ import {
  * Same card shape as the list endpoint's items.
  */
 export async function GET(req: NextRequest) {
-  return withApiKey(req, SCOPE_STORE_READ, async ({ db }) => {
+  return withApiKey(req, SCOPE_STORE_READ, async ({ db, tenantSlug }) => {
     const limit = Math.min(12, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "4", 10)));
 
     const products = await db.product.findMany({
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       select: PRODUCT_CARD_SELECT,
     });
 
-    return jsonOk({ products: products.map(mapProductCard) });
+    return jsonOk({ products: products.map((p) => mapProductCard(p, tenantSlug)) });
   });
 }
 

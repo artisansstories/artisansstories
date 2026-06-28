@@ -83,8 +83,14 @@ function errorJson(status: number, error: string, extraHeaders?: Record<string, 
 
 export interface ApiKeyContext {
   tenantId: string;
+  tenantSlug: string;
   scopes: string[];
   db: TenantPrisma;
+}
+
+/** Fully-qualified canonical storefront URL for a product. */
+export function productUrl(tenantSlug: string, productSlug: string): string {
+  return `https://${tenantSlug}.artisansstories.com/${productSlug}`;
 }
 
 export type ApiHandler = (ctx: ApiKeyContext) => Promise<NextResponse> | NextResponse;
@@ -118,7 +124,7 @@ export async function withApiKey(
 
   const db = getTenantPrisma(resolved.tenantId);
   try {
-    const res = await handler({ tenantId: resolved.tenantId, scopes: resolved.scopes, db });
+    const res = await handler({ tenantId: resolved.tenantId, tenantSlug: resolved.tenantSlug, scopes: resolved.scopes, db });
     return withCors(res);
   } catch (err) {
     console.error("[api/v1] handler error", err);
@@ -167,9 +173,10 @@ type ProductCardRow = {
 };
 
 /** Flatten categories + derive variant helpers, matching the shop route output. */
-export function mapProductCard(p: ProductCardRow) {
+export function mapProductCard(p: ProductCardRow, tenantSlug: string) {
   return {
     ...p,
+    url: productUrl(tenantSlug, p.slug as string),
     categories: p.categories.map((pc) => pc.category),
     hasVariants: p.variants.length > 1,
     variantId: p.variants[0]?.id ?? null,

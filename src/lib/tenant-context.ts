@@ -43,6 +43,7 @@ export class TenantResolutionError extends Error {
 
 export interface ApiKeyTenant {
   tenantId: string;
+  tenantSlug: string;
   scopes: string[];
 }
 
@@ -66,7 +67,7 @@ export async function resolveTenantFromApiKey(
   const keyHash = hashApiKey(token);
   const key = await prisma.tenantApiKey.findUnique({
     where: { keyHash },
-    select: { id: true, tenantId: true, scopes: true, revokedAt: true },
+    select: { id: true, tenantId: true, scopes: true, revokedAt: true, tenant: { select: { slug: true } } },
   });
   if (!key || key.revokedAt) return null;
 
@@ -75,7 +76,7 @@ export async function resolveTenantFromApiKey(
     .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
     .catch(() => {});
 
-  return { tenantId: key.tenantId, scopes: key.scopes };
+  return { tenantId: key.tenantId, tenantSlug: key.tenant.slug, scopes: key.scopes };
 }
 
 /**
