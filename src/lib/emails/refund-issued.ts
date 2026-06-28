@@ -1,14 +1,20 @@
+import { EmailBranding, emailLogoHtml } from "@/lib/email-branding";
+
 function formatPrice(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
-export function refundIssuedHtml(data: {
-  orderNumber: string;
-  email: string;
-  refundAmount: number;
-  items: Array<{ title: string; variantTitle?: string; quantity: number }>;
-}): string {
+export function refundIssuedHtml(
+  data: {
+    orderNumber: string;
+    email: string;
+    refundAmount: number;
+    items: Array<{ title: string; variantTitle?: string; quantity: number }>;
+  },
+  branding: EmailBranding,
+): string {
   const { orderNumber, email, refundAmount, items } = data;
+  const { accentColor, storeName, storeUrl, fromAddress } = branding;
 
   const itemsHtml = items.map((item) => `
     <tr>
@@ -30,10 +36,8 @@ export function refundIssuedHtml(data: {
 
   <!-- Logo header -->
   <tr><td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-    <a href="https://artisansstories.com" style="display:inline-block;">
-      <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-        alt="Artisans' Stories" width="400"
-        style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;"/>
+    <a href="${storeUrl}" style="display:inline-block;">
+      ${emailLogoHtml(branding)}
     </a>
   </td></tr>
 
@@ -43,7 +47,7 @@ export function refundIssuedHtml(data: {
       Your refund has been issued
     </h2>
     <p style="margin:0 0 20px;font-size:15px;color:#7a6852;">
-      A refund for order <strong style="color:#8B6914;">${orderNumber}</strong> has been processed.
+      A refund for order <strong style="color:${accentColor};">${orderNumber}</strong> has been processed.
     </p>
     <div style="display:inline-block;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 28px;">
       <p style="margin:0;font-size:11px;font-weight:600;color:#15803d;text-transform:uppercase;letter-spacing:0.06em;">Refund amount</p>
@@ -68,12 +72,12 @@ export function refundIssuedHtml(data: {
 
   <!-- Footer -->
   <tr><td style="padding:16px 40px;border-top:1px solid #ede8df;text-align:center;">
-    <p style="margin:0;font-size:13px;color:#9a876e;">Questions? <a href="mailto:hello@artisansstories.com" style="color:#8B6914;text-decoration:none;">hello@artisansstories.com</a></p>
+    <p style="margin:0;font-size:13px;color:#9a876e;">Questions? <a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
     <p style="margin:6px 0 0;font-size:12px;color:#b0a090;">Confirmation sent to ${email}</p>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
-    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
+    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
   </td></tr>
 
 </table>

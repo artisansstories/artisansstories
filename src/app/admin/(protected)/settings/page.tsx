@@ -29,7 +29,15 @@ interface StoreSettings {
   adminLogoSize: number;
   orderNotificationEmail: string | null;
   productDisclaimer: string | null;
+  // E1 — per-tenant email branding (stored on TenantTheme, merged in by the API)
+  emailFromName: string | null;
+  emailReplyTo: string | null;
+  emailAccentColor: string | null;
+  emailLogoUrl: string | null;
 }
+
+/** Fixed sender address for all transactional email (matches email-branding.ts). */
+const EMAIL_FROM_ADDRESS = "hello@artisansstories.com";
 
 const SECTION_STYLE: React.CSSProperties = {
   background: "#fff",
@@ -109,6 +117,10 @@ export default function SettingsPage() {
     metaDescription: "",
     googleAnalyticsId: "",
     productDisclaimer: "",
+    emailFromName: "",
+    emailReplyTo: "",
+    emailAccentColor: "",
+    emailLogoUrl: "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -117,6 +129,7 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
+  const [uploadingEmailLogo, setUploadingEmailLogo] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -143,14 +156,29 @@ export default function SettingsPage() {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      });
-      if (!res.ok) throw new Error("Failed to save");
-      const data = await res.json();
-      setSettings(data);
+      // StoreSettings (PUT) and email branding on TenantTheme (PATCH) are stored
+      // in separate models, so save both. The PUT ignores the email* fields.
+      const [putRes, patchRes] = await Promise.all([
+        fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(settings),
+        }),
+        fetch("/api/admin/settings", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            emailFromName: settings.emailFromName,
+            emailReplyTo: settings.emailReplyTo,
+            emailAccentColor: settings.emailAccentColor,
+            emailLogoUrl: settings.emailLogoUrl,
+          }),
+        }),
+      ]);
+      if (!putRes.ok || !patchRes.ok) throw new Error("Failed to save");
+      const data = await putRes.json();
+      const emailData = await patchRes.json();
+      setSettings({ ...data, ...emailData });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -160,8 +188,14 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleImageUpload(field: "storeLogo" | "storeFavicon", file: File) {
-    const setUploading = field === "storeLogo" ? setUploadingLogo : setUploadingFavicon;
+  const UPLOAD_STATE_SETTERS: Record<string, (v: boolean) => void> = {
+    storeLogo: setUploadingLogo,
+    storeFavicon: setUploadingFavicon,
+    emailLogoUrl: setUploadingEmailLogo,
+  };
+
+  async function handleImageUpload(field: "storeLogo" | "storeFavicon" | "emailLogoUrl", file: File) {
+    const setUploading = UPLOAD_STATE_SETTERS[field];
     setUploading(true);
     try {
       const formData = new FormData();
@@ -470,6 +504,96 @@ export default function SettingsPage() {
             onChange={(e) => update("productDisclaimer", e.target.value)}
             placeholder="Each piece is handcrafted by skilled artisans, making every item one-of-a-kind..."
           />
+        </div>
+      </div>
+
+      {/* 9. Email Branding */}
+      <div style={SECTION_STYLE}>
+        <h2 style={SECTION_TITLE}>Email</h2>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#9a876e", margin: "0 0 20px" }}>
+          Controls how transactional emails (order confirmations, shipping, returns) appear to your customers.
+        </p>
+
+        <div style={{ ...FIELD_GROUP }} className="settings-grid">
+          <div>
+            <label style={LABEL_STYLE}>Email sender name</label>
+            <input
+              style={INPUT_STYLE}
+              value={settings.emailFromName ?? ""}
+              onChange={(e) => update("emailFromName", e.target.value)}
+              placeholder={settings.storeName || "Your store name"}
+            />
+            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#9a876e", margin: "6px 0 0" }}>
+              Shown as the sender name in emails to your customers.
+            </p>
+          </div>
+          <div>
+            <label style={LABEL_STYLE}>Reply-to address</label>
+            <input
+              style={INPUT_STYLE}
+              type="email"
+              value={settings.emailReplyTo ?? ""}
+              onChange={(e) => update("emailReplyTo", e.target.value)}
+              placeholder="you@yourdomain.com"
+            />
+            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#9a876e", margin: "6px 0 0" }}>
+              Customers who reply to emails will reach this address.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ ...FIELD_GROUP }} className="settings-grid">
+          <div>
+            <label style={LABEL_STYLE}>Email accent color</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="color"
+                value={settings.emailAccentColor || settings.accentColor || "#8B6914"}
+                onChange={(e) => update("emailAccentColor", e.target.value)}
+                style={{ width: 44, height: 40, borderRadius: 8, border: "1px solid #e0d5c5", cursor: "pointer", padding: 2 }}
+              />
+              <input
+                style={{ ...INPUT_STYLE, flex: 1 }}
+                value={settings.emailAccentColor ?? ""}
+                onChange={(e) => update("emailAccentColor", e.target.value)}
+                placeholder={settings.accentColor || "#8B6914"}
+                maxLength={7}
+              />
+            </div>
+            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#9a876e", margin: "6px 0 0" }}>
+              Used for buttons in transactional emails.
+            </p>
+          </div>
+          <div>
+            <label style={LABEL_STYLE}>Email logo</label>
+            {settings.emailLogoUrl && (
+              <img src={settings.emailLogoUrl} alt="Email logo" style={{ height: 40, marginBottom: 8, display: "block", borderRadius: 4, border: "1px solid #ede8df" }} />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ ...INPUT_STYLE, padding: "8px" }}
+              disabled={uploadingEmailLogo}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleImageUpload("emailLogoUrl", file);
+              }}
+            />
+            {uploadingEmailLogo && <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#9a876e", margin: "4px 0 0" }}>Uploading...</p>}
+            <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 12, color: "#9a876e", margin: "6px 0 0" }}>
+              Separate logo for emails if different from your store logo. Leave blank to use your store logo.
+            </p>
+          </div>
+        </div>
+
+        {/* Live preview of the sender line customers will see */}
+        <div style={{ marginTop: 8, padding: "14px 16px", background: "#faf7f2", border: "1px solid #ede8df", borderRadius: 8 }}>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 11, fontWeight: 600, color: "#9a876e", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 6px" }}>
+            Emails will be sent from
+          </p>
+          <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 14, color: "#3a2e24", margin: 0 }}>
+            {(settings.emailFromName?.trim() || settings.storeName || "Artisans' Stories")} &lt;{EMAIL_FROM_ADDRESS}&gt;
+          </p>
         </div>
       </div>
 

@@ -4,18 +4,19 @@ import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { resolveTenantFromHost, originFromRequest } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { getEmailBranding, emailLogoHtml, type EmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 import { safeAdminCallback } from "@/lib/safe-callback";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-function adminMagicLinkEmail(magicLink: string): string {
+function adminMagicLinkEmail(magicLink: string, branding: EmailBranding): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin sign in — Artisans' Stories</title>
+  <title>Admin sign in — ${branding.storeName}</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f0e8;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f0e8;padding:32px 16px;">
@@ -23,16 +24,16 @@ function adminMagicLinkEmail(magicLink: string): string {
       <table cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
         <tr>
           <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="400" style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
+            ${emailLogoHtml(branding)}
           </td>
         </tr>
         <tr>
           <td style="padding:40px 40px 32px;text-align:center;">
             <h2 style="margin:0 0 12px;font-size:22px;color:#3a2e24;font-weight:600;">Admin Sign In</h2>
-            <p style="margin:0 0 28px;font-size:15px;color:#7a6852;line-height:1.6;">Click the button below to access the Artisans' Stories admin. This link expires in 15 minutes and can only be used once.</p>
+            <p style="margin:0 0 28px;font-size:15px;color:#7a6852;line-height:1.6;">Click the button below to access the ${branding.storeName} admin. This link expires in 15 minutes and can only be used once.</p>
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px;">
               <tr>
-                <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);border-radius:10px;">
+                <td style="background:${branding.accentColor};border-radius:10px;">
                   <a href="${magicLink}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to Admin</a>
                 </td>
               </tr>
@@ -44,7 +45,7 @@ function adminMagicLinkEmail(magicLink: string): string {
         </tr>
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${branding.storeName}. All rights reserved.</p>
           </td>
         </tr>
       </table>
@@ -104,14 +105,16 @@ export async function POST(request: NextRequest) {
     const cbParam = callbackUrl && callbackUrl !== "/admin" ? `&callbackUrl=${encodeURIComponent(callbackUrl)}` : "";
     const magicLink = `${base}/api/auth/admin/verify?token=${encodeURIComponent(token)}${cbParam}`;
 
+    const branding = await getEmailBranding(tenantId);
+    const subject = `Your ${branding.storeName} admin sign-in link`;
     const adminMlResult = await resend.emails.send({
-      from: `Artisans' Stories <${process.env.RESEND_FROM ?? "hello@artisansstories.com"}>`,
+      from: branding.from,
       to: [email],
-      subject: "Your Artisans' Stories admin sign-in link",
-      html: adminMagicLinkEmail(magicLink),
+      subject,
+      html: adminMagicLinkEmail(magicLink, branding),
     });
 
-    await logEmail({ tenantId, type: "MAGIC_LINK_ADMIN", toEmail: email, subject: "Your Artisans' Stories admin sign-in link", resendId: adminMlResult.data?.id, relatedType: "ADMIN" });
+    await logEmail({ tenantId, type: "MAGIC_LINK_ADMIN", toEmail: email, fromEmail: branding.fromAddress, subject, resendId: adminMlResult.data?.id, relatedType: "ADMIN" });
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Admin magic link error:", err);

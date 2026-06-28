@@ -3,17 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { getEmailBranding, emailLogoHtml, type EmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-function customerMagicLinkEmail(magicLink: string): string {
+function customerMagicLinkEmail(magicLink: string, branding: EmailBranding): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign in to Artisans' Stories</title>
+  <title>Sign in to ${branding.storeName}</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f0e8;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f0e8;padding:32px 16px;">
@@ -21,7 +22,7 @@ function customerMagicLinkEmail(magicLink: string): string {
       <table cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,0.08);">
         <tr>
           <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-            <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png" alt="Artisans' Stories" width="400" style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
+            ${emailLogoHtml(branding)}
           </td>
         </tr>
         <tr>
@@ -30,8 +31,8 @@ function customerMagicLinkEmail(magicLink: string): string {
             <p style="margin:0 0 28px;font-size:15px;color:#7a6852;line-height:1.6;">Click the button below to sign in. This link expires in 15 minutes and can only be used once.</p>
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px;">
               <tr>
-                <td style="background:linear-gradient(135deg,#8B6914 0%,#C9A84C 100%);border-radius:10px;">
-                  <a href="${magicLink}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to Artisans' Stories</a>
+                <td style="background:${branding.accentColor};border-radius:10px;">
+                  <a href="${magicLink}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to ${branding.storeName}</a>
                 </td>
               </tr>
             </table>
@@ -42,8 +43,8 @@ function customerMagicLinkEmail(magicLink: string): string {
         </tr>
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">Questions? <a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+            <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">Questions? <a href="mailto:${branding.fromAddress}" style="color:${branding.accentColor};text-decoration:none;">${branding.fromAddress}</a></p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${branding.storeName}. All rights reserved.</p>
           </td>
         </tr>
       </table>
@@ -108,15 +109,17 @@ export async function POST(request: NextRequest) {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
     const magicLink = `${siteUrl}/api/auth/customer/verify?token=${encodeURIComponent(token)}`;
-    const fromEmail = process.env.RESEND_FROM ?? "hello@artisansstories.com";
 
+    const branding = await getEmailBranding(tenantId);
+    const subject = `Your ${branding.storeName} sign-in link`;
     const mlResult = await resend.emails.send({
-      from: `Artisans' Stories <${fromEmail}>`,
+      from: branding.from,
       to: [normalizedEmail],
-      subject: "Your Artisans' Stories sign-in link",
-      html: customerMagicLinkEmail(magicLink),
+      replyTo: branding.replyTo ?? branding.fromAddress,
+      subject,
+      html: customerMagicLinkEmail(magicLink, branding),
     });
-    await logEmail({ tenantId, type: "MAGIC_LINK_CUSTOMER", toEmail: normalizedEmail, subject: "Your Artisans' Stories sign-in link", resendId: mlResult.data?.id, relatedType: "CUSTOMER" });
+    await logEmail({ tenantId, type: "MAGIC_LINK_CUSTOMER", toEmail: normalizedEmail, fromEmail: branding.fromAddress, subject, resendId: mlResult.data?.id, relatedType: "CUSTOMER" });
 
     return NextResponse.json({ success: true, message: "Check your email for a sign-in link." });
   } catch (err) {

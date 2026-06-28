@@ -3,6 +3,7 @@ import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { refundIssuedHtml } from "@/lib/emails/refund-issued";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
@@ -94,10 +95,13 @@ export async function POST(
         }
       }
     }
+    const branding = await getEmailBranding(db.$tenantId);
+    const subject = `Your refund has been issued — ${branding.storeName}`;
     const refundResult = await resend.emails.send({
-      from: process.env.RESEND_FROM!,
+      from: branding.from,
       to: order.email,
-      subject: "Your refund has been issued — Artisans' Stories",
+      replyTo: branding.replyTo ?? branding.fromAddress,
+      subject,
       html: refundIssuedHtml({
         orderNumber: order.orderNumber,
         email: order.email,
@@ -107,9 +111,9 @@ export async function POST(
           variantTitle: item.orderItem.variantTitle ?? undefined,
           quantity: item.quantity,
         })),
-      }),
+      }, branding),
     });
-    await logEmail({ type: "REFUND_ISSUED", toEmail: order.email, subject: "Your refund has been issued — Artisans' Stories", resendId: refundResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+    await logEmail({ tenantId: db.$tenantId, type: "REFUND_ISSUED", toEmail: order.email, fromEmail: branding.fromAddress, subject, resendId: refundResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
     return NextResponse.json({ return: updated });
   } catch (err) {
     console.error("POST /api/admin/returns/[id]/refund error:", err);

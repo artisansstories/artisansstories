@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { returnRejectedHtml } from "@/lib/emails/return-rejected";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
@@ -38,10 +39,13 @@ export async function POST(
         resolvedAt: new Date(),
       },
     });
+    const branding = await getEmailBranding(db.$tenantId);
+    const subject = `Update on your return request — ${branding.storeName}`;
     const rejectResult = await resend.emails.send({
-      from: process.env.RESEND_FROM!,
+      from: branding.from,
       to: ret.order.email,
-      subject: "Update on your return request — Artisans' Stories",
+      replyTo: branding.replyTo ?? branding.fromAddress,
+      subject,
       html: returnRejectedHtml({
         orderNumber: ret.order.orderNumber,
         email: ret.order.email,
@@ -51,9 +55,9 @@ export async function POST(
           variantTitle: item.orderItem.variantTitle ?? undefined,
           quantity: item.quantity,
         })),
-      }),
+      }, branding),
     });
-    await logEmail({ type: "RETURN_REJECTED", toEmail: ret.order.email, subject: "Update on your return request — Artisans' Stories", resendId: rejectResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+    await logEmail({ tenantId: db.$tenantId, type: "RETURN_REJECTED", toEmail: ret.order.email, fromEmail: branding.fromAddress, subject, resendId: rejectResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
     return NextResponse.json({ return: updated });
   } catch (err) {
     console.error("POST /api/admin/returns/[id]/reject error:", err);

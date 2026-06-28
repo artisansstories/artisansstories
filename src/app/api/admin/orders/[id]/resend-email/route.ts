@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
@@ -37,23 +38,26 @@ export async function POST(
         image: (snapshot?.image as string) ?? undefined,
       };
     });
+    const branding = await getEmailBranding(db.$tenantId);
+    const confirmHtml = orderConfirmationHtml({
+      orderNumber: order.orderNumber,
+      email: order.email,
+      items: emailItems,
+      subtotal: order.subtotal,
+      shippingTotal: order.shippingTotal,
+      taxTotal: order.taxTotal,
+      discountTotal: order.discountTotal,
+      total: order.total,
+      shippingAddress,
+    }, branding);
     const resendResult = await resend.emails.send({
-      from: process.env.RESEND_FROM ?? "hello@artisansstories.com",
+      from: branding.from,
       to: order.email,
+      replyTo: branding.replyTo ?? branding.fromAddress,
       subject: `Order Confirmed — ${order.orderNumber}`,
-      html: orderConfirmationHtml({
-        orderNumber: order.orderNumber,
-        email: order.email,
-        items: emailItems,
-        subtotal: order.subtotal,
-        shippingTotal: order.shippingTotal,
-        taxTotal: order.taxTotal,
-        discountTotal: order.discountTotal,
-        total: order.total,
-        shippingAddress,
-      }),
+      html: confirmHtml,
     });
-    await logEmail({ type: "ORDER_CONFIRMATION", toEmail: order.email, subject: `Order Confirmed — ${order.orderNumber}`, resendId: resendResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+    await logEmail({ tenantId: db.$tenantId, type: "ORDER_CONFIRMATION", toEmail: order.email, fromEmail: branding.fromAddress, subject: `Order Confirmed — ${order.orderNumber}`, bodyHtml: confirmHtml, resendId: resendResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("POST /api/admin/orders/[id]/resend-email error:", err);

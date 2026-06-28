@@ -6,6 +6,7 @@ import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { resolveTenantFromHost } from "@/lib/tenant-context";
 import { Prisma } from "@prisma/client";
 import { orderConfirmationHtml } from "@/lib/emails/order-confirmation";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 import { Resend } from "resend";
 import crypto from "crypto";
@@ -409,32 +410,22 @@ export async function POST(request: NextRequest) {
     });
 
     try {
+      const branding = await getEmailBranding(tenantId);
+      const confirmHtml = orderConfirmationHtml({ orderNumber, email, items: emailItems, subtotal, shippingTotal, taxTotal, discountTotal, total, shippingAddress, viewOrderUrl }, branding);
       const confirmResult = await resend.emails.send({
-        from: `Artisans' Stories <hello@artisansstories.com>`,
+        from: branding.from,
         to: email,
         // replyTo uses order-specific address so replies auto-thread to this order in Communications
-        replyTo: `hello@artisansstories.com`,
+        replyTo: branding.replyTo ?? branding.fromAddress,
         headers: {
           // RFC 2822 threading: replies will carry this in In-Reply-To / References
           "X-Order-ID": order.id,
           "X-Order-Number": orderNumber,
         },
         subject: `Order Confirmed — ${orderNumber}`,
-        html: orderConfirmationHtml({
-          orderNumber,
-          email,
-          items: emailItems,
-          subtotal,
-          shippingTotal,
-          taxTotal,
-          discountTotal,
-          total,
-          shippingAddress,
-          viewOrderUrl,
-        }),
+        html: confirmHtml,
       });
-      const confirmHtml = orderConfirmationHtml({ orderNumber, email, items: emailItems, subtotal, shippingTotal, taxTotal, discountTotal, total, shippingAddress, viewOrderUrl });
-      await logEmail({ tenantId, type: "ORDER_CONFIRMATION", toEmail: email, subject: `Order Confirmed — ${orderNumber}`, bodyHtml: confirmHtml, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+      await logEmail({ tenantId, type: "ORDER_CONFIRMATION", toEmail: email, fromEmail: branding.fromAddress, subject: `Order Confirmed — ${orderNumber}`, bodyHtml: confirmHtml, resendId: confirmResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     } catch (emailErr) {
       console.error("Failed to send confirmation email:", emailErr);
     }

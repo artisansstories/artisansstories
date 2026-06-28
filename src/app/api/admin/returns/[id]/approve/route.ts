@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { returnApprovedHtml } from "@/lib/emails/return-approved";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(
@@ -30,10 +31,13 @@ export async function POST(
       where: { id },
       data: { status: "APPROVED" },
     });
+    const branding = await getEmailBranding(db.$tenantId);
+    const subject = `Your return has been approved — ${branding.storeName}`;
     const approveResult = await resend.emails.send({
-      from: process.env.RESEND_FROM!,
+      from: branding.from,
       to: ret.order.email,
-      subject: "Your return has been approved — Artisans' Stories",
+      replyTo: branding.replyTo ?? branding.fromAddress,
+      subject,
       html: returnApprovedHtml({
         orderNumber: ret.order.orderNumber,
         email: ret.order.email,
@@ -43,9 +47,9 @@ export async function POST(
           variantTitle: item.orderItem.variantTitle ?? undefined,
           quantity: item.quantity,
         })),
-      }),
+      }, branding),
     });
-    await logEmail({ type: "RETURN_APPROVED", toEmail: ret.order.email, subject: "Your return has been approved — Artisans' Stories", resendId: approveResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+    await logEmail({ tenantId: db.$tenantId, type: "RETURN_APPROVED", toEmail: ret.order.email, fromEmail: branding.fromAddress, subject, resendId: approveResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
     return NextResponse.json({ return: updated });
   } catch (err) {
     console.error("POST /api/admin/returns/[id]/approve error:", err);

@@ -3,6 +3,7 @@ import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import Stripe from "stripe";
 import { Resend } from "resend";
 import { orderCancelledHtml } from "@/lib/emails/order-cancelled";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -77,6 +78,7 @@ export async function POST(
         ? await db.customer.findUnique({ where: { id: updatedOrder.customerId }, select: { firstName: true } })
         : null;
       const refunded = newFinancialStatus === "REFUNDED";
+      const branding = await getEmailBranding(db.$tenantId);
       const html = orderCancelledHtml({
         orderNumber: updatedOrder.orderNumber,
         email: updatedOrder.email,
@@ -84,16 +86,16 @@ export async function POST(
         cancelReason: body.reason || undefined,
         refunded,
         total: updatedOrder.total,
-      });
+      }, branding);
       const result = await resend.emails.send({
-        from: "Artisans' Stories <hello@artisansstories.com>",
+        from: branding.from,
         to: updatedOrder.email,
-        replyTo: "hello@artisansstories.com",
+        replyTo: branding.replyTo ?? branding.fromAddress,
         subject: `Your order ${updatedOrder.orderNumber} has been cancelled`,
         html,
       });
       const type = refunded ? "ORDER_REFUNDED" as const : "ORDER_CANCELLED" as const;
-      await logEmail({ type, toEmail: updatedOrder.email, subject: `Your order ${updatedOrder.orderNumber} has been cancelled`, bodyHtml: html, resendId: result.data?.id, relatedId: updatedOrder.id, relatedType: "ORDER" });
+      await logEmail({ tenantId: db.$tenantId, type, toEmail: updatedOrder.email, fromEmail: branding.fromAddress, subject: `Your order ${updatedOrder.orderNumber} has been cancelled`, bodyHtml: html, resendId: result.data?.id, relatedId: updatedOrder.id, relatedType: "ORDER" });
     } catch (emailErr) {
       console.error("Failed to send cancellation email:", emailErr);
     }

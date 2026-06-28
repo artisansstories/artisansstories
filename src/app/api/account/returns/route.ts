@@ -3,6 +3,7 @@ import { getAccountSession } from '@/lib/account-session';
 import { getTenantPrismaForHost } from '@/lib/tenant-context';
 import { Resend } from 'resend';
 import { ReturnReason } from '@prisma/client';
+import { getEmailBranding } from '@/lib/email-branding';
 import { logEmail } from '@/lib/email-log';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -71,15 +72,15 @@ export async function POST(request: NextRequest) {
 
     // Send notification email to admin
     const settings = await db.storeSettings.findUnique({ where: { id: 'singleton' } });
-    const notifyEmail = settings?.orderNotificationEmail ?? settings?.contactEmail ?? process.env.RESEND_FROM ?? 'hello@artisansstories.com';
-    const fromEmail = process.env.RESEND_FROM ?? 'hello@artisansstories.com';
+    const branding = await getEmailBranding(db.$tenantId);
+    const notifyEmail = settings?.orderNotificationEmail ?? settings?.contactEmail ?? branding.fromAddress;
 
     const itemsHtml = returnRequest.items
       .map(ri => `<li>${ri.quantity}x ${ri.orderItem.title} — ${ri.reason}${ri.note ? ` (${ri.note})` : ''}</li>`)
       .join('');
 
     const returnReqResult = await resend.emails.send({
-      from: `Artisans' Stories <${fromEmail}>`,
+      from: branding.from,
       to: [notifyEmail],
       subject: `New Return Request — Order ${order.orderNumber}`,
       html: `
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
         </div>
       `,
     }).catch(err => console.error('Return notification email error:', err));
-    await logEmail({ type: 'RETURN_REQUEST', direction: 'INBOUND', toEmail: notifyEmail, fromEmail: session.email, subject: `New Return Request — Order ${order.orderNumber}`, resendId: returnReqResult?.data?.id, relatedId: returnRequest.id, relatedType: 'RETURN' });
+    await logEmail({ tenantId: db.$tenantId, type: 'RETURN_REQUEST', direction: 'INBOUND', toEmail: notifyEmail, fromEmail: session.email, subject: `New Return Request — Order ${order.orderNumber}`, resendId: returnReqResult?.data?.id, relatedId: returnRequest.id, relatedType: 'RETURN' });
 
     return NextResponse.json({ return: returnRequest }, { status: 201 });
   } catch (err) {

@@ -1,4 +1,6 @@
 import { buildWelcomeEmail } from './build-email';
+import { getEmailBranding } from '@/lib/email-branding';
+import { DEFAULT_TENANT_ID } from '@/lib/tenant-context';
 
 export const runtime = "nodejs";
 
@@ -232,7 +234,11 @@ export async function POST(req: Request) {
     }
 
     const html = await buildWelcomeEmail();
-    
+
+    // House-only newsletter; resolve tenant-zero branding so the sender name
+    // stays AS while still flowing through the shared resolver.
+    const branding = await getEmailBranding(DEFAULT_TENANT_ID);
+
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -240,7 +246,7 @@ export async function POST(req: Request) {
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: "Anna at Artisans' Stories <hello@artisansstories.com>",
+        from: `Anna at ${branding.fromName} <${branding.fromAddress}>`,
         to: [email],
         subject: "Welcome to the story 🇸🇻 | A bridge between heritage and home",
         html,

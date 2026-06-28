@@ -1,3 +1,5 @@
+import { EmailBranding, emailLogoHtml } from "@/lib/email-branding";
+
 interface OrderShippedItem {
   title: string;
   variantTitle?: string;
@@ -16,11 +18,12 @@ interface OrderShippedData {
   viewOrderUrl?: string;
 }
 
-export function orderShippedHtml(data: OrderShippedData): string {
-  const { orderNumber, email, trackingCompany, trackingNumber, trackingUrl, estimatedDelivery, items, viewOrderUrl } = data;
+export function orderShippedHtml(data: OrderShippedData, branding: EmailBranding): string {
+  const { orderNumber, trackingCompany, trackingNumber, trackingUrl, estimatedDelivery, items, viewOrderUrl } = data;
+  const { accentColor, storeName, storeUrl, fromAddress } = branding;
 
   const trackingLink = trackingUrl ?? "#";
-  const orderLink = viewOrderUrl ?? `https://artisansstories.com/account/orders/${orderNumber}`;
+  const orderLink = viewOrderUrl ?? `${storeUrl}/account/orders/${orderNumber}`;
   const estimatedDeliveryFormatted = estimatedDelivery
     ? new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date(estimatedDelivery))
     : null;
@@ -57,10 +60,8 @@ export function orderShippedHtml(data: OrderShippedData): string {
 
   <!-- Logo header -->
   <tr><td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-    <a href="https://artisansstories.com" style="display:inline-block;">
-      <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-        alt="Artisans' Stories" width="400"
-        style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;"/>
+    <a href="${storeUrl}" style="display:inline-block;">
+      ${emailLogoHtml(branding)}
     </a>
   </td></tr>
 
@@ -70,7 +71,7 @@ export function orderShippedHtml(data: OrderShippedData): string {
       Your order is on its way!
     </h2>
     <p style="margin:0 0 6px;font-size:15px;color:#7a6852;">Great news — your handcrafted items have shipped.</p>
-    <p style="margin:0;font-size:13px;color:#9a876e;">Order <strong style="color:#8B6914;">${orderNumber}</strong></p>
+    <p style="margin:0;font-size:13px;color:#9a876e;">Order <strong style="color:${accentColor};">${orderNumber}</strong></p>
   </td></tr>
 
   <!-- Tracking info -->
@@ -86,13 +87,13 @@ export function orderShippedHtml(data: OrderShippedData): string {
         <tr>
           <td style="padding-right:8px;">
             <a href="${trackingLink}" target="_blank"
-              style="display:inline-block;background:#8B6914;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;font-family:'Helvetica Neue',Arial,sans-serif;">
+              style="display:inline-block;background:${accentColor};color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;font-family:'Helvetica Neue',Arial,sans-serif;">
               Track Package
             </a>
           </td>
           <td>
             <a href="${orderLink}"
-              style="display:inline-block;background:#fff;border:1.5px solid #8B6914;color:#8B6914;text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px;font-family:'Helvetica Neue',Arial,sans-serif;">
+              style="display:inline-block;background:#fff;border:1.5px solid ${accentColor};color:${accentColor};text-decoration:none;font-size:14px;font-weight:600;padding:11px 22px;border-radius:8px;font-family:'Helvetica Neue',Arial,sans-serif;">
               View Order
             </a>
           </td>
@@ -109,11 +110,11 @@ export function orderShippedHtml(data: OrderShippedData): string {
 
   <!-- Footer -->
   <tr><td style="padding:16px 40px;border-top:1px solid #ede8df;text-align:center;">
-    <p style="margin:0;font-size:13px;color:#9a876e;">Questions? <a href="mailto:hello@artisansstories.com" style="color:#8B6914;text-decoration:none;">hello@artisansstories.com</a></p>
+    <p style="margin:0;font-size:13px;color:#9a876e;">Questions? <a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
-    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
+    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
   </td></tr>
 
 </table>

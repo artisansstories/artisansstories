@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { Resend } from "resend";
 import { orderShippedHtml } from "@/lib/emails/order-shipped";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 import Stripe from "stripe";
 import crypto from "crypto";
@@ -117,23 +118,16 @@ export async function POST(
       }
 
       try {
+        const branding = await getEmailBranding(db.$tenantId);
+        const shippedHtml = orderShippedHtml({ orderNumber: order.orderNumber, email: order.email, trackingCompany: body.trackingCompany, trackingNumber: body.trackingNumber, trackingUrl: body.trackingUrl, estimatedDelivery: body.estimatedDelivery, items: emailItems, viewOrderUrl }, branding);
         const shipResult = await resend.emails.send({
-          from: process.env.RESEND_FROM ?? "hello@artisansstories.com",
+          from: branding.from,
           to: order.email,
+          replyTo: branding.replyTo ?? branding.fromAddress,
           subject: `Your order ${order.orderNumber} has shipped!`,
-          html: orderShippedHtml({
-            orderNumber: order.orderNumber,
-            email: order.email,
-            trackingCompany: body.trackingCompany,
-            trackingNumber: body.trackingNumber,
-            trackingUrl: body.trackingUrl,
-            estimatedDelivery: body.estimatedDelivery,
-            items: emailItems,
-            viewOrderUrl,
-          }),
+          html: shippedHtml,
         });
-        const shippedHtml = orderShippedHtml({ orderNumber: order.orderNumber, email: order.email, trackingCompany: body.trackingCompany, trackingNumber: body.trackingNumber, trackingUrl: body.trackingUrl, estimatedDelivery: body.estimatedDelivery, items: emailItems, viewOrderUrl });
-        await logEmail({ type: "ORDER_SHIPPED", toEmail: order.email, subject: `Your order ${order.orderNumber} has shipped!`, bodyHtml: shippedHtml, resendId: shipResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
+        await logEmail({ tenantId: db.$tenantId, type: "ORDER_SHIPPED", toEmail: order.email, fromEmail: branding.fromAddress, subject: `Your order ${order.orderNumber} has shipped!`, bodyHtml: shippedHtml, resendId: shipResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
       } catch (emailErr) {
         console.error("Failed to send shipped email:", emailErr);
       }

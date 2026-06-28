@@ -1,3 +1,5 @@
+import { EmailBranding, emailLogoHtml } from "@/lib/email-branding";
+
 export interface OrderCancelledData {
   orderNumber: string;
   email: string;
@@ -11,8 +13,9 @@ function formatPrice(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
-export function orderCancelledHtml(data: OrderCancelledData): string {
+export function orderCancelledHtml(data: OrderCancelledData, branding: EmailBranding): string {
   const { orderNumber, firstName, cancelReason, refunded, total } = data;
+  const { accentColor, storeName, storeUrl, fromAddress } = branding;
   const displayName = firstName ?? "there";
   const year = new Date().getFullYear();
 
@@ -31,10 +34,8 @@ export function orderCancelledHtml(data: OrderCancelledData): string {
         <!-- Logo header -->
         <tr>
           <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-            <a href="https://artisansstories.com" style="display:inline-block;">
-              <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-                alt="Artisans' Stories" width="400"
-                style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
+            <a href="${storeUrl}" style="display:inline-block;">
+              ${emailLogoHtml(branding)}
             </a>
           </td>
         </tr>
@@ -60,7 +61,7 @@ export function orderCancelledHtml(data: OrderCancelledData): string {
             </div>` : ""}
             <p style="margin:0;font-size:14px;color:#7a6852;line-height:1.6;">
               Questions? Reply to this email or reach us at
-              <a href="mailto:hello@artisansstories.com" style="color:#8B6914;text-decoration:none;">hello@artisansstories.com</a>
+              <a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a>
             </p>
           </td>
         </tr>
@@ -69,9 +70,9 @@ export function orderCancelledHtml(data: OrderCancelledData): string {
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
             <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">
-              <a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a>
+              <a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a>
             </p>
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${year} Artisans' Stories. All rights reserved.</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${year} ${storeName}. All rights reserved.</p>
           </td>
         </tr>
 

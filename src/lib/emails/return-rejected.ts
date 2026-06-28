@@ -1,10 +1,16 @@
-export function returnRejectedHtml(data: {
-  orderNumber: string;
-  email: string;
-  reason: string;
-  items: Array<{ title: string; variantTitle?: string; quantity: number }>;
-}): string {
+import { EmailBranding, emailLogoHtml } from "@/lib/email-branding";
+
+export function returnRejectedHtml(
+  data: {
+    orderNumber: string;
+    email: string;
+    reason: string;
+    items: Array<{ title: string; variantTitle?: string; quantity: number }>;
+  },
+  branding: EmailBranding,
+): string {
   const { orderNumber, email, reason, items } = data;
+  const { accentColor, storeName, storeUrl, fromAddress } = branding;
 
   const itemsHtml = items.map((item) => `
     <tr>
@@ -26,10 +32,8 @@ export function returnRejectedHtml(data: {
 
   <!-- Logo header -->
   <tr><td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-    <a href="https://artisansstories.com" style="display:inline-block;">
-      <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-        alt="Artisans' Stories" width="400"
-        style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;"/>
+    <a href="${storeUrl}" style="display:inline-block;">
+      ${emailLogoHtml(branding)}
     </a>
   </td></tr>
 
@@ -39,7 +43,7 @@ export function returnRejectedHtml(data: {
       Update on your return request
     </h2>
     <p style="margin:0;font-size:15px;color:#7a6852;">
-      We were unable to approve your return for order <strong style="color:#8B6914;">${orderNumber}</strong>.
+      We were unable to approve your return for order <strong style="color:${accentColor};">${orderNumber}</strong>.
     </p>
   </td></tr>
 
@@ -62,8 +66,8 @@ export function returnRejectedHtml(data: {
     <p style="margin:0 0 12px;font-size:15px;color:#3a2e24;font-weight:600;">Questions or concerns?</p>
     <p style="margin:0 0 16px;font-size:14px;color:#7a6852;">We understand this may be disappointing. Please reach out and we'll do our best to help.</p>
     <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-      <tr><td style="background:#8B6914;border-radius:8px;">
-        <a href="mailto:hello@artisansstories.com?subject=Re: Return for Order ${orderNumber}"
+      <tr><td style="background:${accentColor};border-radius:8px;">
+        <a href="mailto:${fromAddress}?subject=Re: Return for Order ${orderNumber}"
           style="display:inline-block;padding:12px 28px;color:#fff;font-size:14px;font-weight:600;text-decoration:none;font-family:'Helvetica Neue',Arial,sans-serif;">
           Contact Us
         </a>
@@ -76,8 +80,8 @@ export function returnRejectedHtml(data: {
     <p style="margin:0;font-size:12px;color:#b0a090;">This update was sent to ${email}</p>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
-    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
+    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
   </td></tr>
 
 </table>

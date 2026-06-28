@@ -1,3 +1,5 @@
+import { EmailBranding, emailLogoHtml } from "@/lib/email-branding";
+
 interface AddonPayload {
   type: string;
   data: Record<string, unknown>;
@@ -39,8 +41,9 @@ function formatPrice(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
-export function orderConfirmationHtml(order: OrderEmailData): string {
+export function orderConfirmationHtml(order: OrderEmailData, branding: EmailBranding): string {
   const { orderNumber, items, subtotal, shippingTotal, taxTotal, viewOrderUrl, discountTotal, total, shippingAddress } = order;
+  const { accentColor, storeName, storeUrl, fromAddress } = branding;
 
   const itemsHtml = items.map((item) => {
     // Build addon HTML if present
@@ -50,7 +53,7 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
         const styleLabel = data.style === 'INITIALS' ? 'Initials' : 'Full Name';
         return `
           <tr>
-            <td colspan="3" style="padding: 2px 16px 8px 80px; color: #8B6914; font-size: 13px;">
+            <td colspan="3" style="padding: 2px 16px 8px 80px; color: ${accentColor}; font-size: 13px;">
               &#10022; Free Laser Monogram: "${data.text || ''}" &mdash; ${data.font || ''} &mdash; ${styleLabel}
             </td>
           </tr>
@@ -109,16 +112,15 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
       <td style="padding: 8px 0; text-align: right; color: #3a2e24; font-size: 14px;">${formatPrice(taxTotal)}</td>
     </tr>
     <tr>
-      <td colspan="2" style="padding: 0;"><div style="height: 1px; background: #8B6914; margin: 4px 0 0;"></div></td>
+      <td colspan="2" style="padding: 0;"><div style="height: 1px; background: ${accentColor}; margin: 4px 0 0;"></div></td>
     </tr>
     <tr>
       <td style="padding: 12px 0 4px; color: #3a2e24; font-size: 16px; font-weight: 700;">Total</td>
-      <td style="padding: 12px 0 4px; text-align: right; color: #8B6914; font-size: 20px; font-weight: 700;">${formatPrice(total)}</td>
+      <td style="padding: 12px 0 4px; text-align: right; color: ${accentColor}; font-size: 20px; font-weight: 700;">${formatPrice(total)}</td>
     </tr>
   `;
 
   const addr = shippingAddress;
-  const siteUrl = "https://artisansstories.com";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -135,10 +137,8 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
         <!-- Logo header — plain white, fills width -->
         <tr>
           <td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-            <a href="${siteUrl}" style="display:inline-block;">
-              <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-                alt="Artisans' Stories" width="400"
-                style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;" />
+            <a href="${storeUrl}" style="display:inline-block;">
+              ${emailLogoHtml(branding)}
             </a>
           </td>
         </tr>
@@ -154,7 +154,7 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
             </p>
             <div style="display:inline-block;background:#faf7f2;border:1px solid #ede8df;border-radius:8px;padding:10px 28px;">
               <p style="margin:0;font-size:12px;color:#9a876e;text-transform:uppercase;letter-spacing:0.06em;">Order number</p>
-              <p style="margin:4px 0 0;font-size:19px;color:#8B6914;font-weight:700;letter-spacing:1px;">${orderNumber}</p>
+              <p style="margin:4px 0 0;font-size:19px;color:${accentColor};font-weight:700;letter-spacing:1px;">${orderNumber}</p>
             </div>
           </td>
         </tr>
@@ -203,8 +203,8 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
             </p>
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
               <tr>
-                <td style="background:#8B6914;border-radius:8px;">
-                  <a href="${viewOrderUrl || `${siteUrl}/account/orders/${orderNumber}`}"
+                <td style="background:${accentColor};border-radius:8px;">
+                  <a href="${viewOrderUrl || `${storeUrl}/account/orders/${orderNumber}`}"
                     style="display:inline-block;padding:14px 36px;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">
                     View Your Order
                   </a>
@@ -220,13 +220,13 @@ export function orderConfirmationHtml(order: OrderEmailData): string {
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
             <p style="margin:0 0 6px;font-size:12px;color:rgba(255,255,255,0.6);">
               Questions?
-              <a href="mailto:hello@artisansstories.com?subject=Order%20${encodeURIComponent(orderNumber)}"
-                style="color:#C9A84C;text-decoration:none;">
-                hello@artisansstories.com
+              <a href="mailto:${fromAddress}?subject=Order%20${encodeURIComponent(orderNumber)}"
+                style="color:${accentColor};text-decoration:none;">
+                ${fromAddress}
               </a>
             </p>
             <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">
-              &copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.
+              &copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.
             </p>
           </td>
         </tr>

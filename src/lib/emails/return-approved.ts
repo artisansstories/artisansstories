@@ -1,10 +1,16 @@
-export function returnApprovedHtml(data: {
-  orderNumber: string;
-  email: string;
-  returnId: string;
-  items: Array<{ title: string; variantTitle?: string; quantity: number }>;
-}): string {
+import { EmailBranding, emailLogoHtml } from "@/lib/email-branding";
+
+export function returnApprovedHtml(
+  data: {
+    orderNumber: string;
+    email: string;
+    returnId: string;
+    items: Array<{ title: string; variantTitle?: string; quantity: number }>;
+  },
+  branding: EmailBranding,
+): string {
   const { orderNumber, email, returnId, items } = data;
+  const { accentColor, storeName, storeUrl, fromAddress } = branding;
   const shortId = returnId.slice(-8).toUpperCase();
 
   const itemsHtml = items.map((item) => `
@@ -27,10 +33,8 @@ export function returnApprovedHtml(data: {
 
   <!-- Logo header -->
   <tr><td style="padding:28px 32px;text-align:center;border-bottom:1px solid #ede8df;">
-    <a href="https://artisansstories.com" style="display:inline-block;">
-      <img src="https://pub-0225431098954524b5abd8a1b398b466.r2.dev/email/artisansstories-logo.png"
-        alt="Artisans' Stories" width="400"
-        style="display:block;margin:0 auto;width:400px;max-width:90%;height:auto;"/>
+    <a href="${storeUrl}" style="display:inline-block;">
+      ${emailLogoHtml(branding)}
     </a>
   </td></tr>
 
@@ -40,7 +44,7 @@ export function returnApprovedHtml(data: {
       Your return has been approved
     </h2>
     <p style="margin:0 0 6px;font-size:15px;color:#7a6852;">
-      We've approved your return for order <strong style="color:#8B6914;">${orderNumber}</strong>.
+      We've approved your return for order <strong style="color:${accentColor};">${orderNumber}</strong>.
     </p>
     <p style="margin:0;font-size:13px;color:#9a876e;">Return reference: <strong>${shortId}</strong></p>
   </td></tr>
@@ -50,15 +54,15 @@ export function returnApprovedHtml(data: {
     <h3 style="margin:0 0 14px;font-size:12px;color:#3a2e24;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Next Steps</h3>
     <table cellpadding="0" cellspacing="0" border="0" width="100%">
       <tr><td style="padding:7px 0;font-size:14px;color:#3a2e24;">
-        <span style="display:inline-block;width:22px;height:22px;background:#8B6914;color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">1</span>
+        <span style="display:inline-block;width:22px;height:22px;background:${accentColor};color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">1</span>
         Pack your item(s) securely in original packaging if possible.
       </td></tr>
       <tr><td style="padding:7px 0;font-size:14px;color:#3a2e24;">
-        <span style="display:inline-block;width:22px;height:22px;background:#8B6914;color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">2</span>
+        <span style="display:inline-block;width:22px;height:22px;background:${accentColor};color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">2</span>
         Include your order number <strong>${orderNumber}</strong> inside the package.
       </td></tr>
       <tr><td style="padding:7px 0;font-size:14px;color:#3a2e24;">
-        <span style="display:inline-block;width:22px;height:22px;background:#8B6914;color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">3</span>
+        <span style="display:inline-block;width:22px;height:22px;background:${accentColor};color:#fff;border-radius:50%;text-align:center;line-height:22px;font-size:11px;font-weight:700;margin-right:10px;">3</span>
         Reply to this email for the return shipping address.
       </td></tr>
     </table>
@@ -73,12 +77,12 @@ export function returnApprovedHtml(data: {
 
   <!-- Footer -->
   <tr><td style="padding:16px 40px;border-top:1px solid #ede8df;text-align:center;">
-    <p style="margin:0;font-size:13px;color:#9a876e;">Questions? <a href="mailto:hello@artisansstories.com" style="color:#8B6914;text-decoration:none;">hello@artisansstories.com</a></p>
+    <p style="margin:0;font-size:13px;color:#9a876e;">Questions? <a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
     <p style="margin:6px 0 0;font-size:12px;color:#b0a090;">Confirmation sent to ${email}</p>
   </td></tr>
   <tr><td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:hello@artisansstories.com" style="color:#C9A84C;text-decoration:none;">hello@artisansstories.com</a></p>
-    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} Artisans' Stories. All rights reserved.</p>
+    <p style="margin:0 0 5px;font-size:12px;color:rgba(255,255,255,0.6);"><a href="mailto:${fromAddress}" style="color:${accentColor};text-decoration:none;">${fromAddress}</a></p>
+    <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
   </td></tr>
 
 </table>

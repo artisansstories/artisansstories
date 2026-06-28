@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import { tenantBaseUrl } from "@/lib/tenant-context";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 import { Resend } from "resend";
 import crypto from "crypto";
@@ -158,9 +159,10 @@ export async function POST(
   // right store and sets the host-scoped session there.
   const magicLink = `${tenantBaseUrl(tenant.slug)}/api/auth/admin/verify?token=${encodeURIComponent(token)}`;
 
+  const branding = await getEmailBranding(tenantId);
   const subject = `You've been invited to ${tenant.name} admin`;
   const sendResult = await resend.emails.send({
-    from: `Artisans' Stories <${process.env.RESEND_FROM ?? "hello@artisansstories.com"}>`,
+    from: branding.from,
     to: [email],
     subject,
     html: inviteEmailHtml(tenant.name, magicLink),
@@ -170,6 +172,7 @@ export async function POST(
     tenantId,
     type: "MAGIC_LINK_ADMIN",
     toEmail: email,
+    fromEmail: branding.fromAddress,
     subject,
     resendId: sendResult.data?.id,
     relatedType: "ADMIN",
