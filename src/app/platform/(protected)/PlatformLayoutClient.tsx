@@ -18,6 +18,7 @@ const SHELL_PANEL = "#1a2440";
 const NAV_ITEMS = [
   { href: "/platform", label: "Dashboard", icon: IconDashboard, exact: true },
   { href: "/platform/tenants", label: "Tenants", icon: IconBuildings, exact: false },
+  { href: "/platform/onboarding", label: "Onboarding", icon: IconOnboarding, exact: false },
   { href: "/platform/stripe", label: "Stripe", icon: IconCard, exact: false },
   { href: "/platform/api-keys", label: "API Keys", icon: IconKey, exact: false },
   { href: "/platform/settings", label: "Settings", icon: IconSettings, exact: false },
@@ -28,6 +29,9 @@ function IconDashboard({ size = 18 }: { size?: number }) {
 }
 function IconBuildings({ size = 18 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="8" height="18" rx="1"/><rect x="13" y="8" width="8" height="13" rx="1"/><path d="M6 7h2M6 11h2M6 15h2M16 12h2M16 16h2"/></svg>);
+}
+function IconOnboarding({ size = 18 }: { size?: number }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 4V3h6v1"/><path d="m8.5 11 1.5 1.5 3-3"/><path d="M8.5 16h7"/></svg>);
 }
 function IconCard({ size = 18 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>);
