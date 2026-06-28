@@ -308,6 +308,7 @@ export default function OnboardingWizardPage() {
         a:hover { text-decoration: underline; }
         @keyframes spin { to { transform: rotate(360deg); } }
         button:disabled { opacity: 0.55; cursor: default; }
+        .upload-zone:focus-visible { outline: 2px solid ${ACCENT}; outline-offset: 2px; }
         .train-rail { flex-direction: row; overflow-x: auto; }
         @media (min-width: 860px) {
           .train-grid { grid-template-columns: 220px 1fr; align-items: start; }
@@ -391,6 +392,199 @@ function CreateStep({ status, tenantName }: { status: OnboardingStatus; tenantNa
   );
 }
 
+/* ── Branding upload widget (U3) ────────────────────────────────────────── */
+
+const MB = 1024 * 1024;
+// Client allowlist mirrors the server's KIND_CONFIG (PNG/SVG/WebP/JPEG).
+const UPLOAD_ACCEPT = "image/png,image/svg+xml,image/webp,image/jpeg";
+const KIND_MAX: Record<"logo" | "favicon", number> = { logo: 2 * MB, favicon: 1 * MB };
+
+// Subtle checkerboard so a transparent logo's edges are visible in the preview.
+const CHECKERBOARD: React.CSSProperties = {
+  backgroundColor: "#fff",
+  backgroundImage:
+    "linear-gradient(45deg,#e7e9f0 25%,transparent 25%),linear-gradient(-45deg,#e7e9f0 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e7e9f0 75%),linear-gradient(-45deg,transparent 75%,#e7e9f0 75%)",
+  backgroundSize: "14px 14px",
+  backgroundPosition: "0 0,0 7px,7px -7px,-7px 0",
+};
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < MB) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / MB).toFixed(1)} MB`;
+}
+
+// Decode pixel dimensions client-side (used only to WARN on a non-square favicon
+// — the server cover-crops, so we never hard-block on aspect).
+function decodeDimensions(file: File): Promise<{ w: number; h: number } | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => { resolve({ w: img.naturalWidth, h: img.naturalHeight }); URL.revokeObjectURL(url); };
+    img.onerror = () => { resolve(null); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
+}
+
+// Server faults → human-readable inline copy. Never surface raw JSON.
+function humanizeUploadError(httpStatus: number, body: { error?: string; errors?: string[] }): string {
+  if (Array.isArray(body?.errors) && body.errors.length) return body.errors.join(" ");
+  if (httpStatus === 401) return "Your operator session has expired — refresh the page and sign in again.";
+  if (httpStatus === 413) return "That file is too large for the server. Choose a smaller one.";
+  if (httpStatus === 404) return "This store could not be found.";
+  if (typeof body?.error === "string") return body.error.replace(/_/g, " ");
+  return `Upload failed (HTTP ${httpStatus}).`;
+}
+
+/**
+ * A single branding upload field: drag-drop dropzone + click-to-pick + live
+ * preview + per-field requirements + a collapsible "paste a URL" fallback.
+ * Posts multipart `{ file, kind }` to the U2 operator endpoint; on success it
+ * hands the returned URL to `onUploaded` (the step persists it via PUT theme).
+ */
+function UploadField({
+  kind, label: lbl, helper, value, tenantId, onUploaded, onPaste,
+}: {
+  kind: "logo" | "favicon";
+  label: string;
+  helper: string;
+  value: string | null;
+  tenantId: string;
+  onUploaded: (url: string) => Promise<void> | void;
+  onPaste: (url: string | null) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [upErr, setUpErr] = useState<string | null>(null);
+  const [upWarn, setUpWarn] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const [meta, setMeta] = useState<{ width: number | null; height: number | null; size: number } | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+
+  async function handleFile(file: File) {
+    setUpErr(null);
+    setUpWarn(null);
+    setDone(false);
+
+    // ── Client pre-validation (AD-5): block oversize / wrong-format here; let
+    //    everything else (squareness etc.) flow to the authoritative server. ──
+    const isSvg = file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg");
+    const typeOk = isSvg || ["image/png", "image/webp", "image/jpeg"].includes(file.type);
+    if (!typeOk) { setUpErr(`Unsupported file type. ${helper}`); return; }
+    if (file.size > KIND_MAX[kind]) { setUpErr(`That file is ${formatBytes(file.size)} — too large. ${helper}`); return; }
+
+    // Advisory squareness warning for raster favicons.
+    if (kind === "favicon" && !isSvg) {
+      const dims = await decodeDimensions(file);
+      if (dims && Math.abs(dims.w - dims.h) > 2) {
+        setUpWarn(`Heads up: this image is ${dims.w} × ${dims.h} (not square). It will be centre-cropped to a square.`);
+      }
+    }
+
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", kind);
+      const res = await fetch(`/api/platform/tenants/${tenantId}/upload`, { method: "POST", body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { setUpErr(humanizeUploadError(res.status, body)); return; }
+      setMeta({ width: body.width ?? null, height: body.height ?? null, size: body.size ?? file.size });
+      setDone(true);
+      await onUploaded(body.url);
+    } catch (e) {
+      setUpErr(e instanceof Error ? e.message : "Upload failed — please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const openPicker = () => inputRef.current?.click();
+
+  return (
+    <div>
+      {/* Live preview (B2) */}
+      {kind === "logo" ? (
+        <div style={{ ...CHECKERBOARD, border: "1px solid rgba(0,0,0,0.12)", borderRadius: 8, height: 56, display: "flex", alignItems: "center", justifyContent: "center", padding: 6, marginBottom: 8, overflow: "hidden" }}>
+          {value
+            ? <img src={value} alt={`${lbl} preview`} style={{ maxHeight: 44, maxWidth: "100%", objectFit: "contain" }} />
+            : <span style={{ fontSize: 12, color: MUTED }}>No logo yet</span>}
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", marginBottom: 8 }}>
+          {[32, 64].map((sz) => (
+            <div key={sz} style={{ textAlign: "center" }}>
+              <div style={{ width: sz, height: sz, border: "1px solid rgba(0,0,0,0.12)", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#fff" }}>
+                {value
+                  ? <img src={value} alt={`Favicon ${sz}px preview`} style={{ width: sz, height: sz, objectFit: "cover" }} />
+                  : <span style={{ fontSize: 10, color: MUTED }}>—</span>}
+              </div>
+              <span style={{ fontSize: 10, color: MUTED }}>{sz}px</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Dropzone (B1) — keyboard + role for a11y (D3) */}
+      <div
+        className="upload-zone"
+        role="button"
+        tabIndex={0}
+        aria-label={`Upload ${lbl.toLowerCase()}: drag a file here or press Enter to choose one`}
+        aria-busy={uploading}
+        onClick={openPicker}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); } }}
+        onDragOver={(e) => { e.preventDefault(); if (!dragging) setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) handleFile(f); }}
+        style={{
+          border: `1.5px dashed ${dragging ? ACCENT : "rgba(61,79,124,0.35)"}`,
+          background: dragging ? "rgba(61,79,124,0.06)" : "#fbfcfe",
+          borderRadius: 8, padding: "14px 12px", textAlign: "center", cursor: "pointer",
+          color: ACCENT, fontSize: 13, fontWeight: 600,
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44,
+        }}
+      >
+        {uploading ? <><Spinner /> Uploading…</> : done ? <>Replace {lbl.toLowerCase()} ✓</> : <>⬆ Drag &amp; drop or click to upload</>}
+        <input ref={inputRef} type="file" accept={UPLOAD_ACCEPT} style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+      </div>
+
+      {/* Requirements / helper text (B3) */}
+      <p style={{ color: "#7a8296", fontSize: 11.5, lineHeight: 1.45, margin: "6px 0 0" }}>{helper}</p>
+
+      {/* States (B4): success w/ derived dims+size, warning, error */}
+      {done && meta && (
+        <p style={{ color: GREEN, fontSize: 11.5, margin: "4px 0 0", fontWeight: 600 }}>
+          Uploaded ✓ {meta.width && meta.height ? `${meta.width} × ${meta.height}px · ` : ""}{formatBytes(meta.size)}
+        </p>
+      )}
+      {upWarn && <p style={{ color: AMBER, fontSize: 11.5, margin: "4px 0 0" }}>{upWarn}</p>}
+      {upErr && <p style={{ color: "#a01818", fontSize: 11.5, margin: "4px 0 0" }}>{upErr}</p>}
+
+      {/* Paste-a-URL fallback (B1) */}
+      <button
+        type="button"
+        aria-expanded={pasteOpen}
+        onClick={() => setPasteOpen((o) => !o)}
+        style={{ background: "none", border: "none", padding: "6px 0 0", color: ACCENT, fontSize: 12, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+      >
+        {pasteOpen ? "Hide URL field" : "or paste a URL"}
+      </button>
+      {pasteOpen && (
+        <input
+          style={{ ...input, marginTop: 6 }}
+          value={value ?? ""}
+          onChange={(e) => onPaste(e.target.value || null)}
+          placeholder="https://… or /path"
+          aria-label={`${lbl} URL`}
+        />
+      )}
+    </div>
+  );
+}
+
 /* ── Step 2: Branding ───────────────────────────────────────────────────── */
 
 function BrandingStep({
@@ -417,7 +611,10 @@ function BrandingStep({
     setSaved(false);
   }
 
-  async function save() {
+  // `override` lets an upload persist the freshly-returned URL immediately,
+  // without waiting for the async `set()` state update to flush (React batches).
+  async function save(override?: Partial<ThemeValue>) {
+    const t = { ...theme, ...override };
     setSaving(true);
     setErrs([]);
     setSaved(false);
@@ -426,14 +623,14 @@ function BrandingStep({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          primaryColor: theme.primaryColor,
-          secondaryColor: theme.secondaryColor,
-          accentColor: theme.accentColor,
-          fontHeading: theme.fontHeading,
-          fontBody: theme.fontBody,
-          radius: theme.radius,
-          logoUrl: theme.logoUrl || null,
-          faviconUrl: theme.faviconUrl || null,
+          primaryColor: t.primaryColor,
+          secondaryColor: t.secondaryColor,
+          accentColor: t.accentColor,
+          fontHeading: t.fontHeading,
+          fontBody: t.fontBody,
+          radius: t.radius,
+          logoUrl: t.logoUrl || null,
+          faviconUrl: t.faviconUrl || null,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -445,6 +642,13 @@ function BrandingStep({
     } finally {
       setSaving(false);
     }
+  }
+
+  // On a successful upload: reflect the new URL in the form AND persist it
+  // straight away (mirrors the admin settings uploader's set-then-save flow).
+  async function onUploaded(field: "logoUrl" | "faviconUrl", url: string) {
+    set(field, url);
+    await save({ [field]: url });
   }
 
   const colorRow = (k: "primaryColor" | "secondaryColor" | "accentColor", lbl: string) => (
@@ -492,13 +696,30 @@ function BrandingStep({
                 {FONT_ALLOWLIST.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
-            <div>
-              <label style={label}>Logo URL <span style={{ color: MUTED, fontWeight: 400 }}>(optional)</span></label>
-              <input style={input} value={theme.logoUrl ?? ""} onChange={(e) => set("logoUrl", e.target.value || null)} placeholder="https://… or /path" />
-            </div>
-            <div>
-              <label style={label}>Favicon URL <span style={{ color: MUTED, fontWeight: 400 }}>(optional)</span></label>
-              <input style={input} value={theme.faviconUrl ?? ""} onChange={(e) => set("faviconUrl", e.target.value || null)} placeholder="https://… or /path" />
+          </div>
+
+          {/* Logo + favicon uploaders (U3) — drag-drop + preview + paste fallback. */}
+          <div style={{ marginBottom: 16 }}>
+            <label style={label}>Logo &amp; favicon <span style={{ color: MUTED, fontWeight: 400 }}>(optional)</span></label>
+            <div className="brand-uploads" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginTop: 6 }}>
+              <UploadField
+                kind="logo"
+                label="Logo"
+                helper="Transparent PNG or SVG, landscape (≈ 800 × 240 px). Max 2 MB. Shown ~40 px tall."
+                value={theme.logoUrl ?? null}
+                tenantId={tenantId}
+                onUploaded={(url) => onUploaded("logoUrl", url)}
+                onPaste={(v) => set("logoUrl", v)}
+              />
+              <UploadField
+                kind="favicon"
+                label="Favicon"
+                helper="Square PNG or SVG, 512 × 512 px recommended. Max 1 MB."
+                value={theme.faviconUrl ?? null}
+                tenantId={tenantId}
+                onUploaded={(url) => onUploaded("faviconUrl", url)}
+                onPaste={(v) => set("faviconUrl", v)}
+              />
             </div>
           </div>
 
@@ -511,7 +732,7 @@ function BrandingStep({
           )}
 
           <div style={{ display: "flex", gap: 12, marginTop: 18, flexWrap: "wrap" }}>
-            <button style={{ ...btn, opacity: saving ? 0.6 : 1 }} onClick={save} disabled={saving}>
+            <button style={{ ...btn, opacity: saving ? 0.6 : 1 }} onClick={() => save()} disabled={saving}>
               {saving ? <><Spinner light /> Saving…</> : "Save branding"}
             </button>
             <button style={btnGhost} onClick={onSkip}>Skip — use defaults</button>
@@ -540,7 +761,11 @@ function BrandingPreview({ theme }: { theme: ThemeValue }) {
   return (
     <div style={{ ...vars, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 12, overflow: "hidden" }}>
       <div style={{ background: "var(--p)", color: readableText(theme.primaryColor), padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: `'${theme.fontHeading}', sans-serif` }}>
-        <span style={{ fontWeight: 700, fontSize: 16 }}>Your Store</span>
+        {theme.logoUrl ? (
+          <img src={theme.logoUrl} alt="Store logo" style={{ height: 28, width: "auto", maxWidth: 180, objectFit: "contain" }} />
+        ) : (
+          <span style={{ fontWeight: 700, fontSize: 16 }}>Your Store</span>
+        )}
         <span style={{ fontSize: 13 }}>Shop · About · Cart</span>
       </div>
       <div style={{ padding: 16, display: "flex", gap: 14, background: "#fafbfc" }}>
