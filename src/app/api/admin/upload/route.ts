@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import heicConvert from "heic-convert";
+import { requireAdminSession } from "@/lib/admin-auth";
+import { putObject, publicUrl, isR2Configured } from "@/lib/r2";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -58,8 +59,11 @@ async function generateAltText(
 
 export async function POST(request: NextRequest) {
   try {
-    
-    
+    await requireAdminSession();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
     const formData = await request.formData();
     const file = formData.get("file");
     // Optional product context for AI alt text
@@ -116,60 +120,32 @@ export async function POST(request: NextRequest) {
     const fullKey = `${baseName}.webp`;
     const mediumKey = `${baseName}-medium.webp`;
     const thumbKey = `${baseName}-thumb.webp`;
-    const accessKeyId = process.env.R2_ACCESS_KEY_ID ?? "";
-    const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY ?? "";
-    const accountId = process.env.R2_ACCOUNT_ID ?? "";
-    const bucketName = process.env.R2_BUCKET_NAME ?? "";
-    const publicUrl = process.env.R2_PUBLIC_URL ?? "";
     // If credentials are missing, return mock URLs for development
-    if (!accessKeyId || !secretAccessKey) {
+    if (!isR2Configured()) {
       console.warn("R2 credentials not configured — returning mock URLs");
       return NextResponse.json({
-        url: `${publicUrl}/${fullKey}`,
-        urlThumb: `${publicUrl}/${thumbKey}`,
-        urlMedium: `${publicUrl}/${mediumKey}`,
+        url: publicUrl(fullKey),
+        urlThumb: publicUrl(thumbKey),
+        urlMedium: publicUrl(mediumKey),
         width: metadata.width ?? null,
         height: metadata.height ?? null,
         size: buffer.byteLength,
       });
     }
-    const s3 = new S3Client({
-      region: "auto",
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-    });
     // Run R2 upload and AI alt text generation in parallel
     const [,,,altTextResult] = await Promise.allSettled([
-      s3.send(new PutObjectCommand({
-        Bucket: bucketName,
-        Key: fullKey,
-        Body: fullBuffer,
-        ContentType: "image/webp",
-      })),
-      s3.send(new PutObjectCommand({
-        Bucket: bucketName,
-        Key: mediumKey,
-        Body: mediumBuffer,
-        ContentType: "image/webp",
-      })),
-      s3.send(new PutObjectCommand({
-        Bucket: bucketName,
-        Key: thumbKey,
-        Body: thumbBuffer,
-        ContentType: "image/webp",
-      })),
+      putObject(fullKey, fullBuffer, "image/webp"),
+      putObject(mediumKey, mediumBuffer, "image/webp"),
+      putObject(thumbKey, thumbBuffer, "image/webp"),
       generateAltText(thumbBuffer, { productName, artisanName, variantHint }),
     ]);
     // Throw if any R2 upload failed (alt text failure is fine)
     const altText = altTextResult.status === "fulfilled" ? altTextResult.value : null;
 
     return NextResponse.json({
-      url: `${publicUrl}/${fullKey}`,
-      urlThumb: `${publicUrl}/${thumbKey}`,
-      urlMedium: `${publicUrl}/${mediumKey}`,
+      url: publicUrl(fullKey),
+      urlThumb: publicUrl(thumbKey),
+      urlMedium: publicUrl(mediumKey),
       width: metadata.width ?? null,
       height: metadata.height ?? null,
       size: buffer.byteLength,

@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
+import { requireAdminSession } from "@/lib/admin-auth";
+import { putObject, publicUrl } from "@/lib/r2";
 
 export async function POST(req: Request) {
+  try {
+    await requireAdminSession();
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -22,17 +20,9 @@ export async function POST(req: Request) {
     const key = `email/avatar-${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
-      })
-    );
+    await putObject(key, buffer, file.type);
 
-    const url = `https://pub-0225431098954524b5abd8a1b398b466.r2.dev/${key}`;
-    return NextResponse.json({ url, filename: file.name });
+    return NextResponse.json({ url: publicUrl(key), filename: file.name });
   } catch (error) {
     console.error("Avatar upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
