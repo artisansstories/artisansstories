@@ -207,7 +207,8 @@ export function AdminLayoutClient({
               <span style={{ fontWeight: 600, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif", lineHeight: 1.2 }}>{storeName}</span>
             </div>
           )}
-          <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 6 }}>Admin Panel</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: "#3a2e24", fontFamily: "'Inter',sans-serif", marginTop: 8, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{storeName}</p>
+          <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 2 }}>Admin Panel</p>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
           {navItems.map(item => <NavLink key={item.href} item={item} />)}
@@ -299,9 +300,12 @@ export function AdminLayoutClient({
             {isHouse ? (
               <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto", maxHeight: 40 }} unoptimized />
             ) : tenantLogoUrl ? (
-              <div style={{ height: 40, display: "flex", alignItems: "center" }}>
-                <Image src={tenantLogoUrl} alt={storeName} width={240} height={80} className="admin-storename"
-                  style={{ maxHeight: 40, width: "auto", maxWidth: "clamp(80px, 38vw, 180px)", objectFit: "contain", objectPosition: "left center" }} unoptimized />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <div style={{ height: 40, flexShrink: 0, display: "flex", alignItems: "center" }}>
+                  <Image src={tenantLogoUrl} alt={storeName} width={240} height={80} className="admin-storename"
+                    style={{ maxHeight: 40, width: "auto", maxWidth: 48, objectFit: "contain", objectPosition: "left center" }} unoptimized />
+                </div>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "#3a2e24", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{storeName}</span>
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
