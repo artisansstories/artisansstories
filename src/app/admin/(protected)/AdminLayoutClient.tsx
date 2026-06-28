@@ -30,9 +30,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/tax", label: "Tax", icon: IconPercent, mobileShow: false },
   { href: "/admin/reports", label: "Reports", icon: IconChart, mobileShow: false },
   { href: "/admin/kb", label: "Knowledge Base", icon: IconBook, mobileShow: false, houseOnly: true },
-  { href: "/admin/linktree", label: "Link Hub", icon: IconLink, mobileShow: false },
+  { href: "/admin/linktree", label: "Link Hub", icon: IconLink, mobileShow: false, houseOnly: true },
   { href: "/admin/landing-page", label: "Landing Page", icon: IconHome, mobileShow: false, houseOnly: true },
-  { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false },
+  { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false, houseOnly: true },
   { href: "/admin/team", label: "Team", icon: IconTeam, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
 ];
