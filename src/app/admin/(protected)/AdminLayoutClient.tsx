@@ -297,24 +297,8 @@ export function AdminLayoutClient({
             <button onClick={() => setSidebarOpen(true)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b5540", padding: 6, display: "flex", alignItems: "center" }} className="admin-hamburger">
               <IconMenu size={22} />
             </button>
-            {isHouse ? (
-              <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto", maxHeight: 40 }} unoptimized />
-            ) : tenantLogoUrl ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <div style={{ height: 40, flexShrink: 0, display: "flex", alignItems: "center" }}>
-                  <Image src={tenantLogoUrl} alt={storeName} width={240} height={80} className="admin-storename"
-                    style={{ maxHeight: 40, width: "auto", maxWidth: 48, objectFit: "contain", objectPosition: "left center" }} unoptimized />
-                </div>
-                <span style={{ fontWeight: 700, fontSize: 14, color: "#3a2e24", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{storeName}</span>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 7, background: "linear-gradient(135deg, #8B6914, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15, fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>
-                  {storeName.charAt(0).toUpperCase()}
-                </div>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif" }}>{storeName}</span>
-              </div>
-            )}
+            {/* Logo/name lives in the sidebar — header shows store name only on mobile when sidebar is closed */}
+            <span style={{ fontWeight: 700, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }} className="admin-storename">{storeName}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
               <div style={{ textAlign: "right", display: "none" }} className="admin-userinfo">
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>{user?.name}</p>
@@ -376,6 +360,7 @@ export function AdminLayoutClient({
         @media (min-width: 768px) {
           .admin-sidebar { display: block !important; }
           .admin-hamburger { display: none !important; }
+          .admin-storename { display: none !important; }
           .admin-bottom-nav { display: none !important; }
           .admin-userinfo { display: block !important; }
           main { padding-bottom: 0 !important; }
