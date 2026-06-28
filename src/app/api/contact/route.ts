@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { resolveTenantFromHost } from "@/lib/tenant-context";
+import { getEmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -18,9 +19,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Name, email, and message are required" }, { status: 400 });
     }
 
+    // Resolve tenant branding + notification address.
+    // contactEmail from StoreSettings is the admin's chosen notification inbox;
+    // falls back to branding.fromAddress (hello@artisansstories.com) if not set.
+    const [branding, settings] = await Promise.all([
+      getEmailBranding(tenantId),
+      db.storeSettings.findUnique({ where: { id: "singleton" }, select: { contactEmail: true } }).catch(() => null),
+    ]);
+    const notifyTo = settings?.contactEmail || branding.fromAddress;
+
     const contactNotifyResult = await resend.emails.send({
-      from: "Artisans' Stories <hello@artisansstories.com>",
-      to: "anna@artisansstories.com",
+      from: branding.from,
+      to: notifyTo,
       replyTo: email,
       subject: `Contact Form: ${subject || "General Inquiry"} — from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject || "General Inquiry"}\n\nMessage:\n${message}`,
@@ -50,7 +60,7 @@ export async function POST(request: NextRequest) {
       },
     }).catch((err: unknown) => console.error("Failed to save contact message to DB:", err));
     // Log inbound contact as email log entry
-    await logEmail({ tenantId, type: "CONTACT_INBOUND", direction: "INBOUND", toEmail: "anna@artisansstories.com", fromEmail: email, subject: subject || "General Inquiry", resendId: contactNotifyResult.data?.id, relatedType: "CONTACT" });
+    await logEmail({ tenantId, type: "CONTACT_INBOUND", direction: "INBOUND", toEmail: notifyTo, fromEmail: email, subject: subject || "General Inquiry", resendId: contactNotifyResult.data?.id, relatedType: "CONTACT" });
 
     return NextResponse.json({ success: true });
   } catch (error) {
