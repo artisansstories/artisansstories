@@ -74,7 +74,9 @@ export default async function StorefrontLayout({
     "--brand-font-body": fontStack(theme.fontBody),
   };
 
-  const homeHref = `/t/${tenant.slug}`;
+  // Root-relative "/" — the proxy rewrites subdomain requests so /t/{slug}
+  // is served at / on the tenant subdomain. Using /t/... would 404.
+  const homeHref = "/";
 
   return (
     <div

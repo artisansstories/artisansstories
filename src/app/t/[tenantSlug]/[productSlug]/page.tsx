@@ -79,7 +79,7 @@ export default async function ProductDetailPage({
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12">
       {/* Breadcrumb */}
       <nav className="mb-6 flex items-center gap-2 text-sm text-stone-500">
-        <Link href={`/t/${tenant.slug}`} className="brand-link transition-colors hover:underline">
+        <Link href="/" className="brand-link transition-colors hover:underline">
           Shop
         </Link>
         <span aria-hidden>/</span>

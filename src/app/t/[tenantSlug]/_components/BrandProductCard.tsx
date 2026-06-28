@@ -3,7 +3,13 @@
  *
  * Server component. Every accent is driven by `--brand-*` CSS vars set by the
  * storefront layout, so it renders in any tenant's brand with zero hardcoded
- * colors. Links to the branded product detail page at /t/[slug]/[productSlug].
+ * colors.
+ *
+ * Links use root-relative `/{productSlug}` (NOT `/t/{tenantSlug}/{productSlug}`).
+ * Requests on the tenant subdomain are rewritten by the proxy:
+ *   `/{slug}` → `/t/{tenantSlug}/{slug}` internally
+ * Using `/t/...` as the href would produce an absolute URL that bypasses the
+ * rewrite and 404s when the user is already on the subdomain.
  */
 import Link from "next/link";
 import { formatPrice } from "@/lib/storefront";
@@ -32,7 +38,7 @@ export default function BrandProductCard({
 
   return (
     <Link
-      href={`/t/${tenantSlug}/${product.slug}`}
+      href={`/${product.slug}`}
       className="group block"
       style={{ borderRadius: "var(--brand-radius)" }}
     >
