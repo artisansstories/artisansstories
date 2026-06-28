@@ -21,10 +21,16 @@ run_gate_C() {
     npx tsx scripts/test-isolation.ts > /tmp/gate-C.out 2>&1; local rc=$?
     tail -40 /tmp/gate-C.out
     if [ "$rc" -ne 0 ]; then report C "RED (cross-tenant leak or test fail)"; return 1; fi
-    report C "GREEN"; return 0
   else
     report C "SKIP (no test-isolation.ts yet)"; return 0
   fi
+  # Upload key-prefix isolation (U2): server-derived per-tenant prefix.
+  if [ -f scripts/test-upload-isolation.ts ]; then
+    npx tsx scripts/test-upload-isolation.ts > /tmp/gate-C-upload.out 2>&1; local urc=$?
+    tail -40 /tmp/gate-C-upload.out
+    if [ "$urc" -ne 0 ]; then report C "RED (upload prefix leak or test fail)"; return 1; fi
+  fi
+  report C "GREEN"; return 0
 }
 
 run_gate_B() {
