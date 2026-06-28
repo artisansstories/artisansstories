@@ -166,6 +166,56 @@ export default async function OnboardingGuidePage() {
         </p>
       </section>
 
+      {/* Tenant admin access */}
+      <section style={card}>
+        <h2 style={h2}>Tenant admin access</h2>
+        <p style={lede}>Every tenant gets their own isolated admin panel at their subdomain.</p>
+        <ul style={{ paddingLeft: 20, margin: 0 }}>
+          <li style={liStyle}><strong>Admin URL:</strong> <Code>{"https://{slug}.artisansstories.com/admin/login"}</Code> — magic link, no password</li>
+          <li style={liStyle}><strong>Invite admins:</strong> Platform → Tenant → Team → Invite Admin. Enter name + email + role. They get a magic link email.</li>
+          <li style={liStyle}><strong>Impersonate:</strong> You can always enter any tenant&apos;s admin directly from Platform → Tenant → Impersonate. All impersonation is audited.</li>
+          <li style={liStyle}><strong>Roles:</strong> Owner (full access), Admin, Editor (products/orders only)</li>
+          <li style={liStyle}><strong>Deactivate:</strong> Platform → Tenant → Team → deactivate any admin user</li>
+        </ul>
+      </section>
+
+      {/* House-only features */}
+      <section style={card}>
+        <h2 style={h2}>House-only features</h2>
+        <p style={lede}>Some features are exclusive to Artisans Stories (tenant zero) and are hidden for all other tenants.</p>
+        <ul style={{ paddingLeft: 20, margin: 0 }}>
+          <li style={liStyle}><strong>Hidden for tenants:</strong> Landing Page, Knowledge Base, Artisans, Link Hub, Email Template</li>
+          <li style={liStyle}><strong>Available to all tenants:</strong> Products, Orders, Customers, Discounts, Shipping, Tax, Returns, Inventory, SKUs, Settings, Communications, Team</li>
+          <li style={liStyle}>Tenant admins who try to access a house-only URL are redirected to <Code>/admin</Code> (no error, just redirect)</li>
+        </ul>
+      </section>
+
+      {/* Email branding */}
+      <section style={card}>
+        <h2 style={h2}>Email branding</h2>
+        <p style={lede}>All transactional emails automatically use each tenant&apos;s name, logo, and brand color.</p>
+        <ul style={{ paddingLeft: 20, margin: 0 }}>
+          <li style={liStyle}><strong>Sender name:</strong> defaults to tenant name — e.g. &ldquo;Galarraga Baseball Academy&rdquo;</li>
+          <li style={liStyle}><strong>Sender address:</strong> <Code>hello@artisansstories.com</Code> (platform domain, shared)</li>
+          <li style={liStyle}><strong>Configurable by tenant:</strong> Settings → Email — sender name, reply-to, accent color, email logo</li>
+          <li style={liStyle}><strong>Contact form notifications</strong> route to the tenant&apos;s <Code>contactEmail</Code> (Settings → Store), not to platform operators</li>
+          <li style={liStyle}>Custom sending domain (tenant BYO email domain) is a future feature</li>
+        </ul>
+      </section>
+
+      {/* Subdomain routing */}
+      <section style={card}>
+        <h2 style={h2}>Subdomain routing</h2>
+        <p style={lede}>Every tenant gets <Code>{"https://{slug}.artisansstories.com"}</Code> automatically — no manual DNS setup.</p>
+        <ul style={{ paddingLeft: 20, margin: 0 }}>
+          <li style={liStyle}><strong>Auto-provisioned on creation:</strong> Cloudflare DNS CNAME + Vercel domain registered automatically</li>
+          <li style={liStyle}><strong>SSL:</strong> Vercel provisions a cert per subdomain (HTTP-01 ACME). Takes ~1 min after tenant creation.</li>
+          <li style={liStyle}><strong>Old paths:</strong> <Code>/t/{"\{slug\}"}</Code> still works as a rewrite target but the canonical URL is the subdomain</li>
+          <li style={liStyle}><strong>Future:</strong> BYO custom domain (e.g. store.yourdomain.com) — not yet built</li>
+          <li style={liStyle}><strong>Platform console:</strong> Only accessible at <Code>artisansstories.com/platform</Code> — redirected away from tenant subdomains</li>
+        </ul>
+      </section>
+
       {/* Troubleshooting */}
       <section style={card}>
         <h2 style={h2}>Troubleshooting</h2>

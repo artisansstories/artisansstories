@@ -90,7 +90,10 @@ export default async function TenantIntegrationPage({
   const proto = hdrs.get("x-forwarded-proto") ?? "https";
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (host ? `${proto}://${host}` : "https://artisansstories.com");
 
-  const hostedUrl = `${baseUrl}/t/${tenant.slug}`;
+  // Canonical tenant URL is the subdomain, not the /t/{slug} rewrite path.
+  const { tenantBaseUrl } = await import("@/lib/tenant-host");
+  const hostedUrl = tenantBaseUrl(tenant.slug);
+  const adminUrl = `${hostedUrl}/admin/login`;
   const scopes = latestKey?.scopes ?? ["store:read", "checkout:create"];
   const keyPrefix = latestKey?.prefix ?? null;
 
@@ -142,6 +145,9 @@ export default async function TenantIntegrationPage({
         </CredRow>
         <CredRow label="Hosted store">
           <a href={hostedUrl} target="_blank" rel="noopener" style={link}>{hostedUrl}</a>
+        </CredRow>
+        <CredRow label="Admin login">
+          <a href={adminUrl} target="_blank" rel="noopener" style={link}>{adminUrl}</a>
         </CredRow>
         <CredRow label="Platform fee">{(tenant.platformFeeBps / 100).toFixed(2)}% per sale</CredRow>
         <p style={{ ...lede, margin: "14px 0 0" }}>
