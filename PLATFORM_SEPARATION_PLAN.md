@@ -272,3 +272,16 @@ All four phases executed via gated loop and deployed to production. Author: Wayn
 
 ### Full gate suite (all green)
 `test-isolation` · `test-admin-scoping` · `test-operator-session` · `test-operator-authz` · `test-impersonation`
+
+---
+
+## Onboarding a new store (operator handoff)
+
+Once an operator can log in (above), the path from **nothing → live, sellable store** is the **process train** (see `ONBOARDING_PLAN.md` for the full architecture + execution record). Start here:
+
+- **Launcher:** `/platform/onboarding` — "Start a new store" + a derived list of stores still in progress (anything with `storeEnabled === false`), each resumable at its current step.
+- **The train:** `/platform/onboarding/[tenantId]` — a resumable 7-step wizard (Create → Branding → Stripe → Products → API key → Integration → Go live). State is **fully derived** from existing data (`GET /api/platform/tenants/[id]/onboarding-status`) — nothing to save; reopening lands on the right step. Only **Go live** is gated (server re-checks `stripeOnboarded && productCount > 0`).
+- **Operator guide:** `/platform/onboarding/guide` — the handbook (Stripe deep-dive, API-key scopes, go-live prerequisites, troubleshooting).
+- **Per-tenant integration page:** `/platform/tenants/[id]/integration` — the shippable artifact handed to the merchant's developer (resolved base URL / slug / key prefix / hosted URL / `curl`s + Swagger links). Also linked permanently from the tenant detail page.
+
+Go-live actions are audited in `PlatformAuditLog` (`go-live` / `go-live.revert`), consistent with the impersonation logging above. No schema was added for onboarding — completion is derived, never a stored flag.

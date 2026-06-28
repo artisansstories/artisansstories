@@ -1,9 +1,12 @@
 /**
- * test-onboarding.ts — Platform onboarding E2E (P6)
+ * test-onboarding.ts — Platform onboarding E2E (P6, re-gated for P10)
  *
  * Drives the real `/api/platform/**` route handlers with a constructed
- * NextRequest carrying a platform-admin session cookie (minted here with the
- * same JWT secret/format as src/lib/admin-auth.ts). End-to-end flow:
+ * NextRequest carrying an OPERATOR `as-platform-session` cookie (minted here with
+ * the same JWT secret/format as src/lib/platform-session.ts). Post-P10, the
+ * platform surface is operator-only — a store-admin cookie confers zero platform
+ * access — so this seeds an active PlatformOperator and authenticates as one,
+ * matching test-operator-authz.ts / test-onboarding-train.ts. End-to-end flow:
  *
  *   1. create tenant            POST /api/platform/tenants            → 201
  *   2. tenant detail            GET  /api/platform/tenants/[id]       → 200
@@ -39,8 +42,8 @@ const root = path.resolve(__dirname, "..");
 loadEnvFile(path.join(root, ".env"));
 loadEnvFile(path.join(root, ".env.local"));
 
-const TENANT_ZERO = "tenant_artisans_stories";
-const COOKIE_NAME = "as-admin-session";
+const OPERATOR_EMAIL = "__p6_onboard_op@test.local";
+const COOKIE_NAME = "as-platform-session";
 
 function fail(reason: string): never {
   console.log(`ONBOARDING_FAIL: ${reason}`);
@@ -62,30 +65,32 @@ async function main() {
   const base = "http://localhost";
   let createdTenantId: string | null = null;
   let createdKeyId: string | null = null;
+  let createdOperatorId: string | null = null;
 
   try {
-    // ── Ensure tenant zero exists & is the platform owner ────────────────────
-    await prisma.tenant.upsert({
-      where: { id: TENANT_ZERO },
-      update: { isPlatformOwner: true },
-      create: { id: TENANT_ZERO, slug: "artisans-stories", name: "Artisans Stories", isPlatformOwner: true },
+    // ── Seed an active platform operator (post-P10 auth model) ───────────────
+    const operator = await prisma.platformOperator.upsert({
+      where: { email: OPERATOR_EMAIL },
+      update: { isActive: true },
+      create: { email: OPERATOR_EMAIL, name: "P6 Onboarding Operator", isActive: true },
     });
+    createdOperatorId = operator.id;
 
-    // ── Mint a platform-admin session cookie (same secret/format as admin-auth) ─
+    // ── Mint an operator `as-platform-session` cookie (same secret/format as
+    //    src/lib/platform-session.ts) ─────────────────────────────────────────
     const secret = new TextEncoder().encode(process.env.NEXTAUTH_SECRET!);
     const jwt = await new SignJWT({
-      id: "onboarding-test-admin",
-      email: "platform@artisansstories.com",
-      name: "Platform Operator",
-      role: "OWNER",
-      tenantId: TENANT_ZERO,
+      id: operator.id,
+      email: operator.email,
+      name: operator.name,
+      kind: "operator",
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime("30d")
       .sign(secret);
 
-    const adminCookie = (extra?: Record<string, string>) => ({
+    const operatorCookie = (extra?: Record<string, string>) => ({
       cookie: `${COOKIE_NAME}=${jwt}`,
       ...(extra ?? {}),
     });
@@ -102,7 +107,7 @@ async function main() {
       const res = await tenantsRoute.POST(
         new NextRequest(`${base}/api/platform/tenants`, {
           method: "POST",
-          headers: adminCookie({ "Content-Type": "application/json" }),
+          headers: operatorCookie({ "Content-Type": "application/json" }),
           body: JSON.stringify({ name: "P6 Onboarding Co", slug, platformFeeBps: 500 }),
         }),
       );
@@ -126,7 +131,7 @@ async function main() {
       const res = await tenantsRoute.POST(
         new NextRequest(`${base}/api/platform/tenants`, {
           method: "POST",
-          headers: adminCookie({ "Content-Type": "application/json" }),
+          headers: operatorCookie({ "Content-Type": "application/json" }),
           body: JSON.stringify({ name: "Dup", slug }),
         }),
       );
@@ -136,7 +141,7 @@ async function main() {
     // ── 2. Tenant detail ─────────────────────────────────────────────────────
     {
       const res = await tenantDetailRoute.GET(
-        new NextRequest(`${base}/api/platform/tenants/${createdTenantId}`, { headers: adminCookie() }),
+        new NextRequest(`${base}/api/platform/tenants/${createdTenantId}`, { headers: operatorCookie() }),
         { params: Promise.resolve({ id: createdTenantId! }) },
       );
       if (res.status !== 200) fail(`tenant detail status ${res.status}, expected 200`);
@@ -152,7 +157,7 @@ async function main() {
       const res = await apiKeysRoute.POST(
         new NextRequest(`${base}/api/platform/tenants/${createdTenantId}/api-keys`, {
           method: "POST",
-          headers: adminCookie({ "Content-Type": "application/json" }),
+          headers: operatorCookie({ "Content-Type": "application/json" }),
           body: JSON.stringify({ name: "bad", scopes: ["store:read", "admin:everything"] }),
         }),
         { params: Promise.resolve({ id: createdTenantId! }) },
@@ -166,7 +171,7 @@ async function main() {
       const res = await apiKeysRoute.POST(
         new NextRequest(`${base}/api/platform/tenants/${createdTenantId}/api-keys`, {
           method: "POST",
-          headers: adminCookie({ "Content-Type": "application/json" }),
+          headers: operatorCookie({ "Content-Type": "application/json" }),
           body: JSON.stringify({ name: "Storefront key" }),
         }),
         { params: Promise.resolve({ id: createdTenantId! }) },
@@ -185,7 +190,7 @@ async function main() {
     // List must show the key by prefix, never the raw token or hash.
     {
       const res = await apiKeysRoute.GET(
-        new NextRequest(`${base}/api/platform/tenants/${createdTenantId}/api-keys`, { headers: adminCookie() }),
+        new NextRequest(`${base}/api/platform/tenants/${createdTenantId}/api-keys`, { headers: operatorCookie() }),
         { params: Promise.resolve({ id: createdTenantId! }) },
       );
       if (res.status !== 200) fail(`list keys status ${res.status}, expected 200`);
@@ -210,7 +215,7 @@ async function main() {
       const res = await apiKeyItemRoute.DELETE(
         new NextRequest(`${base}/api/platform/tenants/${createdTenantId}/api-keys/${createdKeyId}`, {
           method: "DELETE",
-          headers: adminCookie(),
+          headers: operatorCookie(),
         }),
         { params: Promise.resolve({ id: createdTenantId!, keyId: createdKeyId! }) },
       );
@@ -236,6 +241,9 @@ async function main() {
         await prisma.tenantTheme.deleteMany({ where: { tenantId: createdTenantId } });
         await prisma.storeSettings.deleteMany({ where: { tenantId: createdTenantId } });
         await prisma.tenant.deleteMany({ where: { id: createdTenantId } });
+      }
+      if (createdOperatorId) {
+        await prisma.platformOperator.deleteMany({ where: { id: createdOperatorId } });
       }
     } catch (err) {
       console.error("cleanup warning:", err);

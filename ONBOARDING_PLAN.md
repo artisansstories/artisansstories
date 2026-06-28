@@ -252,3 +252,34 @@ Each phase is independently shippable, `tsc`-clean, and `npm run build`-green. R
 **(d) Does `/t/[slug]` honor per-tenant `storeEnabled`?** → **Verify in O1; add a guard if missing.** The proxy's `getStoreEnabled` is Artisans-singleton-only (gates `/shop`, not `/t/[slug]`). Recommended default: the go-live endpoint flips the tenant's own `StoreSettings.storeEnabled`, and `/t/[tenantSlug]/layout.tsx` reads that flag (additive guard, redirect/404 when false) so "go live" actually controls public visibility. Until confirmed, treat go-live as setting the flag the storefront *should* read.
 
 **(e) Should the launcher show every non-live tenant, or only ones with onboarding activity?** → **Every `storeEnabled===false` tenant** (simplest, derived, no flag). Live stores drop off automatically. Revisit only if the list grows noisy.
+
+---
+
+## EXECUTION RECORD (shipped)
+
+All five phases executed via gated loop. Author: Wayne Kool. The train takes a store from nothing → live & sellable, driven entirely by **derived** state (`GET .../onboarding-status`) — no new schema column, no drift. Operator-only throughout (`requirePlatformOperator`, `as-platform-session`).
+
+| Phase | Commit | What shipped | Gates |
+|---|---|---|---|
+| **O1** | `9c7c9d8` | Backbone (headless): `onboarding-status` derived aggregator, operator-callable `products` (Product + default variant + zero Inventory), `go-live` (server re-validates `stripeOnboarded && productCount>0`; 409 `prerequisites_unmet` with `missing[]`; POST publishes / DELETE un-publishes; each writes a `PlatformAuditLog` row — `go-live` / `go-live.revert`). `/t/[slug]` per-tenant `storeEnabled` guard confirmed. | tsc · build · **`onboarding-train`** · isolation · admin-scoping · operator-authz |
+| **O2** | `3eccb6a` | Stripe Connect return/refresh landing pages (`tenants/[id]/connect/{return,refresh}`) — close the post-KYC 404 gap; `return` polls `stripe-status` (5s × ~60s) then "Continue onboarding →"; `refresh` re-mints the expired single-use link. | tsc · build |
+| **O3** | `22ef399` | The process train: resumable 7-step wizard (`onboarding/[tenantId]`) with step rail, live re-fetch after every mutation, `?step=&stripe=` deep-links, live theme preview, three-path Stripe (reuse / onboard-now / hand-off link) with auto-poll, once-only key reveal, inline product create + impersonation escape-hatch, go-live checklist; launcher (`onboarding/`, start-new + derived in-progress list); **Onboarding** nav item. | tsc · build |
+| **O4** | `1abbe48` | Reference + integration surfaces: operator handbook (`onboarding/guide`); generated per-tenant integration page (`tenants/[id]/integration`, resolved base URL / slug / key prefix / hosted URL / `curl`s + Swagger links); tenant-detail onboarding-checklist mirror + Resume / Integration links + Stripe action control. | tsc · build |
+| **O5** | (this) | Polish & docs: copy-to-clipboard audited across the train — minted key token (step 5), Stripe hand-off link (step 3), hosted store URL (step 6), integration-page `curl` snippets (`_CodeBlock` island) — each with a transient "Copied ✓"; per-step "what happens next" microcopy; empty states (launcher in-progress, products count 0, api-key pre-mint) and inline human-readable error states (`validation_failed` field errors, `slug_taken` 409 with `slug-2` suggestion, go-live `prerequisites_unmet` missing list, `StripeConnectError`) — never raw JSON or a blank screen; go-live audit-log confirmed (O1). Execution record + handoff pointer. | **full suite** |
+
+### Frictionless touches (as shipped)
+- **Auto-suggest slug** from name (launcher), `slug_taken` 409 → one-click "use `{slug}-2`".
+- **Sensible defaults:** `platformFeeBps=300`, theme pre-seeded (branding skippable, never blocks go-live), key scopes pre-checked, key name pre-filled, product price in dollars (×100 server-side), **live** key default.
+- **Reuse existing Stripe account** (`acct_…` paste → `attachExistingAccount`) → instantly green when `charges_enabled` — the OSS fast path.
+- **Stripe async, non-blocking:** hand-off link + "in progress" state lets Products/API-key/Integration proceed while KYC settles; only go-live is gated. Auto-poll-on-return detects completion; the `connect/{return,refresh}` pages mean the merchant never hits a 404.
+- **Copy-to-clipboard** on key token, hand-off link, hosted URL, `curl` snippets.
+- **Resumability is invisible** — derived state means nothing to "save"; reopening lands on `currentStep`.
+- **Final 🎉** with direct links to the live `/t/[slug]` store and the integration page.
+
+### New surfaces (as shipped)
+- **Pages:** `onboarding/` · `onboarding/[tenantId]/` · `onboarding/guide/` · `tenants/[id]/connect/{return,refresh}/` · `tenants/[id]/integration/`.
+- **Endpoints (operator-gated):** `tenants/[id]/onboarding-status` (GET) · `tenants/[id]/products` (POST) · `tenants/[id]/go-live` (POST/DELETE).
+- **No schema change.** Completion is derived; the only audit trail is `PlatformAuditLog` (`go-live` / `go-live.revert`).
+
+### Full gate suite (all green)
+`test-isolation` · `test-admin-scoping` · `test-operator-session` · `test-operator-authz` · `test-impersonation` · `test-onboarding` · `test-onboarding-train`
