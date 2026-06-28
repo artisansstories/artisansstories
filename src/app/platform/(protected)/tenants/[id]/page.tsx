@@ -29,6 +29,7 @@ interface TenantDetail {
   apiKeyCount: number;
   activeApiKeyCount: number;
   productCount: number;
+  storeEnabled: boolean;
 }
 
 interface ApiKey {
@@ -93,6 +94,16 @@ const btn: React.CSSProperties = {
 const btnGhost: React.CSSProperties = {
   ...btn, background: "transparent", color: ACCENT, border: "1px solid rgba(61,79,124,0.35)",
 };
+const btnDanger: React.CSSProperties = {
+  ...btnGhost, color: "#9a3838", border: "1px solid rgba(154,56,56,0.4)",
+};
+
+/** Human-readable mapping for the machine error codes the PATCH endpoint emits. */
+function lifecycleErrorMessage(code: string, fallback: string): string {
+  if (code === "platform_owner_protected")
+    return "The house store can’t be archived or suspended.";
+  return fallback;
+}
 
 function startImpersonation(tenantId: string) {
   const form = document.createElement("form");
@@ -150,6 +161,7 @@ export default function TenantDetailPage() {
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -181,6 +193,38 @@ export default function TenantDetailPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  /** Lifecycle action (archive / suspend / reactivate) via PATCH, with a confirm
+   * gate for the destructive transitions. Surfaces platform_owner_protected and
+   * other errors as readable copy, never raw JSON. */
+  async function changeStatus(status: "ARCHIVED" | "SUSPENDED" | "ACTIVE") {
+    if (!tenant) return;
+    const confirmMsg =
+      status === "ARCHIVED"
+        ? `Archive ${tenant.name}? Its storefront will go offline and API keys will be revoked. You can reactivate later.`
+        : status === "SUSPENDED"
+          ? `Suspend ${tenant.name}? Its storefront will go offline until you reactivate.`
+          : null;
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(lifecycleErrorMessage(body.error, body.message || body.error || `HTTP ${res.status}`));
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update status");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <a href="/platform/tenants" style={{ fontSize: 13, color: ACCENT, fontWeight: 600, textDecoration: "none" }}>← All tenants</a>
@@ -195,7 +239,7 @@ export default function TenantDetailPage() {
         <p style={{ color: "#888", marginTop: 16 }}>Loading…</p>
       ) : tenant ? (
         <>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, margin: "16px 0 24px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, margin: "16px 0 24px", flexWrap: "wrap" }}>
             <div>
               <h1 style={{ fontSize: 26, fontWeight: 700, color: "#222b40" }}>{tenant.name}</h1>
               <p style={{ color: "#7a8296", fontSize: 14 }}>
@@ -203,7 +247,36 @@ export default function TenantDetailPage() {
                 {tenant.isPlatformOwner ? " · house store" : ""}
               </p>
             </div>
-            <button style={btn} onClick={() => startImpersonation(tenant.id)}>Impersonate</button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              {/* View store — always links to /t/{slug}; labels a non-live store as
+                  a preview so the 404 gate isn't a surprise. */}
+              <a
+                href={`/t/${tenant.slug}`}
+                target="_blank"
+                rel="noopener"
+                style={{
+                  ...btnGhost,
+                  color: tenant.storeEnabled && tenant.status === "ACTIVE" ? ACCENT : AMBER,
+                  borderColor: tenant.storeEnabled && tenant.status === "ACTIVE" ? "rgba(61,79,124,0.35)" : "rgba(154,106,18,0.4)",
+                }}
+              >
+                {tenant.storeEnabled && tenant.status === "ACTIVE" ? "View store ↗" : "Preview (not live yet) ↗"}
+              </a>
+              <button style={btn} onClick={() => startImpersonation(tenant.id)}>Impersonate</button>
+              {/* Lifecycle — hidden entirely for the house/platform-owner tenant. */}
+              {!tenant.isPlatformOwner && (
+                tenant.status === "ARCHIVED" || tenant.status === "SUSPENDED" ? (
+                  <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("ACTIVE")}>
+                    {busy ? "Working…" : "Reactivate"}
+                  </button>
+                ) : (
+                  <>
+                    <button style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("SUSPENDED")}>Suspend</button>
+                    <button style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("ARCHIVED")}>Archive</button>
+                  </>
+                )
+              )}
+            </div>
           </div>
 
           {/* Onboarding checklist — read-only mirror of the derived status, with a

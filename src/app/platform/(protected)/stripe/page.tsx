@@ -12,6 +12,8 @@ interface TenantRow {
   id: string;
   name: string;
   slug: string;
+  status: string;
+  storeEnabled: boolean;
   stripeOnboarded: boolean;
 }
 
@@ -67,6 +69,7 @@ export default function PlatformStripePage() {
               <tr style={{ textAlign: "left", color: "#888", fontSize: 12 }}>
                 <th style={{ padding: "8px 8px" }}>Tenant</th>
                 <th style={{ padding: "8px 8px" }}>Onboarded</th>
+                <th style={{ padding: "8px 8px" }}>Store</th>
                 <th style={{ padding: "8px 8px" }}></th>
               </tr>
             </thead>
@@ -76,6 +79,16 @@ export default function PlatformStripePage() {
                   <td style={{ padding: "10px 8px", fontWeight: 600 }}>{t.name}</td>
                   <td style={{ padding: "10px 8px", color: t.stripeOnboarded ? "#1c7c4a" : "#9a3838" }}>
                     {t.stripeOnboarded ? "✓ onboarded" : "— not onboarded"}
+                  </td>
+                  <td style={{ padding: "10px 8px" }}>
+                    <a
+                      href={`/t/${t.slug}`}
+                      target="_blank"
+                      rel="noopener"
+                      style={{ color: t.storeEnabled && t.status === "ACTIVE" ? "#3D4F7C" : "#9a6a12", fontWeight: 600, textDecoration: "none", fontSize: 13 }}
+                    >
+                      {t.storeEnabled && t.status === "ACTIVE" ? "View store ↗" : "Preview ↗"}
+                    </a>
                   </td>
                   <td style={{ padding: "10px 8px", textAlign: "right" }}>
                     <a href={`/platform/tenants/${t.id}`} style={{ color: "#3D4F7C", fontWeight: 600, textDecoration: "none" }}>Details →</a>

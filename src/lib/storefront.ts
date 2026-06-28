@@ -35,7 +35,7 @@ export const getStorefrontTenant = cache(
       where: { slug },
       include: { theme: true },
     });
-    if (!tenant || tenant.status === "SUSPENDED") return null;
+    if (!tenant || tenant.status === "SUSPENDED" || tenant.status === "ARCHIVED") return null;
     const settings = await prisma.storeSettings.findUnique({
       where: { tenantId: tenant.id },
       select: { storeEnabled: true },

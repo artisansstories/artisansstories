@@ -57,6 +57,12 @@ export async function GET(
   const activeApiKeyCount = await prisma.tenantApiKey.count({
     where: { tenantId: id, revokedAt: null },
   });
+  // storeEnabled lives on the tenant's own StoreSettings — surface it so the
+  // detail header can label the "View store" link as a preview when not live.
+  const settings = await prisma.storeSettings.findUnique({
+    where: { tenantId: id },
+    select: { storeEnabled: true },
+  });
 
   const { _count, theme, stripeConnectAccountId, ...rest } = tenant;
 
@@ -71,6 +77,7 @@ export async function GET(
     apiKeyCount: _count.apiKeys,
     activeApiKeyCount,
     productCount,
+    storeEnabled: settings?.storeEnabled ?? false,
   });
 }
 
@@ -85,8 +92,9 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  let operator;
   try {
-    await requirePlatformOperator(req);
+    operator = await requirePlatformOperator(req);
   } catch (err) {
     const res = platformAuthErrorResponse(err);
     if (res) return res;
@@ -95,7 +103,10 @@ export async function PATCH(
 
   const { id } = await params;
 
-  const existing = await prisma.tenant.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.tenant.findUnique({
+    where: { id },
+    select: { id: true, name: true, status: true, isPlatformOwner: true },
+  });
   if (!existing) {
     return NextResponse.json({ error: "tenant_not_found" }, { status: 404 });
   }
@@ -157,6 +168,26 @@ export async function PATCH(
     return NextResponse.json({ error: "no_fields", message: "No updatable fields supplied." }, { status: 400 });
   }
 
+  // ── Lifecycle guards + side-effects (P0-5, P0-1 tier 1, P1-1) ──────────────
+  const prevStatus = existing.status;
+  const nextStatus = data.status;
+
+  // The house / platform-owner singleton powers /shop + the flagship store; it
+  // can never be archived or suspended (P0-5). Hard-block at the API, not just
+  // the UI, so a stray PATCH can't take it offline.
+  if (
+    existing.isPlatformOwner &&
+    (nextStatus === "ARCHIVED" || nextStatus === "SUSPENDED")
+  ) {
+    return NextResponse.json(
+      {
+        error: "platform_owner_protected",
+        message: "The house store cannot be archived or suspended.",
+      },
+      { status: 403 },
+    );
+  }
+
   const tenant = await prisma.tenant.update({
     where: { id },
     data,
@@ -171,6 +202,51 @@ export async function PATCH(
       updatedAt: true,
     },
   });
+
+  // Audit + key handling keyed on the actual status transition. Mirrors the
+  // go-live audit pattern (operatorId/operatorEmail/action/tenantId/detail).
+  if (nextStatus && nextStatus !== prevStatus) {
+    if (nextStatus === "ARCHIVED") {
+      // Security-first: revoke every active key on archive. Keys are NOT auto-
+      // restored on reactivate — the operator re-mints (intended).
+      await prisma.tenantApiKey.updateMany({
+        where: { tenantId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await prisma.platformAuditLog.create({
+        data: {
+          operatorId: operator.id,
+          operatorEmail: operator.email,
+          action: "tenant.archive",
+          tenantId: id,
+          detail: `archived "${existing.name}"`,
+        },
+      });
+    } else if (nextStatus === "SUSPENDED") {
+      await prisma.platformAuditLog.create({
+        data: {
+          operatorId: operator.id,
+          operatorEmail: operator.email,
+          action: "tenant.suspend",
+          tenantId: id,
+          detail: `suspended "${existing.name}"`,
+        },
+      });
+    } else if (
+      nextStatus === "ACTIVE" &&
+      (prevStatus === "ARCHIVED" || prevStatus === "SUSPENDED")
+    ) {
+      await prisma.platformAuditLog.create({
+        data: {
+          operatorId: operator.id,
+          operatorEmail: operator.email,
+          action: "tenant.reactivate",
+          tenantId: id,
+          detail: `reactivated "${existing.name}" (was ${prevStatus})`,
+        },
+      });
+    }
+  }
 
   return NextResponse.json(tenant);
 }

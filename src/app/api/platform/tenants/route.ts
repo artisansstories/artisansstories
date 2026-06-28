@@ -133,13 +133,20 @@ export async function GET(req: NextRequest) {
     throw err;
   }
 
+  // Archived tenants drop out of the default list (the operator off-ramp); pass
+  // ?includeArchived=1 to surface them (the "Show archived" toggle in the UI).
+  const includeArchived =
+    req.nextUrl?.searchParams?.get("includeArchived") === "1";
+
   const tenants = await prisma.tenant.findMany({
+    where: includeArchived ? undefined : { status: { not: "ARCHIVED" } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
       slug: true,
       name: true,
       status: true,
+      isPlatformOwner: true,
       stripeOnboarded: true,
       createdAt: true,
     },
@@ -152,10 +159,19 @@ export async function GET(req: NextRequest) {
   });
   const countByTenant = new Map(counts.map((c) => [c.tenantId, c._count._all]));
 
+  // storeEnabled lives on each tenant's own StoreSettings (no relation back to
+  // Tenant). Surface it so the console can label a non-live "/t/{slug}" link as
+  // a preview rather than springing a 404 on the operator (P0-3 / P1-7).
+  const settings = await prisma.storeSettings.findMany({
+    select: { tenantId: true, storeEnabled: true },
+  });
+  const enabledByTenant = new Map(settings.map((s) => [s.tenantId, s.storeEnabled]));
+
   return NextResponse.json({
     tenants: tenants.map((t) => ({
       ...t,
       productCount: countByTenant.get(t.id) ?? 0,
+      storeEnabled: enabledByTenant.get(t.id) ?? false,
     })),
   });
 }

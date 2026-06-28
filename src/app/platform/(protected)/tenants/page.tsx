@@ -14,6 +14,8 @@ interface TenantRow {
   slug: string;
   name: string;
   status: string;
+  isPlatformOwner: boolean;
+  storeEnabled: boolean;
   stripeOnboarded: boolean;
   productCount: number;
   createdAt: string;
@@ -51,6 +53,34 @@ const btn: React.CSSProperties = {
 const btnGhost: React.CSSProperties = {
   ...btn, background: "rgba(61,79,124,0.1)", color: ACCENT,
 };
+const linkBtn: React.CSSProperties = {
+  padding: "8px 12px", borderRadius: 8, border: "1px solid rgba(61,79,124,0.35)",
+  cursor: "pointer", background: "transparent", color: ACCENT, fontWeight: 600,
+  fontSize: 13, textDecoration: "none", display: "inline-block",
+};
+
+/** Human-readable mapping for the machine error codes the PATCH endpoint emits. */
+function lifecycleErrorMessage(code: string, fallback: string): string {
+  if (code === "platform_owner_protected")
+    return "The house store can’t be archived or suspended.";
+  return fallback;
+}
+
+/** "View store" link — always points at /t/{slug}; labels non-live stores as a
+ * preview so the operator isn't surprised by the storefront's 404 gate. */
+function ViewStoreLink({ slug, live }: { slug: string; live: boolean }) {
+  return (
+    <a
+      href={`/t/${slug}`}
+      target="_blank"
+      rel="noopener"
+      style={{ ...linkBtn, color: live ? ACCENT : "#9a6a12", borderColor: live ? "rgba(61,79,124,0.35)" : "rgba(154,106,18,0.4)" }}
+      title={live ? "Open the live storefront" : "Store is not live yet — this will 404"}
+    >
+      {live ? "View store ↗" : "Preview (not live yet) ↗"}
+    </a>
+  );
+}
 
 /** POST to the impersonation start endpoint via a real form so the browser
  * follows the server redirect into /admin (and carries the freshly-set cookie). */
@@ -77,11 +107,14 @@ export default function PlatformTenantsPage() {
   const [minting, setMinting] = useState(false);
   const [minted, setMinted] = useState<MintedKey | null>(null);
 
+  const [showArchived, setShowArchived] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/platform/tenants");
+      const res = await fetch(`/api/platform/tenants${showArchived ? "?includeArchived=1" : ""}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || body.error || `HTTP ${res.status}`);
@@ -93,9 +126,40 @@ export default function PlatformTenantsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showArchived]);
 
   useEffect(() => { void load(); }, [load]);
+
+  /** Status lifecycle action (archive / suspend / reactivate) via PATCH, with a
+   * confirm gate for the destructive ones. Surfaces 403 platform_owner_protected
+   * as readable copy rather than raw JSON. */
+  async function changeStatus(t: TenantRow, status: "ARCHIVED" | "SUSPENDED" | "ACTIVE") {
+    const confirmMsg =
+      status === "ARCHIVED"
+        ? `Archive ${t.name}? Its storefront will go offline and API keys will be revoked. You can reactivate later.`
+        : status === "SUSPENDED"
+          ? `Suspend ${t.name}? Its storefront will go offline until you reactivate.`
+          : null;
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setBusyId(t.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${t.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(lifecycleErrorMessage(body.error, body.message || body.error || `HTTP ${res.status}`));
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update status");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   async function createTenant(e: React.FormEvent) {
     e.preventDefault();
@@ -184,7 +248,13 @@ export default function PlatformTenantsPage() {
 
       {/* Tenant list */}
       <div style={card}>
-        <h2 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: "#222b40" }}>All tenants</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: "#222b40" }}>All tenants</h2>
+          <label style={{ fontSize: 13, color: "#666", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Show archived
+          </label>
+        </div>
         {loading ? (
           <p style={{ color: "#888" }}>Loading…</p>
         ) : tenants.length === 0 ? (
@@ -197,6 +267,7 @@ export default function PlatformTenantsPage() {
                   <th style={{ padding: "8px 8px" }}>Name</th>
                   <th style={{ padding: "8px 8px" }}>Slug</th>
                   <th style={{ padding: "8px 8px" }}>Status</th>
+                  <th style={{ padding: "8px 8px" }}>Store</th>
                   <th style={{ padding: "8px 8px" }}>Stripe</th>
                   <th style={{ padding: "8px 8px" }}>Products</th>
                   <th style={{ padding: "8px 8px" }}></th>
@@ -210,11 +281,21 @@ export default function PlatformTenantsPage() {
                     </td>
                     <td style={{ padding: "10px 8px", color: "#666" }}>{t.slug}</td>
                     <td style={{ padding: "10px 8px" }}>{t.status}</td>
+                    <td style={{ padding: "10px 8px" }}>
+                      <ViewStoreLink slug={t.slug} live={t.storeEnabled && t.status === "ACTIVE"} />
+                    </td>
                     <td style={{ padding: "10px 8px" }}>{t.stripeOnboarded ? "✓ onboarded" : "—"}</td>
                     <td style={{ padding: "10px 8px" }}>{t.productCount}</td>
                     <td style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
                       <button style={{ ...btnGhost, marginRight: 8 }} onClick={() => setMintFor(t)}>Mint API key</button>
-                      <button style={btn} onClick={() => startImpersonation(t.id)}>Impersonate</button>
+                      <button style={{ ...btn, marginRight: 8 }} onClick={() => startImpersonation(t.id)}>Impersonate</button>
+                      {!t.isPlatformOwner && (
+                        t.status === "ARCHIVED" || t.status === "SUSPENDED" ? (
+                          <button style={{ ...linkBtn, opacity: busyId === t.id ? 0.5 : 1 }} disabled={busyId === t.id} onClick={() => changeStatus(t, "ACTIVE")}>Reactivate</button>
+                        ) : (
+                          <button style={{ ...linkBtn, color: "#9a3838", borderColor: "rgba(154,56,56,0.4)", opacity: busyId === t.id ? 0.5 : 1 }} disabled={busyId === t.id} onClick={() => changeStatus(t, "ARCHIVED")}>Archive</button>
+                        )
+                      )}
                     </td>
                   </tr>
                 ))}

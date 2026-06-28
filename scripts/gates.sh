@@ -36,6 +36,12 @@ run_gate_C() {
     tail -40 /tmp/gate-C-admin-upload.out
     if [ "$arc" -ne 0 ]; then report C "RED (admin upload prefix leak or test fail)"; return 1; fi
   fi
+  # Tenant lifecycle (A2): archive/reactivate + house-tenant protection.
+  if [ -f scripts/test-tenant-lifecycle.ts ]; then
+    npx tsx scripts/test-tenant-lifecycle.ts > /tmp/gate-C-lifecycle.out 2>&1; local lrc=$?
+    tail -40 /tmp/gate-C-lifecycle.out
+    if [ "$lrc" -ne 0 ]; then report C "RED (tenant lifecycle fail)"; return 1; fi
+  fi
   report C "GREEN"; return 0
 }
 

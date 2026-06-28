@@ -14,7 +14,7 @@ export const CHECKOUT_MODES = ["embedded", "connect_redirect"] as const;
 export type CheckoutMode = (typeof CHECKOUT_MODES)[number];
 
 /** Tenant lifecycle states (mirrors the TenantStatus enum). */
-export const TENANT_STATUSES = ["ACTIVE", "SUSPENDED", "PENDING"] as const;
+export const TENANT_STATUSES = ["ACTIVE", "SUSPENDED", "PENDING", "ARCHIVED"] as const;
 export type TenantStatusValue = (typeof TENANT_STATUSES)[number];
 
 /**

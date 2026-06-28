@@ -285,7 +285,18 @@ export default function OnboardingLauncherPage() {
                       {s ? ` · ${s.completedCount}/${s.total} steps` : ""}
                     </div>
                   </div>
-                  <a href={`/platform/onboarding/${t.id}`} style={btnGhost}>Resume →</a>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                    <a
+                      href={`/t/${t.slug}`}
+                      target="_blank"
+                      rel="noopener"
+                      style={{ color: "#9a6a12", fontWeight: 600, textDecoration: "none", fontSize: 13 }}
+                      title="Store is not live yet — this preview will 404 until go-live"
+                    >
+                      Preview ↗
+                    </a>
+                    <a href={`/platform/onboarding/${t.id}`} style={btnGhost}>Resume →</a>
+                  </div>
                 </div>
               );
             })}
