@@ -49,23 +49,23 @@ model TenantApiKey {
 }
 
 model TenantTheme {
-  id             String   @id @default(cuid())
-  tenantId       String   @unique
-  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  logoUrl        String?
-  faviconUrl     String?
-  primaryColor   String   @default("#1f6feb")
-  secondaryColor String   @default("#0b3d91")
-  accentColor    String   @default("#ff7a18")
-  fontHeading    String   @default("Inter")
-  fontBody       String   @default("Inter")
-  radius         String   @default("md")
+  id               String   @id @default(cuid())
+  tenantId         String   @unique
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logoUrl          String?
+  faviconUrl       String?
+  primaryColor     String   @default("#1f6feb")
+  secondaryColor   String   @default("#0b3d91")
+  accentColor      String   @default("#ff7a18")
+  fontHeading      String   @default("Inter")
+  fontBody         String   @default("Inter")
+  radius           String   @default("md")
   // E1 — per-tenant email branding (all optional; resolved in src/lib/email-branding.ts)
   emailFromName    String? // e.g. "Galarraga Baseball Academy" — shown as sender name
   emailReplyTo     String? // optional reply-to address
   emailAccentColor String? // hex color for CTA buttons in emails (defaults to accentColor)
   emailLogoUrl     String? // separate email logo if needed (defaults to logoUrl)
-  updatedAt      DateTime @updatedAt
+  updatedAt        DateTime @updatedAt
 }
 
 enum TenantStatus {
