@@ -176,11 +176,31 @@ export function AdminLayoutClient({
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ padding: "20px 16px 12px", borderBottom: "1px solid #ede8df" }}>
           {isHouse ? (
-            <Image src="/logo-color.png" alt={storeName} width={adminLogoSize * 2} height={Math.round(adminLogoSize * 0.31 * 2)} style={{ width: adminLogoSize, height: "auto" }} unoptimized />
+            // House tenant: wide wordmark — fixed width, auto height
+            <Image src="/logo-color.png" alt={storeName} width={adminLogoSize * 2} height={Math.round(adminLogoSize * 0.31 * 2)} style={{ width: adminLogoSize, height: "auto", maxHeight: 56 }} unoptimized />
           ) : tenantLogoUrl ? (
-            <Image src={tenantLogoUrl} alt={storeName} width={adminLogoSize * 2} height={Math.round(adminLogoSize * 0.31 * 2)} style={{ width: adminLogoSize, height: "auto", objectFit: "contain" }} unoptimized />
+            // Tenant logo: ANY shape (square badge, wide wordmark, etc.).
+            // We constrain to a fixed 48px tall container and let the image
+            // fit inside it — wide logos expand to fill width, square badges
+            // stay compact. objectFit "contain" ensures no cropping.
+            <div style={{ height: 48, display: "flex", alignItems: "center" }}>
+              <Image
+                src={tenantLogoUrl}
+                alt={storeName}
+                width={240}
+                height={96}
+                style={{
+                  maxHeight: 48,
+                  width: "auto",
+                  maxWidth: "100%",
+                  objectFit: "contain",
+                  objectPosition: "left center",
+                }}
+                unoptimized
+              />
+            </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 40 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 48 }}>
               <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #8B6914, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 16, fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>
                 {storeName.charAt(0).toUpperCase()}
               </div>
@@ -277,9 +297,12 @@ export function AdminLayoutClient({
               <IconMenu size={22} />
             </button>
             {isHouse ? (
-              <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto" }} unoptimized />
+              <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto", maxHeight: 40 }} unoptimized />
             ) : tenantLogoUrl ? (
-              <Image src={tenantLogoUrl} alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(120px, 42vw, 200px)", height: "auto", objectFit: "contain" }} unoptimized />
+              <div style={{ height: 40, display: "flex", alignItems: "center" }}>
+                <Image src={tenantLogoUrl} alt={storeName} width={240} height={80} className="admin-storename"
+                  style={{ maxHeight: 40, width: "auto", maxWidth: "clamp(80px, 38vw, 180px)", objectFit: "contain", objectPosition: "left center" }} unoptimized />
+              </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 7, background: "linear-gradient(135deg, #8B6914, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15, fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>
