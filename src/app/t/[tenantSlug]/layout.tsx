@@ -18,6 +18,8 @@ import { notFound } from "next/navigation";
 import { getStorefrontTenant } from "@/lib/storefront";
 import { themeToCssVars } from "@/lib/theme";
 import { BRAND_FONT_VARS, fontStack } from "./brand-fonts";
+import { CartProvider } from "./_components/CartContext";
+import CartIcon from "./_components/CartIcon";
 
 export async function generateMetadata({
   params,
@@ -79,6 +81,7 @@ export default async function StorefrontLayout({
   const homeHref = "/";
 
   return (
+    <CartProvider tenantSlug={tenant.slug}>
     <div
       className={`brand-scope ${BRAND_FONT_VARS}`}
       style={{
@@ -148,25 +151,7 @@ export default async function StorefrontLayout({
             <Link href={homeHref} className="brand-link hidden sm:inline">
               Shop
             </Link>
-            <span
-              aria-hidden
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                height: 38,
-                width: 38,
-                borderRadius: "var(--brand-radius)",
-                background: "var(--brand-primary)",
-                color: "var(--brand-on-primary)",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="8" cy="21" r="1" />
-                <circle cx="19" cy="21" r="1" />
-                <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
-              </svg>
-            </span>
+            <CartIcon />
           </nav>
         </div>
       </header>
@@ -187,5 +172,6 @@ export default async function StorefrontLayout({
         </div>
       </footer>
     </div>
+    </CartProvider>
   );
 }

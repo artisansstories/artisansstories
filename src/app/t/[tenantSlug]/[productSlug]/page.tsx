@@ -15,6 +15,7 @@ import { getStorefrontTenant } from "@/lib/storefront";
 import ProductDetailClient, { type ProductDetail } from "../_components/ProductDetailClient";
 
 const DETAIL_SELECT = {
+  id: true,
   slug: true,
   name: true,
   price: true,

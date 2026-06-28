@@ -10,6 +10,7 @@
  * real cart will plug into. No colors are hardcoded.
  */
 import { useMemo, useState } from "react";
+import { useCart } from "./CartContext";
 
 interface DetailImage {
   url: string;
@@ -27,6 +28,8 @@ interface DetailVariant {
 }
 
 export interface ProductDetail {
+  id: string;
+  slug: string;
   name: string;
   price: number;
   compareAtPrice?: number | null;
@@ -45,6 +48,7 @@ function formatPrice(cents: number): string {
 }
 
 export default function ProductDetailClient({ product }: { product: ProductDetail }) {
+  const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState(0);
   const [selected, setSelected] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -63,8 +67,26 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
     [product.options, selected],
   );
 
+  // Find the variant that matches the selected options (by name match)
+  const selectedVariant = useMemo(() => {
+    if (product.variants.length === 0) return null;
+    if (product.options.length === 0) return product.variants[0];
+    const selectedLabel = Object.values(selected).join(" / ");
+    return product.variants.find(v => v.name === selectedLabel) ?? product.variants[0];
+  }, [product.variants, product.options.length, selected]);
+
   function handleAdd() {
-    if (!allChosen) return;
+    if (!allChosen || !selectedVariant) return;
+    addItem({
+      variantId: selectedVariant.id,
+      productId: product.id,
+      productSlug: product.slug,
+      name: product.name,
+      variantName: selectedVariant.name,
+      price: selectedVariant.price ?? product.price,
+      quantity: qty,
+      imageUrl: product.images[0]?.urlMedium ?? product.images[0]?.url,
+    });
     setAdded(true);
     setTimeout(() => setAdded(false), 2200);
   }
