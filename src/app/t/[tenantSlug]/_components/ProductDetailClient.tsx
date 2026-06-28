@@ -102,6 +102,8 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
                 key={i}
                 type="button"
                 onClick={() => setActiveImage(i)}
+                aria-label={`View image ${i + 1} of ${images.length}`}
+                aria-pressed={i === activeImage}
                 className="relative h-16 w-16 shrink-0 overflow-hidden transition-all"
                 style={{
                   borderRadius: "var(--brand-radius)",

@@ -27,10 +27,25 @@ export async function generateMetadata({
   const { tenantSlug } = await params;
   const tenant = await getStorefrontTenant(tenantSlug);
   if (!tenant) return { title: "Store not found" };
+  // The favicon pipeline (U2) emits a 256×256 PNG for raster sources, or passes
+  // an SVG through raw. Declare a typed icon plus an apple-touch-icon so iOS
+  // home-screen bookmarks / PWAs pick up the brand — not just the browser tab.
+  const faviconUrl = tenant.theme.faviconUrl;
+  const isSvgFavicon = faviconUrl
+    ? faviconUrl.toLowerCase().split("?")[0].endsWith(".svg")
+    : false;
   return {
     title: `${tenant.name} — Shop`,
     description: `Shop handcrafted goods from ${tenant.name}.`,
-    icons: tenant.theme.faviconUrl ? { icon: tenant.theme.faviconUrl } : undefined,
+    icons: faviconUrl
+      ? {
+          icon: isSvgFavicon
+            ? [{ url: faviconUrl, type: "image/svg+xml" }]
+            : [{ url: faviconUrl, type: "image/png", sizes: "256x256" }],
+          // apple-touch-icon must be raster; only emit it for the PNG output.
+          ...(isSvgFavicon ? {} : { apple: [{ url: faviconUrl, sizes: "256x256" }] }),
+        }
+      : undefined,
   };
 }
 
@@ -100,12 +115,18 @@ export default async function StorefrontLayout({
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
           <Link href={homeHref} className="flex items-center gap-3">
             {theme.logoUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={theme.logoUrl}
-                alt={tenant.name}
-                style={{ height: 40, width: "auto", objectFit: "contain", display: "block" }}
-              />
+              /* Fixed-height box reserves vertical space so the sticky header
+                 doesn't reflow when the logo loads (avoids CLS). The intrinsic
+                 height attr hints the browser; max-width caps very wide logos. */
+              <span style={{ display: "inline-flex", alignItems: "center", height: 40, maxWidth: 220 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={theme.logoUrl}
+                  alt={tenant.name}
+                  height={40}
+                  style={{ height: 40, width: "auto", maxWidth: 220, objectFit: "contain", display: "block" }}
+                />
+              </span>
             ) : (
               <span
                 style={{

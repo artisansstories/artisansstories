@@ -92,7 +92,7 @@ export default async function OnboardingGuidePage() {
         <ul style={{ paddingLeft: 20, margin: 0 }}>
           <li style={liStyle}><strong>Store name</strong> — the slug auto-suggests from it (editable, must be unique).</li>
           <li style={liStyle}><strong>The merchant&apos;s Stripe situation</strong> — brand-new, or an existing <Code>acct_…</Code> to reuse (the instant path).</li>
-          <li style={liStyle}><strong>Brand colours / logo</strong> — primary, secondary, accent, fonts, a logo URL (optional — defaults are fine).</li>
+          <li style={liStyle}><strong>Brand colours / logo</strong> — primary, secondary, accent, fonts, and a logo or favicon to upload (optional — defaults are fine).</li>
           <li style={liStyle}><strong>At least one product</strong> — name + price is enough to satisfy the gate; richer editing comes later.</li>
           <li style={liStyle}><strong>Where the storefront embeds</strong> — the merchant&apos;s own site (API), or just the hosted <Code>/t/{"{slug}"}</Code> store.</li>
         </ul>

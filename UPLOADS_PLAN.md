@@ -266,3 +266,44 @@ Done = punch-list empty **and** every gate green on a clean tree.
 ---
 
 UPLOADS_PLAN_WRITTEN
+
+---
+
+## EXECUTION RECORD (shipped)
+
+All five phases executed via gated loop. Author: Wayne Kool. The ask: let operators **upload** logo/favicon (no URL paste required), store every tenant's images under a **server-derived per-tenant key prefix** so namespaces never collide, **right-size + spec** each asset, **kill the committed R2 secret**, and **sweep** the platform/onboarding/storefront surface to a higher standard. **Additive throughout** — no schema change (`TenantTheme.logoUrl`/`faviconUrl` already store strings); existing flat-key images (`products/…`, `landing-page/…`) keep resolving because their URLs are persisted verbatim, and only **new** uploads get tenant-prefixed keys. Upload endpoints stay operator-gated (`requirePlatformOperator`, path-derived `tenantId`) / admin-gated; the auth model is unchanged.
+
+| Phase | Commit | What shipped | Gates |
+|---|---|---|---|
+| **U1** | `e54c693` | Shared R2 lib (`src/lib/r2.ts`: env-built `S3Client`, `putObject`/`publicUrl`/`isR2Configured`, standardized on `R2_BUCKET_NAME`/`R2_PUBLIC_URL`). All four upload routes refactored onto it — behavior-preserving. **A1** hardcoded account-id/access-key/live-secret/bucket/public-URL removed from `landing-page/upload`; **A2** hardcoded public-URL literal + `R2_BUCKET` split removed from the email routes; **A3** five R2 vars (+ optional `OPENROUTER_API_KEY`) documented in `.env.example`; **A4** admin/landing/email upload routes gated with the admin-session guard. *(Secret rotation is a separate human action.)* | tsc · build · isolation · admin-scoping · operator-session · operator-authz · impersonation · onboarding-train · onboarding |
+| **U2** | `823e709` | New operator-gated `POST /api/platform/tenants/[id]/upload` (AD-1/3/4/5): `requirePlatformOperator`, resolve+404 tenant (mirrors `theme`), `kind ∈ {logo,favicon,product}` drives per-type resize — logo→max-w800 q90 WebP alpha-preserved, favicon→256² cover-crop PNG, product→existing 3-size WebP + HEIC + optional alt text; **SVG passthrough** for logo/favicon. **Key prefix is server-derived from the path `[id]` only — a body `tenantId` is ignored.** New gate `test-upload-isolation.ts` proves operator-gating (401), path-prefix derivation, body-`tenantId` ignored, and two tenants never sharing a prefix; added to `scripts/gates.sh`. | tsc · build · full suite **+ upload-isolation** |
+| **U3** | `524d689` | Wizard `BrandingStep` (Group B + D3/D4): text Logo/Favicon inputs replaced with `UploadField` — drag-drop + click-to-pick dropzone (`role=button`, `tabIndex`, `aria-label`, `aria-busy`, focus-visible ring), live preview (logo on a checkerboard; favicon at 32/64 px), per-field requirements helper text from the specs table, client pre-validation (size/type block; non-square favicon **warns** — server cover-crops), upload progress/error/success wired into `saving/saved/errs`, derived dims+size on success, **collapsible "paste a URL" fallback** still flowing through `validateThemeInput`. On success: `set(field,url)` then `save({field})` persists via `PUT …/theme` (unchanged). Server faults humanized — never raw JSON. | tsc · build · full suite (incl. onboarding + onboarding-train) |
+| **U4** | `ce1d929` | Tenant-prefixed keys for **new** product/store uploads (AD-3, additive): `admin/upload` derives `tenantId` from the **admin session** and writes `tenants/{tenantId}/products/{ts}-{rand}.webp` (+`-medium`/`-thumb`); landing-page route brought onto the same WebP standard + session-derived prefix. Existing flat-key DB URLs untouched. New gate `test-admin-upload-prefix.ts` asserts admin uploads land under the **session** tenant's prefix and can't be steered cross-tenant. | tsc · build · full suite **+ admin-upload-prefix** |
+| **U5** | (this) | Detail sweep finish (Groups C, D) + final re-sweep. **C1** storefront logo `<img>` wrapped in a fixed-height (40px) box with intrinsic `height` attr + `maxWidth` → reserves space, kills the sticky-header CLS; text-name fallback kept. **C2** `generateMetadata` favicon now emits a typed `icon` (256² PNG, or SVG with `image/svg+xml`) **plus an `apple-touch-icon`** (raster only) — no-favicon fallback preserved. **C3/D3** product-detail gallery thumbnail buttons (image `alt=""`) given `aria-label`/`aria-pressed` accessible names. **D2** guide copy straggler "a logo URL (optional)" → "a logo or favicon to upload". **D1/D4** confirmed: Branding step has full loading/saving/saved/errs parity + per-field upload states; upload widgets + previews wrap (auto-fit `minmax(240px,1fr)`, favicon 32/64 row) with no overflow in the narrow wizard column. Re-sweep of launcher / onboarding / guide / integration / tenant-detail / storefront found existing empty/error/alt states sound (no raw-JSON surfacing). Execution record (this). | **full suite** |
+
+### Storage key scheme (as shipped, server-derived)
+```
+tenants/{tenantId}/branding/logo-{ts}-{rand}.webp        (raster logo, max-w800 q90, alpha)
+tenants/{tenantId}/branding/logo-{ts}-{rand}.svg         (svg passthrough)
+tenants/{tenantId}/branding/favicon-{ts}-{rand}.png      (raster favicon, 256² cover)
+tenants/{tenantId}/branding/favicon-{ts}-{rand}.svg      (svg passthrough)
+tenants/{tenantId}/products/{ts}-{rand}.webp (+-medium/-thumb)   (U4; NEW writes only)
+```
+`{tenantId}` is taken **only** from the operator route path (U2) or the admin session (U4) — never the request body. Old flat keys are untouched (additive by construction).
+
+### New surfaces (as shipped)
+- **Lib:** `src/lib/r2.ts` (shared R2 client + helpers).
+- **Endpoint (operator-gated):** `tenants/[id]/upload` (POST, multipart `{ file, kind }`).
+- **Gates added:** `test-upload-isolation` (U2) · `test-admin-upload-prefix` (U4).
+- **Config:** `.env.example` documents `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_URL` (+ optional `OPENROUTER_API_KEY`).
+- **No schema change.** Uploads return `https://…r2.dev/…` URLs that `validateThemeInput` already accepts.
+
+### Follow-ups (NOT done — scoped out of U5)
+- **Secret rotation** — the previously-committed R2 secret access key (removed from source in U1) **must still be rotated by a human** in the Cloudflare dashboard. Code-only fix here; the leaked credential remains valid until rotated.
+- **Wizard `<label htmlFor>` association** — the onboarding form labels (colors, fonts, radius) are visual-only, not programmatically associated with their inputs. Pervasive pre-existing pattern across the wizard; a correct fix means threading `id`s through every control (incl. the two-input color rows). Larger than a U5 detail-fix — left as a dedicated a11y pass.
+- **Tenant-detail Theme card** — shows colors/fonts/radius but not the uploaded logo/favicon thumbnails. Additive nicety, not a defect.
+- **Footer "Powered by Simplify"** (`t/[tenantSlug]/layout.tsx`) — reads like a placeholder brand; left unchanged because the intended platform name is a product decision, not a detail-sweep call.
+- **B5 product upload inside onboarding Step 4** — endpoint already supports `kind=product`; wiring Step 4's image picker is out of scope (default per Open Questions #5).
+
+### Full gate suite (all green)
+`test-isolation` · `test-admin-scoping` · `test-operator-session` · `test-operator-authz` · `test-impersonation` · `test-onboarding-train` · `test-onboarding` · `test-upload-isolation` · `test-admin-upload-prefix`
