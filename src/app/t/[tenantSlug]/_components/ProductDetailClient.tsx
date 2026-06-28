@@ -75,15 +75,22 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
     return product.variants.find(v => v.name === selectedLabel) ?? product.variants[0];
   }, [product.variants, product.options.length, selected]);
 
+  // Button is disabled only when options exist but not all chosen
+  const canAdd = product.options.length === 0 || allChosen;
+
   function handleAdd() {
-    if (!allChosen || !selectedVariant) return;
+    if (!canAdd) return;
+    // Use matched variant if available; fall back to a synthetic entry keyed on productId
+    const variantId = selectedVariant?.id ?? `product:${product.id}`;
+    const variantName = selectedVariant?.name ?? product.name;
+    const price = selectedVariant?.price ?? product.price;
     addItem({
-      variantId: selectedVariant.id,
+      variantId,
       productId: product.id,
       productSlug: product.slug,
       name: product.name,
-      variantName: selectedVariant.name,
-      price: selectedVariant.price ?? product.price,
+      variantName,
+      price,
       quantity: qty,
       imageUrl: product.images[0]?.urlMedium ?? product.images[0]?.url,
     });
@@ -244,7 +251,7 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
           <button
             type="button"
             onClick={handleAdd}
-            disabled={!allChosen}
+            disabled={!canAdd}
             className="flex flex-1 items-center justify-center gap-2 px-6 py-3 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50"
             style={{
               borderRadius: "var(--brand-radius)",
