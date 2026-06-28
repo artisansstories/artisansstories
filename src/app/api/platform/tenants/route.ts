@@ -3,9 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { requirePlatformOperator, platformAuthErrorResponse } from "@/lib/platform-auth";
 import {
   CHECKOUT_MODES,
+  TENANT_STATUSES,
   isValidSlug,
   type CheckoutMode,
+  type TenantStatusValue,
 } from "@/lib/platform-tenants";
+import type { Prisma } from "@prisma/client";
 
 /**
  * /api/platform/tenants — platform-operator tenant collection (P6)
@@ -133,14 +136,63 @@ export async function GET(req: NextRequest) {
     throw err;
   }
 
+  // ── Search / filter / sort (A5 / P1-2) ─────────────────────────────────────
+  // Server-side so the list scales past ~20 tenants. All params optional; the
+  // defaults reproduce the prior behaviour (archived hidden, newest first).
+  const sp = req.nextUrl?.searchParams;
+
   // Archived tenants drop out of the default list (the operator off-ramp); pass
   // ?includeArchived=1 to surface them (the "Show archived" toggle in the UI).
-  const includeArchived =
-    req.nextUrl?.searchParams?.get("includeArchived") === "1";
+  const includeArchived = sp?.get("includeArchived") === "1";
+
+  // ?status= filters to one exact lifecycle state. An explicit status takes
+  // precedence over the archived toggle (status=ARCHIVED always shows archived;
+  // any other status implicitly excludes archived since it's a different state).
+  const statusParam = sp?.get("status")?.toUpperCase();
+  const status =
+    statusParam && TENANT_STATUSES.includes(statusParam as TenantStatusValue)
+      ? (statusParam as TenantStatusValue)
+      : undefined;
+
+  // ?q= case-insensitive match on name OR slug.
+  const q = sp?.get("q")?.trim();
+
+  const where: Prisma.TenantWhereInput = {};
+  if (status) {
+    where.status = status;
+  } else if (!includeArchived) {
+    where.status = { not: "ARCHIVED" };
+  }
+  if (q) {
+    where.OR = [
+      { name: { contains: q, mode: "insensitive" } },
+      { slug: { contains: q, mode: "insensitive" } },
+    ];
+  }
+
+  // ?sort= column, ?dir= direction. Sensible per-column defaults (newest-first
+  // for dates, A→Z for text) when dir is omitted.
+  const sortParam = sp?.get("sort");
+  const dirParam = sp?.get("dir");
+  const dir: "asc" | "desc" | undefined =
+    dirParam === "asc" || dirParam === "desc" ? dirParam : undefined;
+  let orderBy: Prisma.TenantOrderByWithRelationInput;
+  switch (sortParam) {
+    case "name":
+      orderBy = { name: dir ?? "asc" };
+      break;
+    case "status":
+      orderBy = { status: dir ?? "asc" };
+      break;
+    case "createdAt":
+    default:
+      orderBy = { createdAt: dir ?? "desc" };
+      break;
+  }
 
   const tenants = await prisma.tenant.findMany({
-    where: includeArchived ? undefined : { status: { not: "ARCHIVED" } },
-    orderBy: { createdAt: "desc" },
+    where,
+    orderBy,
     select: {
       id: true,
       slug: true,

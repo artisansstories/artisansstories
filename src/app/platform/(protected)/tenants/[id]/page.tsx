@@ -30,6 +30,12 @@ interface TenantDetail {
   activeApiKeyCount: number;
   productCount: number;
   storeEnabled: boolean;
+  stats: {
+    ordersCount: number;
+    paidOrdersCount: number;
+    paidRevenueCents: number;
+    customersCount: number;
+  };
 }
 
 interface ApiKey {
@@ -118,6 +124,13 @@ function startImpersonation(tenantId: string) {
   form.action = `/api/platform/tenants/${tenantId}/impersonate`;
   document.body.appendChild(form);
   form.submit();
+}
+
+/** Format a CENTS integer as USD, e.g. 123456 → "$1,234.56". */
+function fmtCents(cents: number): string {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+    (cents ?? 0) / 100,
+  );
 }
 
 function Flag({ on, label }: { on: boolean; label: string }) {
@@ -369,6 +382,22 @@ export default function TenantDetailPage() {
               <div><span style={{ color: "#7a8296" }}>Checkout mode</span><br />{tenant.checkoutMode}</div>
               <div><span style={{ color: "#7a8296" }}>Active API keys</span><br />{tenant.activeApiKeyCount} / {tenant.apiKeyCount}</div>
             </div>
+            {/* Ops stats (A6 / P1-3): tell a live, earning store from a dead one —
+                and surface the paid-orders count that gates a safe hard delete. */}
+            <div style={{ height: 1, background: "rgba(45,59,85,0.08)", margin: "16px 0" }} />
+            {tenant.stats.ordersCount === 0 && tenant.stats.customersCount === 0 ? (
+              <p style={{ color: "#8a93a6", fontSize: 13, margin: 0 }}>No orders yet.</p>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 14, fontSize: 14 }}>
+                <div>
+                  <span style={{ color: "#7a8296" }}>Paid revenue</span><br />
+                  <strong style={{ color: GREEN }}>{fmtCents(tenant.stats.paidRevenueCents)}</strong>
+                </div>
+                <div><span style={{ color: "#7a8296" }}>Orders</span><br />{tenant.stats.ordersCount}</div>
+                <div><span style={{ color: "#7a8296" }}>Paid orders</span><br />{tenant.stats.paidOrdersCount}</div>
+                <div><span style={{ color: "#7a8296" }}>Customers</span><br />{tenant.stats.customersCount}</div>
+              </div>
+            )}
           </div>
 
           <div style={card}>

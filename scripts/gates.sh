@@ -42,6 +42,18 @@ run_gate_C() {
     tail -40 /tmp/gate-C-lifecycle.out
     if [ "$lrc" -ne 0 ]; then report C "RED (tenant lifecycle fail)"; return 1; fi
   fi
+  # Tenant hard-delete (A3): orphan-sweep + paid/house/slug guards.
+  if [ -f scripts/test-tenant-delete.ts ]; then
+    npx tsx scripts/test-tenant-delete.ts > /tmp/gate-C-delete.out 2>&1; local drc=$?
+    tail -40 /tmp/gate-C-delete.out
+    if [ "$drc" -ne 0 ]; then report C "RED (tenant delete fail)"; return 1; fi
+  fi
+  # Per-tenant ops stats (A6): paid-only revenue + orders/customers counts.
+  if [ -f scripts/test-tenant-stats.ts ]; then
+    npx tsx scripts/test-tenant-stats.ts > /tmp/gate-C-stats.out 2>&1; local src=$?
+    tail -40 /tmp/gate-C-stats.out
+    if [ "$src" -ne 0 ]; then report C "RED (tenant stats fail)"; return 1; fi
+  fi
   report C "GREEN"; return 0
 }
 

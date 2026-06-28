@@ -9,6 +9,7 @@ import {
 } from "@/lib/platform-tenants";
 import { TENANT_SCOPED_MODELS } from "@/lib/tenant-prisma";
 import { deleteObjectsByPrefix } from "@/lib/r2";
+import { getTenantStats, PAID_FINANCIAL_STATUSES } from "@/lib/platform-tenant-stats";
 
 /**
  * /api/platform/tenants/[id] — single-tenant read / update (P6)
@@ -65,6 +66,11 @@ export async function GET(
     where: { tenantId: id },
     select: { storeEnabled: true },
   });
+  // Ops stats (orders / paid revenue / customers) for the Overview card. These
+  // also surface the data behind the hard-delete gate (a store with paid orders
+  // is archive-only) so the operator can tell a live, earning store from a dead
+  // one at a glance (A6 / P1-3).
+  const stats = await getTenantStats(id);
 
   const { _count, theme, stripeConnectAccountId, ...rest } = tenant;
 
@@ -80,6 +86,7 @@ export async function GET(
     activeApiKeyCount,
     productCount,
     storeEnabled: settings?.storeEnabled ?? false,
+    stats,
   });
 }
 
@@ -335,18 +342,10 @@ function delegateKey(model: string): string {
   return model.charAt(0).toLowerCase() + model.slice(1);
 }
 
-/**
- * `Order.financialStatus` values that mean the store actually captured money.
- * Any such order makes the tenant archive-only (never hard-deletable). PENDING /
- * AUTHORIZED / VOIDED never captured funds, so a store with only those is still
- * a throwaway (Open Question 2: "no _paid_ orders", not "no orders at all").
- */
-const PAID_FINANCIAL_STATUSES = [
-  "PAID",
-  "PARTIALLY_PAID",
-  "PARTIALLY_REFUNDED",
-  "REFUNDED",
-] as const;
+// `PAID_FINANCIAL_STATUSES` (the "store captured money → archive-only" set) is
+// the single source of truth shared with the tenant-stats revenue figure; it is
+// imported from platform-tenant-stats so the delete gate and the displayed
+// revenue can never drift apart (Open Question 2: "no _paid_ orders").
 
 interface DeleteBody {
   confirmSlug?: unknown;

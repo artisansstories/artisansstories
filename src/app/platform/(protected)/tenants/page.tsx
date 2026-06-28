@@ -32,7 +32,27 @@ interface MintedKey {
 
 const ALL_SCOPES = ["store:read", "store:write", "checkout:create"] as const;
 
+/** Status-filter dropdown options. "" = all active (archived hidden unless the
+ * Show-archived toggle is on); the rest map straight to a ?status= filter. */
+const STATUS_FILTERS: { value: string; label: string }[] = [
+  { value: "", label: "All active" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "PENDING", label: "Pending" },
+  { value: "SUSPENDED", label: "Suspended" },
+  { value: "ARCHIVED", label: "Archived" },
+];
+
+type SortCol = "createdAt" | "name";
+
 const ACCENT = "#3D4F7C";
+
+/** Compact created-date for the list column. */
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+}
 
 const card: React.CSSProperties = {
   background: "#fff",
@@ -82,6 +102,37 @@ function ViewStoreLink({ slug, live }: { slug: string; live: boolean }) {
   );
 }
 
+/** A clickable column header that toggles sort on `col` and shows the active
+ * direction arrow. Renders as a button for keyboard/a11y. */
+function SortHeader({
+  label, col, sort, dir, onToggle,
+}: {
+  label: string;
+  col: SortCol;
+  sort: SortCol;
+  dir: "asc" | "desc";
+  onToggle: (c: SortCol) => void;
+}) {
+  const active = sort === col;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(col)}
+      aria-label={`Sort by ${label}${active ? (dir === "asc" ? ", ascending" : ", descending") : ""}`}
+      style={{
+        background: "none", border: "none", padding: 0, cursor: "pointer",
+        font: "inherit", color: active ? ACCENT : "#888", fontWeight: active ? 700 : 400,
+        display: "inline-flex", alignItems: "center", gap: 4,
+      }}
+    >
+      {label}
+      <span aria-hidden style={{ fontSize: 10, opacity: active ? 1 : 0.3 }}>
+        {active ? (dir === "asc" ? "▲" : "▼") : "▾"}
+      </span>
+    </button>
+  );
+}
+
 /** POST to the impersonation start endpoint via a real form so the browser
  * follows the server redirect into /admin (and carries the freshly-set cookie). */
 function startImpersonation(tenantId: string) {
@@ -110,11 +161,31 @@ export default function PlatformTenantsPage() {
   const [showArchived, setShowArchived] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  // Search / filter / sort (A5). `search` is the live input; `q` is its debounced
+  // value (what we actually query with) so we don't refetch on every keystroke.
+  const [search, setSearch] = useState("");
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sort, setSort] = useState<SortCol>("createdAt");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
+
+  // Debounce the search box → q (250ms).
+  useEffect(() => {
+    const id = setTimeout(() => setQ(search.trim()), 250);
+    return () => clearTimeout(id);
+  }, [search]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/platform/tenants${showArchived ? "?includeArchived=1" : ""}`);
+      const params = new URLSearchParams();
+      if (q) params.set("q", q);
+      if (statusFilter) params.set("status", statusFilter);
+      else if (showArchived) params.set("includeArchived", "1");
+      params.set("sort", sort);
+      params.set("dir", dir);
+      const res = await fetch(`/api/platform/tenants?${params.toString()}`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.message || body.error || `HTTP ${res.status}`);
@@ -126,9 +197,20 @@ export default function PlatformTenantsPage() {
     } finally {
       setLoading(false);
     }
-  }, [showArchived]);
+  }, [q, statusFilter, showArchived, sort, dir]);
 
   useEffect(() => { void load(); }, [load]);
+
+  /** Toggle a sortable column: same column flips direction, new column resets to
+   * its natural default (Z-fresh for dates, A→Z for name). */
+  function toggleSort(col: SortCol) {
+    if (sort === col) {
+      setDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSort(col);
+      setDir(col === "createdAt" ? "desc" : "asc");
+    }
+  }
 
   /** Status lifecycle action (archive / suspend / reactivate) via PATCH, with a
    * confirm gate for the destructive ones. Surfaces 403 platform_owner_protected
@@ -250,23 +332,53 @@ export default function PlatformTenantsPage() {
       <div style={card}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
           <h2 style={{ fontSize: 17, fontWeight: 700, color: "#222b40" }}>All tenants</h2>
-          <label style={{ fontSize: 13, color: "#666", display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-            <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-            Show archived
-          </label>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name or slug…"
+              aria-label="Search tenants by name or slug"
+              style={{ ...input, marginBottom: 0, width: 220 }}
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              aria-label="Filter by status"
+              style={{ ...input, marginBottom: 0, width: "auto", cursor: "pointer" }}
+            >
+              {STATUS_FILTERS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+            <label
+              style={{ fontSize: 13, color: "#666", display: "inline-flex", alignItems: "center", gap: 6, cursor: statusFilter ? "not-allowed" : "pointer", opacity: statusFilter ? 0.5 : 1 }}
+              title={statusFilter ? "Clear the status filter to use this toggle" : undefined}
+            >
+              <input type="checkbox" checked={showArchived} disabled={!!statusFilter} onChange={(e) => setShowArchived(e.target.checked)} />
+              Show archived
+            </label>
+          </div>
         </div>
         {loading ? (
           <p style={{ color: "#888" }}>Loading…</p>
         ) : tenants.length === 0 ? (
-          <p style={{ color: "#888" }}>No tenants yet.</p>
+          <p style={{ color: "#888" }}>
+            {q ? `No stores match “${q}”.` : statusFilter ? "No tenants match this filter." : "No tenants yet."}
+          </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
                 <tr style={{ textAlign: "left", color: "#888", fontSize: 12 }}>
-                  <th style={{ padding: "8px 8px" }}>Name</th>
+                  <th style={{ padding: "8px 8px" }}>
+                    <SortHeader label="Name" col="name" sort={sort} dir={dir} onToggle={toggleSort} />
+                  </th>
                   <th style={{ padding: "8px 8px" }}>Slug</th>
                   <th style={{ padding: "8px 8px" }}>Status</th>
+                  <th style={{ padding: "8px 8px" }}>
+                    <SortHeader label="Created" col="createdAt" sort={sort} dir={dir} onToggle={toggleSort} />
+                  </th>
                   <th style={{ padding: "8px 8px" }}>Store</th>
                   <th style={{ padding: "8px 8px" }}>Stripe</th>
                   <th style={{ padding: "8px 8px" }}>Products</th>
@@ -281,6 +393,7 @@ export default function PlatformTenantsPage() {
                     </td>
                     <td style={{ padding: "10px 8px", color: "#666" }}>{t.slug}</td>
                     <td style={{ padding: "10px 8px" }}>{t.status}</td>
+                    <td style={{ padding: "10px 8px", color: "#666", whiteSpace: "nowrap" }}>{fmtDate(t.createdAt)}</td>
                     <td style={{ padding: "10px 8px" }}>
                       <ViewStoreLink slug={t.slug} live={t.storeEnabled && t.status === "ACTIVE"} />
                     </td>
