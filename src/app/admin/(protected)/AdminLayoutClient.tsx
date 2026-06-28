@@ -114,6 +114,7 @@ export function AdminLayoutClient({
   storeName = "Artisans Stories",
   adminLogoSize = 280,
   isHouse = false,
+  tenantLogoUrl = null,
 }: {
   children: React.ReactNode;
   session: AdminSessionProp | null;
@@ -122,6 +123,8 @@ export function AdminLayoutClient({
   adminLogoSize?: number;
   /** House (platform-owner) tenant — gates landing-page / kb / artisans nav. */
   isHouse?: boolean;
+  /** Logo URL for non-house tenants; null = show generic placeholder. */
+  tenantLogoUrl?: string | null;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -172,7 +175,18 @@ export function AdminLayoutClient({
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ padding: "20px 16px 12px", borderBottom: "1px solid #ede8df" }}>
-          <Image src="/logo-color.png" alt={storeName} width={adminLogoSize * 2} height={Math.round(adminLogoSize * 0.31 * 2)} style={{ width: adminLogoSize, height: "auto" }} unoptimized />
+          {isHouse ? (
+            <Image src="/logo-color.png" alt={storeName} width={adminLogoSize * 2} height={Math.round(adminLogoSize * 0.31 * 2)} style={{ width: adminLogoSize, height: "auto" }} unoptimized />
+          ) : tenantLogoUrl ? (
+            <Image src={tenantLogoUrl} alt={storeName} width={adminLogoSize * 2} height={Math.round(adminLogoSize * 0.31 * 2)} style={{ width: adminLogoSize, height: "auto", objectFit: "contain" }} unoptimized />
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, height: 40 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: "linear-gradient(135deg, #8B6914, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 16, fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>
+                {storeName.charAt(0).toUpperCase()}
+              </div>
+              <span style={{ fontWeight: 600, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif", lineHeight: 1.2 }}>{storeName}</span>
+            </div>
+          )}
           <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 6 }}>Admin Panel</p>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
@@ -262,7 +276,18 @@ export function AdminLayoutClient({
             <button onClick={() => setSidebarOpen(true)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#6b5540", padding: 6, display: "flex", alignItems: "center" }} className="admin-hamburger">
               <IconMenu size={22} />
             </button>
-            <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto" }} unoptimized />
+            {isHouse ? (
+              <Image src="/logo-color.png" alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(160px, 42vw, 240px)", height: "auto" }} unoptimized />
+            ) : tenantLogoUrl ? (
+              <Image src={tenantLogoUrl} alt={storeName} width={560} height={174} className="admin-storename" style={{ width: "clamp(120px, 42vw, 200px)", height: "auto", objectFit: "contain" }} unoptimized />
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 7, background: "linear-gradient(135deg, #8B6914, #C9A84C)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15, fontFamily: "'Inter',sans-serif", flexShrink: 0 }}>
+                  {storeName.charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif" }}>{storeName}</span>
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
               <div style={{ textAlign: "right", display: "none" }} className="admin-userinfo">
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>{user?.name}</p>

@@ -10,6 +10,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     prisma.storeSettings.findUnique({ where: { id: "singleton" }, select: { storeName: true, adminLogoSize: true } }).catch(() => null),
   ]);
 
+  // For non-house tenants: fetch their logo from TenantTheme so we don't show
+  // the Artisans Stories logo in their admin.
+  let tenantLogoUrl: string | null = null;
+  let tenantDisplayName: string | null = null;
+  if (session && !isHouseTenant(session.tenantId) && session.tenantId) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: session.tenantId },
+      select: { name: true, theme: { select: { logoUrl: true } } },
+    }).catch(() => null);
+    tenantLogoUrl = tenant?.theme?.logoUrl ?? null;
+    tenantDisplayName = tenant?.name ?? null;
+  }
+
   if (!session) {
     redirect("/admin/login");
   }
@@ -33,8 +46,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <AdminLayoutClient
       session={session}
       impersonation={impersonation}
-      storeName={settings?.storeName ?? "Artisans Stories"}
+      storeName={tenantDisplayName ?? settings?.storeName ?? "Artisans Stories"}
       adminLogoSize={settings?.adminLogoSize ?? 280}
+      tenantLogoUrl={tenantLogoUrl}
       isHouse={isHouseTenant(session.tenantId)}
     >
       {children}
