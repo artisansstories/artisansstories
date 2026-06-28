@@ -11,7 +11,6 @@
  *   - Admin session→ as-admin-session cookie         (admin dashboard)
  *   - Host         → request host / default domain   (public storefront)
  */
-import type { NextRequest } from "next/server";
 import { prisma } from "./prisma";
 import { getAdminSession } from "./admin-auth";
 import { hashApiKey } from "./api-key";

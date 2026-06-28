@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ActionChip, fmtAuditTime, fmtDetail } from "../../activity/page";
+import { ROOT_DOMAIN } from "@/lib/tenant-host";
 
 /**
  * Tenant detail (P10) — operator view of a single tenant: theme summary, Stripe
@@ -55,6 +56,26 @@ interface ApiKey {
   lastUsedAt: string | null;
   revokedAt: string | null;
   createdAt: string;
+}
+
+interface TenantAdmin {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+/** The store roles offered when inviting. "Owner" is the schema's SUPER_ADMIN. */
+const ADMIN_ROLE_OPTIONS: { value: string; label: string }[] = [
+  { value: "EDITOR", label: "Editor" },
+  { value: "ADMIN", label: "Admin" },
+  { value: "SUPER_ADMIN", label: "Owner" },
+];
+
+function roleLabel(role: string): string {
+  return ADMIN_ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role;
 }
 
 /** Read-only mirror of the derived onboarding map (the same source of truth the
@@ -195,6 +216,7 @@ export default function TenantDetailPage() {
 
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [admins, setAdmins] = useState<TenantAdmin[]>([]);
   const [activity, setActivity] = useState<AuditEntry[]>([]);
   const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -203,15 +225,25 @@ export default function TenantDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmSlug, setConfirmSlug] = useState("");
 
+  // Team / invite (T5).
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({ name: "", email: "", role: "EDITOR" });
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSentTo, setInviteSentTo] = useState<string | null>(null);
+  const [teamBusyId, setTeamBusyId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [tRes, kRes, sRes, aRes] = await Promise.all([
+      const [tRes, kRes, sRes, aRes, admRes] = await Promise.all([
         fetch(`/api/platform/tenants/${id}`),
         fetch(`/api/platform/tenants/${id}/api-keys`),
         fetch(`/api/platform/tenants/${id}/onboarding-status`),
         fetch(`/api/platform/audit-log?tenantId=${id}&limit=20`),
+        fetch(`/api/platform/tenants/${id}/admins`),
       ]);
       if (!tRes.ok) {
         const body = await tRes.json().catch(() => ({}));
@@ -221,6 +253,10 @@ export default function TenantDetailPage() {
       if (kRes.ok) {
         const kBody = await kRes.json();
         setKeys(kBody.keys ?? []);
+      }
+      if (admRes.ok) {
+        const admBody = await admRes.json();
+        setAdmins(admBody.admins ?? []);
       }
       if (sRes.ok) {
         setStatus(await sRes.json());
@@ -298,6 +334,80 @@ export default function TenantDetailPage() {
     }
   }
 
+  /** Invite (or reactivate) a store admin. On success the modal shows which
+   *  address the magic link was emailed to, then refreshes the team list. */
+  async function submitInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (inviteBusy) return;
+    setInviteBusy(true);
+    setInviteError(null);
+    setInviteSentTo(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${id}/invite-admin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: inviteForm.name.trim(),
+          email: inviteForm.email.trim(),
+          role: inviteForm.role,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          res.status === 429
+            ? body.message || "Invite limit reached (5/hour). Try again later."
+            : (body.errors?.join(" ") || body.message || body.error || `HTTP ${res.status}`);
+        throw new Error(msg);
+      }
+      setInviteSentTo(body.adminUser?.email ?? inviteForm.email.trim());
+      setInviteForm({ name: "", email: "", role: "EDITOR" });
+      await load();
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Failed to send invite");
+    } finally {
+      setInviteBusy(false);
+    }
+  }
+
+  /** Toggle a store admin's access (deactivate / reactivate). */
+  async function toggleAdmin(admin: TenantAdmin) {
+    if (teamBusyId) return;
+    if (admin.isActive && !window.confirm(`Deactivate ${admin.name}? They will lose access to this store's admin.`)) return;
+    setTeamBusyId(admin.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${id}/admins/${admin.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !admin.isActive }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || body.error || `HTTP ${res.status}`);
+      }
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update admin");
+    } finally {
+      setTeamBusyId(null);
+    }
+  }
+
+  /** Copy the tenant's subdomain URL to the clipboard. */
+  async function copySubdomain(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard unavailable (insecure context) — silently no-op.
+    }
+  }
+
+  const subdomainHost = tenant ? `${tenant.slug}.${ROOT_DOMAIN}` : "";
+  const subdomainUrl = `https://${subdomainHost}`;
+
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <a href="/platform/tenants" style={{ fontSize: 13, color: ACCENT, fontWeight: 600, textDecoration: "none" }}>← All tenants</a>
@@ -319,6 +429,28 @@ export default function TenantDetailPage() {
                 {tenant.slug} · {tenant.status}
                 {tenant.isPlatformOwner ? " · house store" : ""}
               </p>
+              {/* Copyable subdomain — where this tenant's store + admin live. */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                <a
+                  href={subdomainUrl}
+                  target="_blank"
+                  rel="noopener"
+                  style={{ fontSize: 13, color: ACCENT, fontWeight: 600, textDecoration: "none" }}
+                >
+                  {subdomainHost} ↗
+                </a>
+                <button
+                  onClick={() => void copySubdomain(subdomainUrl)}
+                  title="Copy store URL"
+                  style={{
+                    border: "1px solid rgba(61,79,124,0.3)", background: "transparent",
+                    color: ACCENT, borderRadius: 6, padding: "2px 8px", fontSize: 12,
+                    cursor: "pointer", fontWeight: 600,
+                  }}
+                >
+                  {copied ? "Copied ✓" : "Copy"}
+                </button>
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               {/* View store — always links to /t/{slug}; labels a non-live store as
@@ -490,6 +622,64 @@ export default function TenantDetailPage() {
             )}
           </div>
 
+          {/* Team (T5): the store's AdminUsers. Operators invite (magic link to
+              the tenant's subdomain) and deactivate access here. */}
+          <div style={card}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#222b40" }}>Team</h2>
+              <button
+                style={btn}
+                onClick={() => { setInviteError(null); setInviteSentTo(null); setInviteForm({ name: "", email: "", role: "EDITOR" }); setInviteOpen(true); }}
+              >
+                Invite Admin
+              </button>
+            </div>
+            {admins.length === 0 ? (
+              <p style={{ color: "#888", fontSize: 13 }}>No admins yet. Invite the store owner to get them into their admin.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, minWidth: 560 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#888", fontSize: 12 }}>
+                      <th style={{ padding: "8px 8px" }}>Name</th>
+                      <th style={{ padding: "8px 8px" }}>Email</th>
+                      <th style={{ padding: "8px 8px" }}>Role</th>
+                      <th style={{ padding: "8px 8px" }}>Status</th>
+                      <th style={{ padding: "8px 8px", textAlign: "right" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {admins.map((a) => (
+                      <tr key={a.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                        <td style={{ padding: "10px 8px", fontWeight: 600 }}>{a.name}</td>
+                        <td style={{ padding: "10px 8px", color: "#666" }}>{a.email}</td>
+                        <td style={{ padding: "10px 8px" }}>{roleLabel(a.role)}</td>
+                        <td style={{ padding: "10px 8px" }}>
+                          <span style={{ color: a.isActive ? GREEN : "#9a3838" }}>
+                            <span aria-hidden>{a.isActive ? "✓" : "✗"}</span> {a.isActive ? "active" : "inactive"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "10px 8px", textAlign: "right" }}>
+                          <button
+                            style={{
+                              ...(a.isActive ? btnDanger : btnGhost),
+                              padding: "5px 12px", fontSize: 13,
+                              opacity: teamBusyId === a.id ? 0.5 : 1,
+                            }}
+                            disabled={teamBusyId === a.id}
+                            onClick={() => void toggleAdmin(a)}
+                          >
+                            {teamBusyId === a.id ? "Working…" : a.isActive ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Recent activity (A7 / P2-5): the archive/delete/impersonate history
               for THIS store, filtered to its tenantId. Read-only. */}
           <div style={card}>
@@ -580,6 +770,93 @@ export default function TenantDetailPage() {
                 {busy ? "Deleting…" : "Delete permanently"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Admin modal (T5). */}
+      {inviteOpen && tenant && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Invite an admin to ${tenant.name}`}
+          onClick={() => { if (!inviteBusy) setInviteOpen(false); }}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(20,26,40,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ ...card, marginBottom: 0, maxWidth: 460, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#222b40", marginBottom: 4 }}>
+              Invite admin to {tenant.name}
+            </h2>
+            <p style={{ fontSize: 13, color: "#7a8296", marginBottom: 16 }}>
+              They’ll get a magic sign-in link at <strong>{subdomainHost}</strong>.
+            </p>
+
+            {inviteSentTo ? (
+              <>
+                <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(28,124,74,0.08)", border: "1px solid rgba(28,124,74,0.3)", color: GREEN, fontSize: 14, marginBottom: 16 }}>
+                  ✓ Invite sent to <strong>{inviteSentTo}</strong>.
+                </div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button style={btn} onClick={() => setInviteOpen(false)}>Done</button>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={submitInvite} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {inviteError && (
+                  <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(200,40,40,0.06)", border: "1px solid rgba(200,40,40,0.3)", color: "#a01818", fontSize: 13 }}>
+                    {inviteError}
+                  </div>
+                )}
+                <label style={{ fontSize: 13, color: "#4a5266", fontWeight: 600 }}>
+                  Name
+                  <input
+                    autoFocus
+                    required
+                    value={inviteForm.name}
+                    onChange={(e) => setInviteForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Jane Doe"
+                    style={{ marginTop: 4, width: "100%", padding: "9px 12px", borderRadius: 8, fontSize: 14, border: "1px solid rgba(45,59,85,0.25)", boxSizing: "border-box" }}
+                  />
+                </label>
+                <label style={{ fontSize: 13, color: "#4a5266", fontWeight: 600 }}>
+                  Email
+                  <input
+                    required
+                    type="email"
+                    value={inviteForm.email}
+                    onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="jane@example.com"
+                    style={{ marginTop: 4, width: "100%", padding: "9px 12px", borderRadius: 8, fontSize: 14, border: "1px solid rgba(45,59,85,0.25)", boxSizing: "border-box" }}
+                  />
+                </label>
+                <label style={{ fontSize: 13, color: "#4a5266", fontWeight: 600 }}>
+                  Role
+                  <select
+                    value={inviteForm.role}
+                    onChange={(e) => setInviteForm((f) => ({ ...f, role: e.target.value }))}
+                    style={{ marginTop: 4, width: "100%", padding: "9px 12px", borderRadius: 8, fontSize: 14, border: "1px solid rgba(45,59,85,0.25)", boxSizing: "border-box", background: "#fff" }}
+                  >
+                    {ADMIN_ROLE_OPTIONS.map((r) => (
+                      <option key={r.value} value={r.value}>{r.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+                  <button type="button" style={{ ...btnGhost, opacity: inviteBusy ? 0.5 : 1 }} disabled={inviteBusy} onClick={() => setInviteOpen(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" style={{ ...btn, opacity: inviteBusy ? 0.6 : 1 }} disabled={inviteBusy}>
+                    {inviteBusy ? "Sending…" : "Send invite"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
