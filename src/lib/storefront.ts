@@ -18,11 +18,16 @@ export interface StorefrontTenant {
   slug: string;
   name: string;
   theme: ThemeValue;
+  /** Per-tenant go-live flag (StoreSettings.storeEnabled). False until published. */
+  storeEnabled: boolean;
 }
 
 /**
  * Resolve a live (non-suspended) tenant by slug, with its theme already merged
- * over platform defaults. Memoized per-request via React `cache`.
+ * over platform defaults. Also reports the tenant's own `storeEnabled` flag so
+ * the storefront can 404 a store that has not been taken live (the go-live gate;
+ * StoreSettings has no relation back to Tenant, so it's a second scoped lookup).
+ * Memoized per-request via React `cache`.
  */
 export const getStorefrontTenant = cache(
   async (slug: string): Promise<StorefrontTenant | null> => {
@@ -31,11 +36,16 @@ export const getStorefrontTenant = cache(
       include: { theme: true },
     });
     if (!tenant || tenant.status === "SUSPENDED") return null;
+    const settings = await prisma.storeSettings.findUnique({
+      where: { tenantId: tenant.id },
+      select: { storeEnabled: true },
+    });
     return {
       id: tenant.id,
       slug: tenant.slug,
       name: tenant.name,
       theme: resolveTheme(tenant.theme ?? undefined),
+      storeEnabled: settings?.storeEnabled ?? false,
     };
   },
 );

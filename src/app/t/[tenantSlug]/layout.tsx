@@ -44,6 +44,10 @@ export default async function StorefrontLayout({
   const { tenantSlug } = await params;
   const tenant = await getStorefrontTenant(tenantSlug);
   if (!tenant) notFound();
+  // Per-tenant go-live gate: an unpublished store is not publicly visible. The
+  // `POST .../go-live` operator endpoint flips this same flag (additive, tenant-
+  // scoped; the Artisans singleton `/shop` gating in proxy.ts is untouched).
+  if (!tenant.storeEnabled) notFound();
 
   const { theme } = tenant;
 
