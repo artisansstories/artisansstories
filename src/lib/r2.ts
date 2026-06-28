@@ -1,4 +1,10 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+  type ListObjectsV2CommandOutput,
+} from "@aws-sdk/client-s3";
 
 /**
  * Shared Cloudflare R2 (S3-compatible) client + helpers.
@@ -62,4 +68,60 @@ export async function putObject(
       ContentType: contentType,
     })
   );
+}
+
+/**
+ * List every object key under a prefix, following ListObjectsV2 pagination
+ * (1000 keys/page) via the continuation token until the bucket is exhausted.
+ *
+ * No-ops gracefully (returns `[]`) when R2 is not configured, so callers in
+ * environments without bucket credentials (CI, local) don't throw.
+ */
+export async function listObjectsByPrefix(prefix: string): Promise<string[]> {
+  if (!isR2Configured()) return [];
+  const bucket = env().bucketName;
+  const keys: string[] = [];
+  let continuationToken: string | undefined = undefined;
+  do {
+    const out: ListObjectsV2CommandOutput = await client().send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+    for (const obj of out.Contents ?? []) {
+      if (obj.Key) keys.push(obj.Key);
+    }
+    continuationToken = out.IsTruncated ? out.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return keys;
+}
+
+/**
+ * Delete every object under a prefix and return the number removed. Lists first
+ * (paginated), then issues DeleteObjects in batches of ≤1000 (the S3/R2 cap).
+ *
+ * No-ops gracefully (returns 0) when R2 is not configured. Used by the tenant
+ * hard-delete to sweep `tenants/{id}/…`; the caller treats failure as
+ * best-effort and never fails the delete on an R2 error.
+ */
+export async function deleteObjectsByPrefix(prefix: string): Promise<number> {
+  if (!isR2Configured()) return 0;
+  const bucket = env().bucketName;
+  const keys = await listObjectsByPrefix(prefix);
+  if (keys.length === 0) return 0;
+
+  let deleted = 0;
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    const out = await client().send(
+      new DeleteObjectsCommand({
+        Bucket: bucket,
+        Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+      })
+    );
+    deleted += batch.length - (out.Errors?.length ?? 0);
+  }
+  return deleted;
 }

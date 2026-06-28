@@ -37,10 +37,21 @@ export async function POST(
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { id: true, name: true },
+    select: { id: true, name: true, status: true },
   });
   if (!tenant) {
     return NextResponse.json({ error: "tenant_not_found" }, { status: 404 });
+  }
+
+  // P0-4: never mint an impersonation session into a non-serving tenant. A
+  // SUSPENDED or ARCHIVED store has a 404'd storefront and (post-archive) all
+  // keys revoked — impersonating it would drop the operator into a hollow admin.
+  // ACTIVE / PENDING are allowed (PENDING is mid-onboarding, legitimately edited).
+  if (tenant.status === "SUSPENDED" || tenant.status === "ARCHIVED") {
+    return NextResponse.json(
+      { error: "tenant_unavailable", status: tenant.status },
+      { status: 403 },
+    );
   }
 
   // Prefer a SUPER_ADMIN of the tenant; fall back to any active admin; else a

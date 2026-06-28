@@ -139,6 +139,61 @@ async function main() {
     });
     if (!stopRow) fail("no impersonate.stop audit row written");
 
+    // ── Status guard (P0-4): impersonation rejects non-ACTIVE tenants ──────────
+    // Exercise the REAL POST handler. SUSPENDED/ARCHIVED must 403 BEFORE any
+    // session mint; ACTIVE must pass the guard (it then proceeds to the audit +
+    // createAdminSession, the latter throwing because cookies() needs a request
+    // scope — we detect "guard passed" via a fresh impersonate.start audit row).
+    const { POST: impersonatePOST } = await import(
+      "../src/app/api/platform/tenants/[id]/impersonate/route"
+    );
+    const opCookie = await new SignJWT({
+      id: operator.id, email: operator.email, name: operator.name, kind: "operator",
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt()
+      .setExpirationTime("30d")
+      .sign(SECRET);
+
+    function stubReq() {
+      return {
+        cookies: {
+          get(name: string) {
+            return name === "as-platform-session" ? { value: opCookie } : undefined;
+          },
+        },
+        json: async () => ({}),
+        nextUrl: new URL("http://local/api/platform/tenants/x/impersonate"),
+      } as unknown as import("next/server").NextRequest;
+    }
+    const withParams = (id: string) => ({ params: Promise.resolve({ id }) });
+
+    for (const status of ["SUSPENDED", "ARCHIVED"] as const) {
+      await prisma.tenant.update({ where: { id: TENANT_ID }, data: { status } });
+      const res = await impersonatePOST(stubReq(), withParams(TENANT_ID));
+      if (res.status !== 403) fail(`guard ${status}: expected 403, got ${res.status}`);
+      const body = await res.json();
+      if (body.error !== "tenant_unavailable") fail(`guard ${status}: expected tenant_unavailable, got ${body.error}`);
+      if (body.status !== status) fail(`guard ${status}: body.status=${body.status}, expected ${status}`);
+    }
+
+    await prisma.tenant.update({ where: { id: TENANT_ID }, data: { status: "ACTIVE" } });
+    const beforeStart = await prisma.platformAuditLog.count({
+      where: { tenantId: TENANT_ID, action: "impersonate.start" },
+    });
+    try {
+      const res = await impersonatePOST(stubReq(), withParams(TENANT_ID));
+      if (res.status === 403) fail("guard ACTIVE: impersonation wrongly rejected with 403");
+    } catch {
+      // Expected: createAdminSession's cookies() throws outside a request scope —
+      // that is PAST the status guard, which is exactly what we're proving.
+    }
+    const afterStart = await prisma.platformAuditLog.count({
+      where: { tenantId: TENANT_ID, action: "impersonate.start" },
+    });
+    if (afterStart !== beforeStart + 1)
+      fail("guard ACTIVE: guard should let impersonation through (a new impersonate.start row expected)");
+
     console.log("IMPERSONATION_PASS");
   } finally {
     await cleanup(prisma);

@@ -7,6 +7,8 @@ import {
   type CheckoutMode,
   type TenantStatusValue,
 } from "@/lib/platform-tenants";
+import { TENANT_SCOPED_MODELS } from "@/lib/tenant-prisma";
+import { deleteObjectsByPrefix } from "@/lib/r2";
 
 /**
  * /api/platform/tenants/[id] — single-tenant read / update (P6)
@@ -249,4 +251,210 @@ export async function PATCH(
   }
 
   return NextResponse.json(tenant);
+}
+
+// ── Hard delete (P0-1 tier 2, P0-2, P1-8) ───────────────────────────────────
+
+/**
+ * FK-safe leaf→root deletion order for the tenant sweep. Every tenant-scoped
+ * model carries a bare `tenantId` string column with NO foreign key to Tenant
+ * (only TenantApiKey + TenantTheme cascade), so `tenant.delete()` alone would
+ * silently orphan ~33 tables (Products, Orders, Customers/PII, …). We therefore
+ * `deleteMany({ where: { tenantId } })` EVERY model explicitly.
+ *
+ * Order is leaf→root: rows that are referenced by other rows are deleted last,
+ * so no delete trips a referential constraint and nothing relies on cascade.
+ * (Intra-tenant required relations all cascade and optionals SetNull, but we
+ * delete explicitly in order regardless — the bare-`tenantId` tables cascade
+ * nothing, which is the whole point of this manifest sweep.)
+ *
+ * A startup guard below asserts this list is EXACTLY TENANT_SCOPED_MODELS, so
+ * adding a model to the manifest without sequencing it here fails loudly rather
+ * than silently orphaning the new table.
+ */
+const TENANT_DELETE_ORDER: string[] = [
+  // order graph leaves
+  "OrderItemAddon",
+  "ReturnItem",
+  "Fulfillment",
+  "Return",
+  "OrderItem",
+  "Order",
+  "Address",
+  "Review",
+  // catalog leaves
+  "InventoryLog",
+  "Inventory",
+  "ProductImage",
+  "ProductVariant",
+  "ProductOption",
+  "ProductCategory",
+  "ProductArtisan",
+  "ProductAddon",
+  "Product",
+  "Category",
+  "Customer",
+  // artisans
+  "ArtisanImage",
+  "Artisan",
+  // shipping
+  "ShippingRate",
+  "ShippingZone",
+  // contact / messaging
+  "ContactReply",
+  "ContactMessage",
+  // link tree
+  "LinkTreeClickLog",
+  "LinkTreeLink",
+  "LinkTreeSettings",
+  // standalone tenant rows
+  "Discount",
+  "StoreSettings",
+  "AdminUser",
+  "WelcomeEmailTemplate",
+  "EmailLog",
+  "KBArticle",
+];
+
+// Completeness guard: the sweep order must cover the manifest EXACTLY — no
+// missing model (would orphan rows) and no stale entry (would throw at runtime).
+(() => {
+  const order = new Set(TENANT_DELETE_ORDER);
+  const missing = [...TENANT_SCOPED_MODELS].filter((m) => !order.has(m));
+  const extra = TENANT_DELETE_ORDER.filter((m) => !TENANT_SCOPED_MODELS.has(m));
+  if (missing.length || extra.length) {
+    throw new Error(
+      `TENANT_DELETE_ORDER out of sync with TENANT_SCOPED_MODELS — missing: [${missing.join(", ")}], extra: [${extra.join(", ")}]`,
+    );
+  }
+})();
+
+/** Prisma delegate key for a PascalCase model name (Prisma lowercases only the
+ * first character: "KBArticle" → "kBArticle", "StoreSettings" → "storeSettings"). */
+function delegateKey(model: string): string {
+  return model.charAt(0).toLowerCase() + model.slice(1);
+}
+
+/**
+ * `Order.financialStatus` values that mean the store actually captured money.
+ * Any such order makes the tenant archive-only (never hard-deletable). PENDING /
+ * AUTHORIZED / VOIDED never captured funds, so a store with only those is still
+ * a throwaway (Open Question 2: "no _paid_ orders", not "no orders at all").
+ */
+const PAID_FINANCIAL_STATUSES = [
+  "PAID",
+  "PARTIALLY_PAID",
+  "PARTIALLY_REFUNDED",
+  "REFUNDED",
+] as const;
+
+interface DeleteBody {
+  confirmSlug?: unknown;
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  let operator;
+  try {
+    operator = await requirePlatformOperator(req);
+  } catch (err) {
+    const res = platformAuthErrorResponse(err);
+    if (res) return res;
+    throw err;
+  }
+
+  const { id } = await params;
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id },
+    select: { id: true, slug: true, name: true, isPlatformOwner: true },
+  });
+  if (!tenant) {
+    return NextResponse.json({ error: "tenant_not_found" }, { status: 404 });
+  }
+
+  // P0-5: the house / platform-owner singleton powers /shop + the flagship
+  // store; it is never deletable, hard-blocked at the API (not just the UI).
+  if (tenant.isPlatformOwner) {
+    return NextResponse.json({ error: "platform_owner_undeletable" }, { status: 403 });
+  }
+
+  let body: DeleteBody;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  // Typed-slug confirmation: the operator must type the exact slug.
+  if (typeof body.confirmSlug !== "string" || body.confirmSlug !== tenant.slug) {
+    return NextResponse.json({ error: "slug_mismatch" }, { status: 409 });
+  }
+
+  // A store that ever captured money is archive-only, never hard-deletable.
+  const paidOrders = await prisma.order.count({
+    where: { tenantId: id, financialStatus: { in: [...PAID_FINANCIAL_STATUSES] } },
+  });
+  if (paidOrders > 0) {
+    return NextResponse.json(
+      { error: "has_paid_orders", count: paidOrders },
+      { status: 409 },
+    );
+  }
+
+  // Snapshot row counts for the audit detail BEFORE we sweep anything.
+  const productCount = await prisma.product.count({ where: { tenantId: id } });
+  const customerCount = await prisma.customer.count({ where: { tenantId: id } });
+  const orderCount = await prisma.order.count({ where: { tenantId: id } });
+
+  // Write the audit row BEFORE the sweep so the trail survives the delete
+  // (PlatformAuditLog.tenantId is a nullable string, not an FK — it persists).
+  await prisma.platformAuditLog.create({
+    data: {
+      operatorId: operator.id,
+      operatorEmail: operator.email,
+      action: "tenant.delete",
+      tenantId: id,
+      detail: JSON.stringify({
+        slug: tenant.slug,
+        name: tenant.name,
+        counts: { products: productCount, customers: customerCount, orders: orderCount },
+      }),
+    },
+  });
+
+  // Transactional sweep: deleteMany every scoped model in FK-safe order, then
+  // delete the Tenant row last (cascades TenantApiKey + TenantTheme). One
+  // interactive transaction keeps the sweep atomic — either the tenant is fully
+  // gone or nothing changed. Timeout bumped for tenants with large catalogs.
+  await prisma.$transaction(
+    async (tx) => {
+      const txModels = tx as unknown as Record<
+        string,
+        { deleteMany(args: { where: { tenantId: string } }): Promise<unknown> }
+      >;
+      for (const model of TENANT_DELETE_ORDER) {
+        await txModels[delegateKey(model)].deleteMany({ where: { tenantId: id } });
+      }
+      await tx.tenant.delete({ where: { id } });
+    },
+    { timeout: 30_000 },
+  );
+
+  // Stripe: detach only. Nulling our-side ids happened implicitly by deleting
+  // the Tenant row; we never call any remote Stripe account-delete (it's the
+  // merchant's account, not ours — Open Question 4).
+
+  // R2: best-effort sweep of `tenants/{id}/…`. Never fail the delete on an R2
+  // error — the DB sweep already committed and is the source of truth.
+  try {
+    const removed = await deleteObjectsByPrefix(`tenants/${id}/`);
+    console.log(`[tenant.delete] R2 prefix tenants/${id}/ — removed ${removed} object(s)`);
+  } catch (err) {
+    console.error(`[tenant.delete] R2 prefix sweep failed for tenants/${id}/`, err);
+  }
+
+  return NextResponse.json({ deleted: true, slug: tenant.slug });
 }

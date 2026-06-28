@@ -98,10 +98,17 @@ const btnDanger: React.CSSProperties = {
   ...btnGhost, color: "#9a3838", border: "1px solid rgba(154,56,56,0.4)",
 };
 
-/** Human-readable mapping for the machine error codes the PATCH endpoint emits. */
-function lifecycleErrorMessage(code: string, fallback: string): string {
+/** Human-readable mapping for the machine error codes the PATCH/DELETE endpoints
+ * emit, so the operator never sees a raw code or JSON. */
+function lifecycleErrorMessage(code: string, fallback: string, count?: number): string {
   if (code === "platform_owner_protected")
     return "The house store can’t be archived or suspended.";
+  if (code === "platform_owner_undeletable")
+    return "The house store can’t be deleted.";
+  if (code === "slug_mismatch")
+    return "The typed slug didn’t match. Nothing was deleted.";
+  if (code === "has_paid_orders")
+    return `This store has ${count ?? "some"} paid order${count === 1 ? "" : "s"} — archive it instead of deleting.`;
   return fallback;
 }
 
@@ -162,6 +169,8 @@ export default function TenantDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmSlug, setConfirmSlug] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -225,6 +234,34 @@ export default function TenantDetailPage() {
     }
   }
 
+  /** Irreversible hard delete. Gated on a typed-slug match (the modal disables
+   * the button until the slug matches). On success routes back to the list. */
+  async function deletePermanently() {
+    if (!tenant || confirmSlug !== tenant.slug) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmSlug }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          lifecycleErrorMessage(body.error, body.message || body.error || `HTTP ${res.status}`, body.count),
+        );
+      }
+      // Gone — leave the (now-404'ing) detail page for the tenant list.
+      window.location.href = "/platform/tenants";
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to delete tenant");
+      setDeleteOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
       <a href="/platform/tenants" style={{ fontSize: 13, color: ACCENT, fontWeight: 600, textDecoration: "none" }}>← All tenants</a>
@@ -266,9 +303,23 @@ export default function TenantDetailPage() {
               {/* Lifecycle — hidden entirely for the house/platform-owner tenant. */}
               {!tenant.isPlatformOwner && (
                 tenant.status === "ARCHIVED" || tenant.status === "SUSPENDED" ? (
-                  <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("ACTIVE")}>
-                    {busy ? "Working…" : "Reactivate"}
-                  </button>
+                  <>
+                    <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("ACTIVE")}>
+                      {busy ? "Working…" : "Reactivate"}
+                    </button>
+                    {/* Hard delete is gated to ARCHIVED tenants only — a SUSPENDED
+                        store is a punitive hold, not a retirement. Paid-order /
+                        house guards are enforced server-side (mapped to copy). */}
+                    {tenant.status === "ARCHIVED" && (
+                      <button
+                        style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }}
+                        disabled={busy}
+                        onClick={() => { setConfirmSlug(""); setDeleteOpen(true); }}
+                      >
+                        Delete permanently
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <>
                     <button style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("SUSPENDED")}>Suspend</button>
@@ -388,6 +439,64 @@ export default function TenantDetailPage() {
           </div>
         </>
       ) : null}
+
+      {/* Typed-slug confirmation for the irreversible hard delete. */}
+      {deleteOpen && tenant && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Delete ${tenant.name}`}
+          onClick={() => { if (!busy) setDeleteOpen(false); }}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(20,26,40,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ ...card, marginBottom: 0, maxWidth: 460, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#9a3838", marginBottom: 8 }}>
+              Delete {tenant.name} permanently
+            </h2>
+            <p style={{ fontSize: 14, color: "#4a5266", lineHeight: 1.5, marginBottom: 8 }}>
+              This permanently removes the store and <strong>every</strong> product, customer,
+              order, and setting it owns. <strong>This cannot be undone.</strong>
+            </p>
+            <p style={{ fontSize: 14, color: "#4a5266", marginBottom: 14 }}>
+              Type <code style={{ background: "rgba(45,59,85,0.08)", padding: "1px 6px", borderRadius: 4 }}>{tenant.slug}</code> to confirm.
+            </p>
+            <input
+              autoFocus
+              value={confirmSlug}
+              onChange={(e) => setConfirmSlug(e.target.value)}
+              placeholder={tenant.slug}
+              aria-label="Type the slug to confirm deletion"
+              style={{
+                width: "100%", padding: "9px 12px", borderRadius: 8, fontSize: 14,
+                border: "1px solid rgba(45,59,85,0.25)", marginBottom: 16, boxSizing: "border-box",
+              }}
+            />
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => setDeleteOpen(false)}>
+                Cancel
+              </button>
+              <button
+                style={{
+                  ...btn, background: "#9a3838",
+                  opacity: busy || confirmSlug !== tenant.slug ? 0.45 : 1,
+                  cursor: busy || confirmSlug !== tenant.slug ? "not-allowed" : "pointer",
+                }}
+                disabled={busy || confirmSlug !== tenant.slug}
+                onClick={() => void deletePermanently()}
+              >
+                {busy ? "Deleting…" : "Delete permanently"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`a:hover { text-decoration: underline !important; }`}</style>
     </div>
   );
