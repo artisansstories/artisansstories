@@ -172,10 +172,14 @@ export default function OnboardingLauncherPage() {
 
   return (
     <div style={{ maxWidth: 920, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#222b40" }}>Onboarding</h1>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4, color: "#222b40" }}>Onboarding</h1>
+        <a href="/platform/onboarding/guide" style={{ ...btnGhost, marginTop: 4 }}>Guide →</a>
+      </div>
       <p style={{ color: "#7a8296", fontSize: 14, marginBottom: 24 }}>
         The process train: take a store from nothing to live and sellable — Stripe, products,
-        API key, and go-live, one step at a time. It remembers where you left off.
+        API key, and go-live, one step at a time. It remembers where you left off.{" "}
+        New here? Read the <a href="/platform/onboarding/guide" style={{ color: ACCENT, fontWeight: 600, textDecoration: "none" }}>operator guide</a>.
       </p>
 
       {error && (

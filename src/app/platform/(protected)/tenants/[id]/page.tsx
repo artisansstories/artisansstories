@@ -41,7 +41,40 @@ interface ApiKey {
   createdAt: string;
 }
 
+/** Read-only mirror of the derived onboarding map (the same source of truth the
+ * wizard renders from). See GET /api/platform/tenants/[id]/onboarding-status. */
+interface OnboardingStatus {
+  storeEnabled: boolean;
+  steps: {
+    create: { done: boolean };
+    branding: { done: boolean; optional: boolean; usingDefaults: boolean };
+    stripe: { done: boolean; state: "none" | "in_progress" | "onboarded"; accountId: string | null };
+    products: { done: boolean; count: number };
+    apiKey: { done: boolean; activeCount: number };
+    integration: { done: boolean };
+    goLive: { done: boolean; blockedBy: string[] };
+  };
+  currentStep: string;
+  completedCount: number;
+  total: number;
+}
+
+type ChecklistKind = "done" | "pending" | "blocked" | "optional";
+
+const CHECKLIST: { key: keyof OnboardingStatus["steps"]; label: string }[] = [
+  { key: "create", label: "Store created" },
+  { key: "branding", label: "Branding" },
+  { key: "stripe", label: "Stripe Connect" },
+  { key: "products", label: "Products" },
+  { key: "apiKey", label: "API key" },
+  { key: "integration", label: "Integration ready" },
+  { key: "goLive", label: "Live" },
+];
+
 const ACCENT = "#3D4F7C";
+const GREEN = "#1c7c4a";
+const AMBER = "#9a6a12";
+const MUTED = "#8a93a6";
 
 const card: React.CSSProperties = {
   background: "#fff",
@@ -54,6 +87,11 @@ const card: React.CSSProperties = {
 const btn: React.CSSProperties = {
   padding: "9px 16px", borderRadius: 8, border: "none", cursor: "pointer",
   background: ACCENT, color: "#fff", fontWeight: 600, fontSize: 14,
+  textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
+};
+
+const btnGhost: React.CSSProperties = {
+  ...btn, background: "transparent", color: ACCENT, border: "1px solid rgba(61,79,124,0.35)",
 };
 
 function startImpersonation(tenantId: string) {
@@ -68,10 +106,38 @@ function Flag({ on, label }: { on: boolean; label: string }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13,
-      color: on ? "#1c7c4a" : "#9a3838",
+      color: on ? GREEN : "#9a3838",
     }}>
       <span>{on ? "✓" : "✗"}</span> {label}
     </span>
+  );
+}
+
+/** Derive a step's visual state from the aggregator (mirrors the wizard rail). */
+function checklistKind(
+  key: keyof OnboardingStatus["steps"],
+  status: OnboardingStatus,
+): ChecklistKind {
+  const st = status.steps[key];
+  if (st.done) return "done";
+  if (key === "stripe" && status.steps.stripe.state === "in_progress") return "blocked";
+  if (key === "branding") return "optional";
+  return "pending";
+}
+
+function ChecklistRow({ label, kind }: { label: string; kind: ChecklistKind }) {
+  const map = {
+    done: { sym: "✓", color: GREEN, sub: "done" },
+    blocked: { sym: "●", color: AMBER, sub: "in progress" },
+    optional: { sym: "○", color: MUTED, sub: "optional" },
+    pending: { sym: "○", color: MUTED, sub: "pending" },
+  }[kind];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14 }}>
+      <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", background: kind === "done" ? GREEN : kind === "blocked" ? AMBER : "rgba(45,59,85,0.12)", color: kind === "done" || kind === "blocked" ? "#fff" : MUTED, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{map.sym}</span>
+      <span style={{ color: "#222b40", fontWeight: 500 }}>{label}</span>
+      <span style={{ color: map.color, fontSize: 12, marginLeft: "auto" }}>{map.sub}</span>
+    </div>
   );
 }
 
@@ -81,6 +147,7 @@ export default function TenantDetailPage() {
 
   const [tenant, setTenant] = useState<TenantDetail | null>(null);
   const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [status, setStatus] = useState<OnboardingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,9 +155,10 @@ export default function TenantDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [tRes, kRes] = await Promise.all([
+      const [tRes, kRes, sRes] = await Promise.all([
         fetch(`/api/platform/tenants/${id}`),
         fetch(`/api/platform/tenants/${id}/api-keys`),
+        fetch(`/api/platform/tenants/${id}/onboarding-status`),
       ]);
       if (!tRes.ok) {
         const body = await tRes.json().catch(() => ({}));
@@ -100,6 +168,9 @@ export default function TenantDetailPage() {
       if (kRes.ok) {
         const kBody = await kRes.json();
         setKeys(kBody.keys ?? []);
+      }
+      if (sRes.ok) {
+        setStatus(await sRes.json());
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load tenant");
@@ -135,6 +206,37 @@ export default function TenantDetailPage() {
             <button style={btn} onClick={() => startImpersonation(tenant.id)}>Impersonate</button>
           </div>
 
+          {/* Onboarding checklist — read-only mirror of the derived status, with a
+              prominent Resume entry into the wizard and the permanent Integration link. */}
+          <div style={card}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#222b40" }}>
+                Onboarding
+                {status && (
+                  <span style={{ color: MUTED, fontWeight: 500, fontSize: 14 }}> · {status.completedCount}/{status.total}{status.storeEnabled ? " · live ✓" : ""}</span>
+                )}
+              </h2>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <a href={`/platform/onboarding/${tenant.id}`} style={btn}>Resume onboarding →</a>
+                <a href={`/platform/tenants/${tenant.id}/integration`} style={btnGhost}>Integration page →</a>
+              </div>
+            </div>
+            {status ? (
+              <>
+                <div style={{ height: 8, borderRadius: 999, background: "rgba(45,59,85,0.10)", overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ width: `${(status.completedCount / status.total) * 100}%`, height: "100%", background: `linear-gradient(90deg, ${ACCENT}, #5B6EA8)` }} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {CHECKLIST.map((step) => (
+                    <ChecklistRow key={step.key} label={step.label} kind={checklistKind(step.key, status)} />
+                  ))}
+                </div>
+              </>
+            ) : (
+              <p style={{ color: "#888", fontSize: 13 }}>Onboarding status unavailable.</p>
+            )}
+          </div>
+
           <div style={card}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: "#222b40" }}>Overview</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 14, fontSize: 14 }}>
@@ -146,8 +248,13 @@ export default function TenantDetailPage() {
           </div>
 
           <div style={card}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: "#222b40" }}>Stripe</h2>
-            <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#222b40" }}>Stripe</h2>
+              <a href={`/platform/onboarding/${tenant.id}?step=stripe`} style={btnGhost}>
+                {tenant.stripe.onboarded ? "Manage Stripe →" : "Set up Stripe →"}
+              </a>
+            </div>
+            <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
               <Flag on={tenant.stripe.connected} label="Connected" />
               <Flag on={tenant.stripe.onboarded} label="Onboarded" />
               {tenant.stripe.accountId && (
