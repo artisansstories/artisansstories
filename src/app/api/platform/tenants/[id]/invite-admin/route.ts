@@ -68,7 +68,7 @@ function inviteEmailHtml(tenantName: string, magicLink: string): string {
         </tr>
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">Powered by Simplify</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">Powered by Orange Slice Stores</p>
           </td>
         </tr>
       </table>

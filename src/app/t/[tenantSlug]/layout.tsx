@@ -167,7 +167,7 @@ export default async function StorefrontLayout({
           </span>
           <span className="text-xs text-stone-400">
             © {tenant.name} · Powered by{" "}
-            <span style={{ fontWeight: 600, color: "#78716c" }}>Simplify</span>
+            <span style={{ fontWeight: 600, color: "#78716c" }}>Orange Slice Stores</span>
           </span>
         </div>
       </footer>
