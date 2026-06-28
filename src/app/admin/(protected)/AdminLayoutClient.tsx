@@ -1,13 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ComponentType } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: ComponentType<{ size?: number }>;
+  mobileShow: boolean;
+  /** Gated to the house/platform-owner tenant (Artisans Stories) only. */
+  houseOnly?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: IconDashboard, mobileShow: true },
   { href: "/admin/products", label: "Products", icon: IconBox, mobileShow: true },
-  { href: "/admin/artisans", label: "Artisans", icon: IconStar, mobileShow: false },
+  { href: "/admin/artisans", label: "Artisans", icon: IconStar, mobileShow: false, houseOnly: true },
   { href: "/admin/categories", label: "Categories", icon: IconTag, mobileShow: false },
   { href: "/admin/inventory", label: "Inventory", icon: IconWarehouse, mobileShow: false },
   { href: "/admin/skus", label: "SKU Registry", icon: IconTag, mobileShow: false },
@@ -19,9 +29,9 @@ const NAV_ITEMS = [
   { href: "/admin/shipping", label: "Shipping", icon: IconTruck, mobileShow: false },
   { href: "/admin/tax", label: "Tax", icon: IconPercent, mobileShow: false },
   { href: "/admin/reports", label: "Reports", icon: IconChart, mobileShow: false },
-  { href: "/admin/kb", label: "Knowledge Base", icon: IconBook, mobileShow: false },
+  { href: "/admin/kb", label: "Knowledge Base", icon: IconBook, mobileShow: false, houseOnly: true },
   { href: "/admin/linktree", label: "Link Hub", icon: IconLink, mobileShow: false },
-  { href: "/admin/landing-page", label: "Landing Page", icon: IconHome, mobileShow: false },
+  { href: "/admin/landing-page", label: "Landing Page", icon: IconHome, mobileShow: false, houseOnly: true },
   { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false },
   { href: "/admin/team", label: "Team", icon: IconTeam, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
@@ -103,12 +113,15 @@ export function AdminLayoutClient({
   impersonation = null,
   storeName = "Artisans Stories",
   adminLogoSize = 280,
+  isHouse = false,
 }: {
   children: React.ReactNode;
   session: AdminSessionProp | null;
   impersonation?: ImpersonationProp | null;
   storeName?: string;
   adminLogoSize?: number;
+  /** House (platform-owner) tenant — gates landing-page / kb / artisans nav. */
+  isHouse?: boolean;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -127,8 +140,9 @@ export function AdminLayoutClient({
   }, [sidebarOpen]);
 
   const user = session;
+  const navItems = NAV_ITEMS.filter(item => isHouse || !item.houseOnly);
 
-  function NavLink({ item }: { item: typeof NAV_ITEMS[0] }) {
+  function NavLink({ item }: { item: NavItem }) {
     const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
     const Icon = item.icon;
     return (
@@ -162,7 +176,7 @@ export function AdminLayoutClient({
           <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 6 }}>Admin Panel</p>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
-          {NAV_ITEMS.map(item => <NavLink key={item.href} item={item} />)}
+          {navItems.map(item => <NavLink key={item.href} item={item} />)}
         </nav>
         <div style={{ padding: "12px 16px", borderTop: "1px solid #ede8df" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -267,7 +281,7 @@ export function AdminLayoutClient({
         </div>
 
         <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "#fff", borderTop: "1px solid #ede8df", display: "flex", paddingBottom: "env(safe-area-inset-bottom)" }} className="admin-bottom-nav">
-          {NAV_ITEMS.filter(i => i.mobileShow).map(item => {
+          {navItems.filter(i => i.mobileShow).map(item => {
             const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (

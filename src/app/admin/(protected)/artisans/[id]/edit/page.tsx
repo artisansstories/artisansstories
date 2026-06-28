@@ -1,12 +1,14 @@
 import { requireAdminSession } from "@/lib/admin-auth";
+import { isHouseTenant } from "@/lib/tenant-features";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import ArtisanForm from "../../ArtisanForm";
 
 interface PageProps { params: Promise<{ id: string }>; }
 
 export default async function EditArtisanPage({ params }: PageProps) {
-  await requireAdminSession();
+  const session = await requireAdminSession();
+  if (!isHouseTenant(session.tenantId)) redirect("/admin");
   const { id } = await params;
 
   const artisan = await prisma.artisan.findUnique({

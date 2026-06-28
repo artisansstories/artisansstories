@@ -1,10 +1,13 @@
 import { requireAdminSession } from "@/lib/admin-auth";
+import { isHouseTenant } from "@/lib/tenant-features";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
 export default async function AdminArtisansPage() {
-  await requireAdminSession();
+  const session = await requireAdminSession();
+  if (!isHouseTenant(session.tenantId)) redirect("/admin");
 
   const artisans = await prisma.artisan.findMany({
     include: {

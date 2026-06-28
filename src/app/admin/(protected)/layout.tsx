@@ -1,4 +1,5 @@
 import { getAdminSession } from "@/lib/admin-auth";
+import { isHouseTenant } from "@/lib/tenant-features";
 import { prisma } from "@/lib/prisma";
 import { AdminLayoutClient } from "./AdminLayoutClient";
 import { redirect } from "next/navigation";
@@ -34,6 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       impersonation={impersonation}
       storeName={settings?.storeName ?? "Artisans Stories"}
       adminLogoSize={settings?.adminLogoSize ?? 280}
+      isHouse={isHouseTenant(session.tenantId)}
     >
       {children}
     </AdminLayoutClient>
