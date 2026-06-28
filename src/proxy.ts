@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { parseTenantHost } from "@/lib/tenant-host";
 
 const SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET!);
 
@@ -33,6 +34,23 @@ async function getStoreEnabled(): Promise<boolean> {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // ── Subdomain routing (T2) ────────────────────────────────────────────────
+  // `{slug}.artisansstories.com` is a tenant's own store + admin. The apex / www
+  // (and dev localhost) is tenant zero and keeps every existing behavior below.
+  const routing = parseTenantHost(request.headers.get("host"));
+  const isSubdomain = routing.kind === "subdomain";
+
+  // The platform/operator app lives ONLY on the apex. If someone reaches it via
+  // a tenant subdomain, bounce them to the same path on the root domain.
+  if (
+    isSubdomain &&
+    (pathname.startsWith("/platform") || pathname.startsWith("/api/auth/platform"))
+  ) {
+    const url = request.nextUrl.clone();
+    url.host = routing.rootHost;
+    return NextResponse.redirect(url);
+  }
 
   // Public admin paths that don't need auth
   const isAdminPublic =
@@ -115,6 +133,24 @@ export async function proxy(request: NextRequest) {
     } catch {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+  }
+
+  // On a tenant subdomain, the admin UI + every API + Next internals were already
+  // gated/allowed above (tenant is resolved per-request from the host). Anything
+  // else is the public storefront: render this tenant's white-label store by
+  // rewriting to its `/t/{slug}` route tree (e.g. `/` → `/t/{slug}`,
+  // `/some-product` → `/t/{slug}/some-product`).
+  if (isSubdomain) {
+    if (
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/api") ||
+      pathname.startsWith("/_next")
+    ) {
+      return NextResponse.next();
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `/t/${routing.slug}${pathname === "/" ? "" : pathname}`;
+    return NextResponse.rewrite(url);
   }
 
   // Always allow API routes, static files, account routes, and public pages

@@ -32,6 +32,12 @@ export async function createAdminSession(user: AdminSession) {
     .sign(SECRET);
 
   const cookieStore = await cookies();
+  // No `domain` attribute on purpose → the cookie is HOST-ONLY, scoped to the
+  // exact host that set it. On a tenant subdomain (`{slug}.artisansstories.com`)
+  // the session therefore stays confined to that one store and never leaks to
+  // the apex or sibling tenants — the more-secure option (T2). The magic-link →
+  // verify → /admin flow all runs on one host (see originFromRequest), so a
+  // host-only cookie is sufficient.
   cookieStore.set(COOKIE_NAME, jwt, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

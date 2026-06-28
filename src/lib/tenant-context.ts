@@ -16,17 +16,22 @@ import { prisma } from "./prisma";
 import { getAdminSession } from "./admin-auth";
 import { hashApiKey } from "./api-key";
 import { getTenantPrisma, type TenantPrisma } from "./tenant-prisma";
+import { parseTenantHost, type HeaderCarrier } from "./tenant-host";
+
+// Pure host helpers live in tenant-host.ts (dependency-free, shared with the
+// proxy). Re-export them here so existing `@/lib/tenant-context` import sites
+// keep working.
+export {
+  ROOT_DOMAIN,
+  parseTenantHost,
+  tenantBaseUrl,
+  originFromRequest,
+  type HostRouting,
+  type HeaderCarrier,
+} from "./tenant-host";
 
 /** Platform-owner ("tenant zero") id — the live Artisans Stories data. */
 export const DEFAULT_TENANT_ID = "tenant_artisans_stories";
-
-/**
- * The platform's apex domain. Tenant zero lives here (artisansstories.com /
- * www.artisansstories.com); every other tenant is a `{slug}.artisansstories.com`
- * subdomain. Kept here so host parsing and subdomain-URL building share one
- * source of truth. No env var — this is a fixed platform fact (per spec).
- */
-export const ROOT_DOMAIN = "artisansstories.com";
 
 /** Thrown when a request cannot be mapped to a tenant. Maps to HTTP 401. */
 export class TenantResolutionError extends Error {
@@ -41,9 +46,6 @@ export interface ApiKeyTenant {
   tenantId: string;
   scopes: string[];
 }
-
-/** Minimal request shape we need — anything with a `headers.get(name)`. */
-type HeaderCarrier = { headers: { get(name: string): string | null } };
 
 /**
  * Resolve a tenant from an `Authorization: Bearer <token>` API key.
@@ -104,82 +106,6 @@ export async function resolveTenantFromAdminSession(
   return admin?.tenantId ?? null;
 }
 
-/**
- * Pure parse of an HTTP `host` header into a tenant routing decision. No DB, no
- * I/O — safe to call from the proxy (edge/Node) and from request handlers alike.
- *
- *   artisansstories.com / www.artisansstories.com  → { kind: "root" }
- *   {slug}.artisansstories.com                     → { kind: "subdomain", slug }
- *   localhost[:port] / 127.0.0.1                    → { kind: "root" }   (dev)
- *   {slug}.localhost[:port]                         → { kind: "subdomain", slug }
- *   anything else (preview hosts, raw IP, …)        → { kind: "root" }
- *
- * `rootHost` is the apex authority (incl. dev port) the request should fall back
- * to — used by the proxy to redirect platform-only paths off a subdomain.
- */
-export type HostRouting =
-  | { kind: "root"; rootHost: string }
-  | { kind: "subdomain"; slug: string; rootHost: string };
-
-export function parseTenantHost(host: string | null | undefined): HostRouting {
-  if (!host) return { kind: "root", rootHost: ROOT_DOMAIN };
-
-  // Normalize: lowercase, drop any port for matching but keep it for rootHost.
-  const lower = host.trim().toLowerCase();
-  const [hostname, port] = lower.split(":");
-  const portSuffix = port ? `:${port}` : "";
-
-  // Localhost dev. `{slug}.localhost` → subdomain; bare localhost / loopback → root.
-  if (hostname === "localhost" || hostname === "127.0.0.1") {
-    return { kind: "root", rootHost: `localhost${portSuffix}` };
-  }
-  if (hostname.endsWith(".localhost")) {
-    const slug = hostname.slice(0, -".localhost".length);
-    if (slug && slug !== "www") {
-      return { kind: "subdomain", slug, rootHost: `localhost${portSuffix}` };
-    }
-    return { kind: "root", rootHost: `localhost${portSuffix}` };
-  }
-
-  // Production apex + www → tenant zero.
-  if (hostname === ROOT_DOMAIN || hostname === `www.${ROOT_DOMAIN}`) {
-    return { kind: "root", rootHost: `${ROOT_DOMAIN}${portSuffix}` };
-  }
-
-  // `{slug}.artisansstories.com` → subdomain. Reject multi-level / empty slugs.
-  if (hostname.endsWith(`.${ROOT_DOMAIN}`)) {
-    const slug = hostname.slice(0, -`.${ROOT_DOMAIN}`.length);
-    if (slug && slug !== "www" && !slug.includes(".")) {
-      return { kind: "subdomain", slug, rootHost: `${ROOT_DOMAIN}${portSuffix}` };
-    }
-  }
-
-  // Unknown host (Vercel preview, bare IP, custom domain we don't handle yet) —
-  // fail safe to tenant zero rather than 404 the whole app.
-  return { kind: "root", rootHost: ROOT_DOMAIN };
-}
-
-/**
- * Build the externally-reachable base URL for a tenant's own subdomain, derived
- * from NEXT_PUBLIC_SITE_URL so it follows the deploy environment:
- *   prod  https://artisansstories.com   → https://{slug}.artisansstories.com
- *   dev   http://localhost:3000         → http://{slug}.localhost:3000
- * Used to mint admin magic links that resolve to the correct tenant on click.
- */
-export function tenantBaseUrl(slug: string): string {
-  const site = process.env.NEXT_PUBLIC_SITE_URL ?? `https://${ROOT_DOMAIN}`;
-  try {
-    const url = new URL(site);
-    // Strip a leading www. so we prefix the bare apex, then prepend the slug.
-    const apex = url.hostname.replace(/^www\./, "");
-    url.hostname = `${slug}.${apex}`;
-    // new URL keeps the port; URL.origin reflects protocol + host (+ port).
-    return url.origin;
-  } catch {
-    return `https://${slug}.${ROOT_DOMAIN}`;
-  }
-}
-
 // ── Slug → tenantId LRU cache ────────────────────────────────────────────────
 // A tiny in-memory cache so subdomain resolution doesn't hit the DB on every
 // request. Map preserves insertion order, so the first key is the oldest — we
@@ -216,23 +142,6 @@ function cacheSetTenantId(slug: string, tenantId: string): void {
 /** Test-only: drop all cached slug→tenantId entries. */
 export function _clearTenantSlugCache(): void {
   slugCache.clear();
-}
-
-/**
- * Reconstruct the public origin (protocol + host) the request arrived on, so
- * redirects and emailed links stay on the SAME domain the user is using — the
- * apex for tenant zero, a `{slug}.artisansstories.com` subdomain otherwise. This
- * keeps the host-scoped admin session cookie valid end-to-end (magic link →
- * verify → /admin all on one host). Falls back to NEXT_PUBLIC_SITE_URL.
- */
-export function originFromRequest(req?: HeaderCarrier): string {
-  const fallback = process.env.NEXT_PUBLIC_SITE_URL ?? `https://${ROOT_DOMAIN}`;
-  const host = req?.headers.get("host");
-  if (!host) return fallback;
-  const proto =
-    req?.headers.get("x-forwarded-proto") ??
-    (process.env.NODE_ENV === "production" ? "https" : "http");
-  return `${proto}://${host}`;
 }
 
 /**
