@@ -207,7 +207,7 @@ export function AdminLayoutClient({
               <span style={{ fontWeight: 600, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif", lineHeight: 1.2 }}>{storeName}</span>
             </div>
           )}
-          <p style={{ fontSize: 15, fontWeight: 700, color: "#3a2e24", fontFamily: "'Inter',sans-serif", marginTop: 8, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{storeName}</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#3a2e24", fontFamily: "'Inter',sans-serif", marginTop: 8, lineHeight: 1.3, wordBreak: "break-word", overflowWrap: "break-word" }}>{storeName}</p>
           <p style={{ fontSize: 11, color: "#b09878", fontFamily: "'Inter',sans-serif", letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 2 }}>Admin Panel</p>
         </div>
         <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
@@ -298,7 +298,7 @@ export function AdminLayoutClient({
               <IconMenu size={22} />
             </button>
             {/* Logo/name lives in the sidebar — header shows store name only on mobile when sidebar is closed */}
-            <span style={{ fontWeight: 700, fontSize: 15, color: "#3a2e24", fontFamily: "'Inter',sans-serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }} className="admin-storename">{storeName}</span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#3a2e24", fontFamily: "'Inter',sans-serif", lineHeight: 1.3, wordBreak: "break-word", overflowWrap: "break-word", flex: 1 }} className="admin-storename">{storeName}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto" }}>
               <div style={{ textAlign: "right", display: "none" }} className="admin-userinfo">
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter',sans-serif", margin: 0 }}>{user?.name}</p>

@@ -31,11 +31,11 @@ export async function GET() {
 
     const emailBranding = await getEmailBrandingFields(db.$tenantId);
 
-    const settings = await db.storeSettings.findUnique({ where: { id: "singleton" } });
+    // Find by tenantId (the scoped client auto-injects it into findFirst)
+    let settings = await db.storeSettings.findFirst({ where: {} });
     if (!settings) {
       // Create default if missing
-      const created = await db.storeSettings.create({ data: { id: "singleton", tenantId: db.$tenantId } });
-      return NextResponse.json({ ...created, ...emailBranding });
+      settings = await db.storeSettings.create({ data: {} as never });
     }
     return NextResponse.json({ ...settings, ...emailBranding });
   } catch (error) {
@@ -59,11 +59,11 @@ export async function PUT(request: NextRequest) {
     delete body.emailReplyTo;
     delete body.emailAccentColor;
     delete body.emailLogoUrl;
-    const settings = await db.storeSettings.upsert({
-      where: { id: "singleton" },
-      update: body,
-      create: { id: "singleton", ...body },
-    });
+    // Upsert on tenantId (unique constraint); scoped client injects tenantId automatically
+    const existing = await db.storeSettings.findFirst({ where: {} });
+    const settings = existing
+      ? await db.storeSettings.update({ where: { id: existing.id }, data: body })
+      : await db.storeSettings.create({ data: body as never });
     return NextResponse.json(settings);
   } catch (error) {
     console.error("PUT /api/admin/settings error:", error);
