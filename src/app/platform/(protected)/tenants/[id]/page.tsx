@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ActionChip, fmtAuditTime, fmtDetail } from "../../activity/page";
+import { Modal } from "../../_components/Modal";
+import { MintKeyModal, scopeTitle } from "../../_components/keys";
 import { ROOT_DOMAIN } from "@/lib/tenant-host";
 
 /**
@@ -133,6 +135,9 @@ const btnGhost: React.CSSProperties = {
 const btnDanger: React.CSSProperties = {
   ...btnGhost, color: "#9a3838", border: "1px solid rgba(154,56,56,0.4)",
 };
+const btnWarn: React.CSSProperties = {
+  ...btn, background: AMBER,
+};
 
 /** Human-readable mapping for the machine error codes the PATCH/DELETE endpoints
  * emit, so the operator never sees a raw code or JSON. */
@@ -234,6 +239,14 @@ export default function TenantDetailPage() {
   const [teamBusyId, setTeamBusyId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Archive confirmation modal (replaces window.confirm for the archive action).
+  const [archiveOpen, setArchiveOpen] = useState(false);
+
+  // Mint API key (for this tenant) + inline revoke.
+  const [mintOpen, setMintOpen] = useState(false);
+  const [confirmingKeyId, setConfirmingKeyId] = useState<string | null>(null);
+  const [revokingKeyId, setRevokingKeyId] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -279,13 +292,9 @@ export default function TenantDetailPage() {
    * other errors as readable copy, never raw JSON. */
   async function changeStatus(status: "ARCHIVED" | "SUSPENDED" | "ACTIVE") {
     if (!tenant) return;
-    const confirmMsg =
-      status === "ARCHIVED"
-        ? `Archive ${tenant.name}? Its storefront will go offline and API keys will be revoked. You can reactivate later.`
-        : status === "SUSPENDED"
-          ? `Suspend ${tenant.name}? Its storefront will go offline until you reactivate.`
-          : null;
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    // Archive routes through its own modal (archiveOpen); suspend still uses a
+    // lightweight confirm. Reactivate is non-destructive — no gate.
+    if (status === "SUSPENDED" && !window.confirm(`Suspend ${tenant.name}? Its storefront will go offline until you reactivate.`)) return;
     setBusy(true);
     setError(null);
     try {
@@ -298,6 +307,7 @@ export default function TenantDetailPage() {
       if (!res.ok) {
         throw new Error(lifecycleErrorMessage(body.error, body.message || body.error || `HTTP ${res.status}`));
       }
+      setArchiveOpen(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update status");
@@ -405,6 +415,25 @@ export default function TenantDetailPage() {
     }
   }
 
+  /** Soft-revoke a key (DELETE sets revokedAt). Gated on an inline confirm. */
+  async function revokeKey(keyId: string) {
+    setRevokingKeyId(keyId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/platform/tenants/${id}/api-keys/${keyId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || body.error || `HTTP ${res.status}`);
+      }
+      setConfirmingKeyId(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to revoke key");
+    } finally {
+      setRevokingKeyId(null);
+    }
+  }
+
   const subdomainHost = tenant ? `${tenant.slug}.${ROOT_DOMAIN}` : "";
   const subdomainUrl = `https://${subdomainHost}`;
 
@@ -491,7 +520,21 @@ export default function TenantDetailPage() {
                 ) : (
                   <>
                     <button style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("SUSPENDED")}>Suspend</button>
-                    <button style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => changeStatus("ARCHIVED")}>Archive</button>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <button style={{ ...btnDanger, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => setArchiveOpen(true)}>Archive</button>
+                      <span
+                        role="img"
+                        aria-label="What is archiving?"
+                        title="Archive pauses this store safely. Storefront goes offline, keys are revoked, but all data is preserved and the store can be reactivated."
+                        style={{
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          width: 18, height: 18, borderRadius: "50%", border: "1px solid rgba(45,59,85,0.35)",
+                          color: MUTED, fontSize: 12, fontWeight: 700, cursor: "help",
+                        }}
+                      >
+                        ⓘ
+                      </span>
+                    </span>
                   </>
                 )
               )}
@@ -593,9 +636,12 @@ export default function TenantDetailPage() {
           </div>
 
           <div style={card}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: "#222b40" }}>API keys</h2>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#222b40" }}>API keys</h2>
+              <button style={btn} onClick={() => setMintOpen(true)}>Mint key</button>
+            </div>
             {keys.length === 0 ? (
-              <p style={{ color: "#888", fontSize: 13 }}>No keys minted yet. Mint one from the Tenants list.</p>
+              <p style={{ color: "#888", fontSize: 13 }}>No keys minted yet. Mint one to let this store&apos;s integration read products and start checkouts.</p>
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -605,15 +651,46 @@ export default function TenantDetailPage() {
                       <th style={{ padding: "8px 8px" }}>Prefix</th>
                       <th style={{ padding: "8px 8px" }}>Scopes</th>
                       <th style={{ padding: "8px 8px" }}>Status</th>
+                      <th style={{ padding: "8px 8px", textAlign: "right" }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {keys.map((k) => (
-                      <tr key={k.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                      <tr key={k.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)", opacity: k.revokedAt ? 0.6 : 1 }}>
                         <td style={{ padding: "10px 8px", fontWeight: 600 }}>{k.name}</td>
                         <td style={{ padding: "10px 8px" }}><code>{k.prefix}</code></td>
-                        <td style={{ padding: "10px 8px", color: "#666" }}>{k.scopes.join(", ")}</td>
-                        <td style={{ padding: "10px 8px" }}>{k.revokedAt ? "revoked" : "active"}</td>
+                        <td style={{ padding: "10px 8px", color: "#666", cursor: "help" }} title={scopeTitle(k.scopes)}>{k.scopes.join(", ")}</td>
+                        <td style={{ padding: "10px 8px", color: k.revokedAt ? "#9a3838" : GREEN, fontWeight: 600 }}>{k.revokedAt ? "revoked" : "active"}</td>
+                        <td style={{ padding: "10px 8px", textAlign: "right", whiteSpace: "nowrap" }}>
+                          {k.revokedAt ? (
+                            <span style={{ color: "#aab", fontSize: 13 }}>—</span>
+                          ) : confirmingKeyId === k.id ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                              <span style={{ fontSize: 12.5, color: "#9a3838" }}>Revoke this key? This cannot be undone.</span>
+                              <button
+                                onClick={() => void revokeKey(k.id)}
+                                disabled={revokingKeyId === k.id}
+                                style={{ ...btn, background: "#9a3838", padding: "5px 12px", fontSize: 13, opacity: revokingKeyId === k.id ? 0.5 : 1 }}
+                              >
+                                {revokingKeyId === k.id ? "Revoking…" : "Confirm"}
+                              </button>
+                              <button
+                                onClick={() => setConfirmingKeyId(null)}
+                                disabled={revokingKeyId === k.id}
+                                style={{ ...btnGhost, padding: "5px 12px", fontSize: 13 }}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmingKeyId(k.id)}
+                              style={{ ...btnDanger, padding: "5px 12px", fontSize: 13 }}
+                            >
+                              Revoke
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -772,6 +849,46 @@ export default function TenantDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Archive confirmation — warning (amber), not destructive. Explains that
+          archive is a reversible pause, distinct from a permanent delete. */}
+      {archiveOpen && tenant && (
+        <Modal ariaLabel={`Archive ${tenant.name}`} onClose={() => setArchiveOpen(false)} closeDisabled={busy} maxWidth={480}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: AMBER, marginBottom: 10 }}>
+            Archive {tenant.name}?
+          </h2>
+          <ul style={{ fontSize: 14, color: "#4a5266", lineHeight: 1.6, margin: "0 0 14px", paddingLeft: 20 }}>
+            <li>The storefront goes offline immediately (customers see a 404)</li>
+            <li>All API keys are revoked</li>
+            <li>Orders and data are preserved</li>
+            <li>You can reactivate at any time from this page</li>
+            <li><strong>This is NOT deletion</strong> — a deleted store cannot be recovered</li>
+          </ul>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => setArchiveOpen(false)}>
+              Cancel
+            </button>
+            <button
+              style={{ ...btnWarn, opacity: busy ? 0.6 : 1 }}
+              disabled={busy}
+              onClick={() => void changeStatus("ARCHIVED")}
+            >
+              {busy ? "Archiving…" : "Archive Store"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Mint API key for this tenant — tenant is locked to this store. */}
+      {mintOpen && tenant && (
+        <MintKeyModal
+          tenants={[{ id: tenant.id, name: tenant.name }]}
+          initialTenantId={tenant.id}
+          lockTenant
+          onClose={() => setMintOpen(false)}
+          onMinted={() => void load()}
+        />
       )}
 
       {/* Invite Admin modal (T5). */}
