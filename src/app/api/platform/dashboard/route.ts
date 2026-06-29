@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
       productCount: productCountByTenant.get(t.id) ?? 0,
     }));
 
-  const recent = tenants.slice(0, 5).map((t) => ({
+  const recent = tenants.map((t) => ({
     id: t.id,
     slug: t.slug,
     name: t.name,
