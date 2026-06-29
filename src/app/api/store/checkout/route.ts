@@ -59,30 +59,57 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `invalid quantity for variant ${item.variantId}` }, { status: 400 });
       }
 
-      const variant = await db.productVariant.findFirst({
-        where: { id: item.variantId },
-        include: { product: { select: { id: true, name: true, status: true, price: true } } },
-      });
+      // Handle synthetic "product:{id}" variantId used when a product has no variants
+      const syntheticMatch = item.variantId.match(/^product:(.+)$/);
 
-      if (!variant?.product) {
-        return NextResponse.json({ error: `variant not found: ${item.variantId}` }, { status: 400 });
+      if (syntheticMatch) {
+        const product = await db.product.findFirst({
+          where: { id: syntheticMatch[1] },
+          select: { id: true, name: true, status: true, price: true },
+        });
+        if (!product) {
+          return NextResponse.json({ error: `product not found: ${syntheticMatch[1]}` }, { status: 400 });
+        }
+        if (product.status !== "ACTIVE") {
+          return NextResponse.json({ error: `product is not available: ${product.name}` }, { status: 400 });
+        }
+        const unitAmount = product.price;
+        const lineAmount = unitAmount * quantity;
+        lineItems.push({
+          variantId: item.variantId,
+          productId: product.id,
+          name: product.name,
+          variantName: product.name,
+          quantity,
+          unitAmount,
+          lineAmount,
+        });
+      } else {
+        const variant = await db.productVariant.findFirst({
+          where: { id: item.variantId },
+          include: { product: { select: { id: true, name: true, status: true, price: true } } },
+        });
+
+        if (!variant?.product) {
+          return NextResponse.json({ error: `variant not found: ${item.variantId}` }, { status: 400 });
+        }
+        if (variant.product.status !== "ACTIVE") {
+          return NextResponse.json({ error: `product is not available: ${variant.product.name}` }, { status: 400 });
+        }
+
+        const unitAmount = variant.price ?? variant.product.price;
+        const lineAmount = unitAmount * quantity;
+
+        lineItems.push({
+          variantId: variant.id,
+          productId: variant.product.id,
+          name: variant.product.name,
+          variantName: variant.name,
+          quantity,
+          unitAmount,
+          lineAmount,
+        });
       }
-      if (variant.product.status !== "ACTIVE") {
-        return NextResponse.json({ error: `product is not available: ${variant.product.name}` }, { status: 400 });
-      }
-
-      const unitAmount = variant.price ?? variant.product.price;
-      const lineAmount = unitAmount * quantity;
-
-      lineItems.push({
-        variantId: variant.id,
-        productId: variant.product.id,
-        name: variant.product.name,
-        variantName: variant.name,
-        quantity,
-        unitAmount,
-        lineAmount,
-      });
     }
 
     // Load tenant Connect config
