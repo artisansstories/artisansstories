@@ -69,33 +69,63 @@ export async function POST(req: NextRequest) {
         return jsonOk({ error: `invalid quantity for variant ${item.variantId}` }, 400);
       }
 
-      // Scoped lookup — a variant from another tenant simply won't be found.
-      const variant = await db.productVariant.findFirst({
-        where: { id: item.variantId },
-        include: { product: { select: { id: true, name: true, status: true, price: true } } },
-      });
+      // Handle synthetic variantId used by products with no variants: "product:{id}"
+      const syntheticMatch = item.variantId.match(/^product:(.+)$/);
 
-      if (!variant || !variant.product) {
-        return jsonOk({ error: `variant not found: ${item.variantId}` }, 400);
+      if (syntheticMatch) {
+        // No-variant product — look up just the product
+        const productId = syntheticMatch[1];
+        const product = await db.product.findFirst({
+          where: { id: productId },
+          select: { id: true, name: true, status: true, price: true },
+        });
+        if (!product) {
+          return jsonOk({ error: `product not found: ${productId}` }, 400);
+        }
+        if (product.status !== "ACTIVE") {
+          return jsonOk({ error: `product is not active: ${productId}` }, 400);
+        }
+        const unitAmount = product.price;
+        const lineAmount = unitAmount * quantity;
+        amountSubtotal += lineAmount;
+        lineItems.push({
+          variantId: item.variantId,
+          productId: product.id,
+          name: product.name,
+          variantName: product.name,
+          quantity,
+          unitAmount,
+          lineAmount,
+        });
+      } else {
+        // Scoped lookup — a variant from another tenant simply won't be found.
+        const variant = await db.productVariant.findFirst({
+          where: { id: item.variantId },
+          include: { product: { select: { id: true, name: true, status: true, price: true } } },
+        });
+
+        if (!variant || !variant.product) {
+          return jsonOk({ error: `variant not found: ${item.variantId}` }, 400);
+        }
+        if (variant.product.status !== "ACTIVE") {
+          return jsonOk({ error: `product is not active for variant ${item.variantId}` }, 400);
+        }
+
+        // Price comes from the DB only: variant override, else product base price.
+        const unitAmount = variant.price ?? variant.product.price;
+        const lineAmount = unitAmount * quantity;
+        amountSubtotal += lineAmount;
+
+        lineItems.push({
+          variantId: variant.id,
+          productId: variant.product.id,
+          name: variant.product.name,
+          variantName: variant.name,
+          quantity,
+          unitAmount,
+          lineAmount,
+        });
       }
-      if (variant.product.status !== "ACTIVE") {
-        return jsonOk({ error: `product is not active for variant ${item.variantId}` }, 400);
-      }
-
-      // Price comes from the DB only: variant override, else product base price.
-      const unitAmount = variant.price ?? variant.product.price;
-      const lineAmount = unitAmount * quantity;
-      amountSubtotal += lineAmount;
-
-      lineItems.push({
-        variantId: variant.id,
-        productId: variant.product.id,
-        name: variant.product.name,
-        variantName: variant.name,
-        quantity,
-        unitAmount,
-        lineAmount,
-      });
     }
 
     // ── Resolve tenant payment configuration ──────────────────────────────────
@@ -167,7 +197,8 @@ export async function POST(req: NextRequest) {
           create: lineItems.map((li) => ({
             tenantId,
             productId: li.productId,
-            variantId: li.variantId,
+            // synthetic "product:{id}" means no real variant row — store null
+            variantId: li.variantId.startsWith("product:") ? null : li.variantId,
             title: li.name,
             variantTitle: li.variantName,
             quantity: li.quantity,
