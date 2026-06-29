@@ -12,9 +12,10 @@ export default async function EditProductPage({ params }: PageProps) {
 
   const { id } = await params;
 
+  const tenantId = session.tenantId;
   const [product, artisans] = await Promise.all([
     prisma.product.findUnique({
-      where: { id },
+      where: { id, ...(tenantId ? { tenantId } : {}) },
       include: {
         categories: { include: { category: true } },
         images: { orderBy: { position: "asc" } },
@@ -24,7 +25,7 @@ export default async function EditProductPage({ params }: PageProps) {
       },
     }),
     prisma.artisan.findMany({
-      where: { status: "ACTIVE" },
+      where: { status: "ACTIVE", ...(tenantId ? { tenantId } : {}) },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

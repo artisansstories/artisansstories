@@ -12,7 +12,8 @@ export default async function EditDiscountPage({ params }: PageProps) {
 
   const { id } = await params;
 
-  const discount = await prisma.discount.findUnique({ where: { id } });
+  const tenantId = session.tenantId;
+  const discount = await prisma.discount.findUnique({ where: { id, ...(tenantId ? { tenantId } : {}) } });
   if (!discount) notFound();
 
   // Serialize for the client component

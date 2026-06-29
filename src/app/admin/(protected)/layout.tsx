@@ -46,7 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <AdminLayoutClient
       session={session}
       impersonation={impersonation}
-      storeName={tenantDisplayName ?? settings?.storeName ?? "Artisans Stories"}
+      storeName={tenantDisplayName ?? settings?.storeName ?? "Admin Panel"}
       adminLogoSize={settings?.adminLogoSize ?? 280}
       tenantLogoUrl={tenantLogoUrl}
       isHouse={isHouseTenant(session.tenantId)}

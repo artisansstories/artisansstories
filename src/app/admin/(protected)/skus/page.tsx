@@ -3,10 +3,12 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { redirect } from "next/navigation";
 
 export default async function SKUsPage() {
-  try { await requireAdminSession(); } catch { redirect("/admin/login"); }
+  let session: Awaited<ReturnType<typeof requireAdminSession>>;
+  try { session = await requireAdminSession(); } catch { redirect("/admin/login"); return; }
+  const tenantId = session!.tenantId;
 
   const products = await prisma.product.findMany({
-    where: { sku: { not: null } },
+    where: { sku: { not: null }, ...(tenantId ? { tenantId } : {}) },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -21,6 +23,7 @@ export default async function SKUsPage() {
   });
 
   const all = await prisma.product.findMany({
+    where: tenantId ? { tenantId } : {},
     orderBy: { name: "asc" },
     select: { id: true, name: true, sku: true, status: true },
   });

@@ -244,7 +244,7 @@ export default function SettingsPage() {
         <h2 style={SECTION_TITLE}>General</h2>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Store Name</label>
-          <input style={INPUT_STYLE} value={settings.storeName ?? ""} onChange={(e) => update("storeName", e.target.value)} placeholder="Artisans Stories" />
+          <input style={INPUT_STYLE} value={settings.storeName ?? ""} onChange={(e) => update("storeName", e.target.value)} placeholder="Your Store Name" />
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Admin Logo Size (px)</label>
@@ -478,7 +478,7 @@ export default function SettingsPage() {
         <h2 style={SECTION_TITLE}>SEO</h2>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Default Meta Title</label>
-          <input style={INPUT_STYLE} value={settings.metaTitle ?? ""} onChange={(e) => update("metaTitle", e.target.value)} placeholder="Artisans' Stories — Handcrafted in El Salvador" />
+          <input style={INPUT_STYLE} value={settings.metaTitle ?? ""} onChange={(e) => update("metaTitle", e.target.value)} placeholder="Your Store — tagline" />
         </div>
         <div style={{ marginBottom: 16 }}>
           <label style={LABEL_STYLE}>Default Meta Description</label>
@@ -592,7 +592,7 @@ export default function SettingsPage() {
             Emails will be sent from
           </p>
           <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 14, color: "#3a2e24", margin: 0 }}>
-            {(settings.emailFromName?.trim() || settings.storeName || "Artisans' Stories")} &lt;{EMAIL_FROM_ADDRESS}&gt;
+            {(settings.emailFromName?.trim() || settings.storeName || "Your Store")} &lt;{EMAIL_FROM_ADDRESS}&gt;
           </p>
         </div>
       </div>
