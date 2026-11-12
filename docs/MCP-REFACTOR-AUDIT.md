@@ -112,22 +112,39 @@ Paths are relative to `src/app/api/admin/`. "Identical?" means identical to `mai
 | `mcp/keys` | POST | n/a (new) | - | reviewed: only mcp:admin/mcp:read, minted for admin.tenantId, 201 |
 | `mcp/keys/[keyId]` | DELETE | n/a (new) | - | reviewed: updateMany scoped by id + tenantId + mcp scope; another store's key → 404 |
 
+## Deliberate behavior changes on `feat/policy-autonomy` (owner decisions)
+
+Same shared-service pattern: each change applies to the route, the admin UI and the MCP tool together. Auth and tenant scoping are unchanged.
+
+| Route | Methods | Change |
+|---|---|---|
+| `orders/[id]/cancel` | POST | Money first; Stripe failure → 502 `{blocked, retrySafe}` with nothing cancelled; restock in the same transaction as the status change; delivered/shipped/partly shipped → 409 with the next step; partly refunded → refunds the remaining balance. Response adds `refundedAmount`, `stripeRefundId`, `restocked`. Idempotency key now includes the order version. |
+| `returns` | POST (new) | Admin-created return for shipped items (`returns_create`). |
+| `returns/[id]/receive` | POST | Email logged as `RETURN_RECEIVED`. |
+| `team`, `team/[id]` | POST, PUT, DELETE | Owner protection and the last-active-owner rule (locked transaction). SUPER_ADMIN can now grant SUPER_ADMIN and change another owner. Self-actions refused with 403 (role, deactivate) or 400 (remove, as before). |
+| `settings` | PUT | `storeEnabled` changes need ADMIN/SUPER_ADMIN (live role); the route now reads the acting admin (401 if gone). |
+| `categories/[id]` | PUT | Loops refused (400), under a lock. |
+| `upload` | POST | `altText` is never null: AI text or the fallback, plus `altTextSource`. Optional `position` form field. |
+| `products`, `products/[id]` | POST, PUT | Images saved without alt text get the fallback. |
+| `products/[id]/alt-text` | POST (new) | Regenerate fallback alt text. |
+| `instagram/status` | GET (new) | Status for the artisan edit page's Connect panel. |
+
 ## Pre-existing issues found during the audit: status after `fix/admin-mcp-full-verify`
 
 These were on `main`. Each is now either fixed (with e2e coverage, see [FEATURE-VERIFICATION.md](FEATURE-VERIFICATION.md)) or listed as needing a product decision.
 
 | Issue | Status |
 |---|---|
-| Order cancel: Stripe failure still marks the order CANCELLED | **Decision needed** (kept as is). The response now reports `paymentError` and the refund route can finish the job. |
+| Order cancel: Stripe failure still marks the order CANCELLED | **Decided and fixed (`feat/policy-autonomy`):** money first. A failed refund/void cancels nothing, returns `retrySafe: true`, and the retry can't refund twice. Status + restock run in one transaction afterwards. |
 | Fulfill doesn't check that orderItemIds belong to the order | Fixed (400). CANCELLED/REFUNDED orders are refused too. |
 | Order refund: final partial refund treated as partial | Fixed: full vs partial is read from the charge after the refund. |
 | Return refund with restock 500s after money moved (no inventory row) | Fixed: the row is created with a log entry (a deleted variant is skipped with a warning), all DB writes are in one transaction, and the response says honestly what happened. |
 | Route allowed refunding an already REFUNDED return | Fixed (409 before Stripe). |
 | `latest_charge` missing → undefined charge | Fixed: refunds are created by `payment_intent`. |
-| `returns/[id]/receive` logs its email as RETURN_APPROVED | **Not fixed:** needs a new `EmailLogType` enum value (schema change). |
+| `returns/[id]/receive` logs its email as RETURN_APPROVED | **Fixed:** `EmailLogType.RETURN_RECEIVED` (`prisma/migrations/add_email_log_return_received.sql`, run before deploy). Old rows unchanged. |
 | Admin routes return 500 with no session | Fixed in `src/lib/admin-api.ts` (`authErrorResponse`), plus a sweep test over all 100 handlers. |
 | upload: `Promise.allSettled` hides failed R2 writes | Fixed (502). |
-| upload: alt text goes through OpenRouter | **Decision needed:** keep it, or switch providers. |
+| upload: alt text goes through OpenRouter | **Decided:** keep OpenRouter, no new provider. It can't block anything now: 8 s timeout, fallback "<product> — image <n>", warning logged, regenerate later (route, MCP tool, product-form button). |
 | products/[id] PUT not transactional | Fixed (`$transaction`); create and artisan update are transactional too. |
 | generate-sku outside try/catch | Fixed. |
 | Tax settings stored in `facebookPixelId` (and on the `singleton` row) | Fixed: `StoreSettings.taxSettings` on each store's own row; `prisma/migrations/add_store_tax_settings.sql` moves the data. |
@@ -157,19 +174,23 @@ These were on `main`. Each is now either fixed (with e2e coverage, see [FEATURE-
 - Public link clicks could be logged under the wrong store.
 - `POST /api/admin/upload` with a deleted admin's session wrote to the house prefix.
 
-### Needs a product decision (not changed)
+### Product decisions (2026-11-11), now implemented on `feat/policy-autonomy`
 
-- Order cancel when Stripe fails (above).
-- OpenRouter alt text (above).
-- Historical unescaped `EmailLog` HTML (above).
-- RETURN_RECEIVED email type: needs a schema change.
-- An ADMIN, or an MCP key, can deactivate the store owner (SUPER_ADMIN); admins can change or deactivate themselves. The UI shows these actions too.
-- EDITORs can save settings, including publishing or unpublishing the store (the UI allows it).
-- Cancelling a DELIVERED or PARTIALLY_REFUNDED order: no payment action and no restock.
+- Order cancel when Stripe fails: money first; nothing changes on failure; retry-safe.
+- Cancelling a DELIVERED or shipped order: refused, pointing to `returns_create` / "Create return" (new). Partly shipped: refused, pointing to a return plus `orders_refund`. Partly refunded and unshipped: refunds the remaining balance and restocks.
+- Owner protection: nobody acts on themselves; only SUPER_ADMINs touch SUPER_ADMINs or grant it; API keys (ADMIN) never can; at least one active SUPER_ADMIN always remains (locked, concurrency-tested). The Team page hides what would be refused.
+- Publishing (`storeEnabled`) needs ADMIN or SUPER_ADMIN. EDITORs keep content editing; the switch is disabled for them.
+- RETURN_RECEIVED email type (schema change, migration file).
+- Category loops (A → B → A and longer) are refused.
+- OpenRouter alt text kept, with a fallback and regenerate.
+- The Instagram connect flow has an entry point on the artisan edit page; `instagram_status` links to it.
+
+### Still open (not part of this decision set)
+
+- Historical unescaped `EmailLog` HTML (data only, never re-sent).
 - A deliberate second identical partial refund after the first was recorded creates a second refund. That is correct for intentional repeats, but there is no "are you sure".
 - Amount-0 return refunds mark the order PARTIALLY_REFUNDED.
 - Product revenue report counts items from all orders, including unpaid and refunded ones.
 - MCP can't clear `practicingSince` or `featuredPosts` (null means "unchanged" in MCP).
-- Category loops (A → B → A) aren't detected.
 - Discounts accept product and category ids from another store (they match nothing).
-- The Instagram connect flow has no entry point in the admin UI (route only).
+- Found while doing this: the order **refund** route has the same retry weakness the cancel fix addresses. Its Stripe idempotency key doesn't change after a failed attempt, so for 24 hours real Stripe replays the cached error to an identical retry. Cancel works around this by noting the failed attempt (which moves the order version). The refund route says "nothing was changed" on failure, so it was left alone. That note also means a refund racing a cancel that just failed can see the order move and report `alreadyRecorded` without updating the payment status. The Stripe webhook (`charge.refunded`) corrects that.

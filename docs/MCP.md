@@ -155,9 +155,9 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
   - **Admin routes** (`tests/admin/`): order refund/cancel/fulfill/resend-email, return refund, contact reply (escaping), Link Hub/email template, and the settings whitelist and landing-page house gate.
 - `MCP_KEY=oss_live_… npx tsx scripts/mcp-smoke.ts` (optionally `MCP_URL=…`, `MCP_PATH_TOKEN=1`): runs `initialize` + `tools/list` against a running server. It never calls a tool.
 
-## Tool list (93)
+## Tool list (95)
 
-39 read, 23 write, 31 sensitive write. 24 are house-only.
+39 read, 24 write, 32 sensitive write. 24 are house-only.
 
 ### Dashboard, reports, settings, team (12)
 
@@ -169,11 +169,11 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 | `reports_customers` | Read |  | Customer summary: total customers, new this calendar month, returning this month (ordered this month but created earlier), and the top 10 customers by lifetime spend (cents). |
 | `reports_discounts` | Read |  | Every discount code with type, value, usage count, active flag, and all-time revenue (cents) from PAID orders that used it, most used first. |
 | `settings_get` | Read |  | Current store settings (name, branding, contact, live/Coming Soon status, return policy, notifications, social links, SEO) plus email branding (sender name, reply-to, email accent color, email logo). |
-| `settings_update` | Sensitive write | idempotent | Change one or more store settings. |
+| `settings_update` | Sensitive write | idempotent | Change one or more store settings. Publishing or unpublishing (`storeEnabled`) needs ADMIN or SUPER_ADMIN; API keys act as ADMIN, so they can. |
 | `settings_update_email_branding` | Sensitive write | idempotent | Change the branding used on all transactional emails: sender display name, reply-to address, button accent color, and logo. |
 | `team_list` | Read |  | All admin users for this store, oldest first: id, name, email, role (SUPER_ADMIN, ADMIN, EDITOR), and active flag. |
-| `team_add` | Sensitive write | open-world | Grant a person admin access as ADMIN or EDITOR and email them an admin sign-in link. |
-| `team_update` | Sensitive write | idempotent | Change an admin's role (ADMIN/EDITOR) and/or deactivate or reactivate them (inactive admins cannot sign in). |
+| `team_add` | Sensitive write | open-world | Grant a person admin access and email them an admin sign-in link. Only a SUPER_ADMIN can add a SUPER_ADMIN (API keys act as ADMIN). |
+| `team_update` | Sensitive write | idempotent | Change an admin's role and/or deactivate or reactivate them. Owner protection: never yourself; only a SUPER_ADMIN touches a SUPER_ADMIN or grants it (API keys never can); at least one active SUPER_ADMIN always remains. |
 | `team_remove` | Sensitive write | destructive | Permanently delete an admin user from this store. |
 
 ### Orders (9)
@@ -185,12 +185,12 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 | `orders_set_note` | Write | idempotent | Replace the internal admin note on an order. |
 | `orders_mark_delivered` | Write | idempotent | Set a SHIPPED or FULFILLED order to DELIVERED. |
 | `orders_fulfill` | Sensitive write | open-world | Record a shipment for some or all line items with carrier and tracking number. |
-| `orders_cancel` | Sensitive write | destructive, open-world | Cancel an order. |
+| `orders_cancel` | Sensitive write | destructive, open-world | Cancel an unshipped order, money first: refund the remaining balance (or release the authorization), then CANCELLED + restock in one transaction. A Stripe failure cancels nothing and returns `retrySafe: true`. Delivered/shipped/partly shipped orders are refused with the next step (`returns_create`, `orders_refund`). The preview shows the exact refund amount and restock lines. |
 | `orders_refund` | Sensitive write | destructive, open-world | Refund a paid order via Stripe, fully or partially, and email the customer a refund notice. |
 | `orders_resend_confirmation` | Sensitive write | open-world | Email the order confirmation to the customer again. |
 | `orders_check_tracking` | Write | open-world, idempotent | Query USPS/UPS for every SHIPPED order with a tracking number and set the ones the carrier reports delivered to DELIVERED. |
 
-### Returns (8)
+### Returns (9)
 
 | Tool | Tag | Flags | What it does |
 |---|---|---|---|
@@ -201,9 +201,10 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 | `returns_reject` | Sensitive write | destructive, open-world | Reject a REQUESTED or APPROVED return (status becomes REJECTED, resolved now) and email the customer the rejection with the reason. |
 | `returns_receive` | Sensitive write | open-world | Mark an APPROVED return as RECEIVED and email the customer that the items arrived. |
 | `returns_set_status` | Write | idempotent | Overwrite a return's status field to any value with no transition checks. |
+| `returns_create` | Sensitive write | open-world | Create a return for shipped or delivered items on the customer's behalf; it starts APPROVED, moves no money and restocks nothing. The next step `orders_cancel` names for shipped orders. Unshipped items are refused (refund them with `orders_refund`). Optionally emails the return-approved notice. |
 | `returns_refund` | Sensitive write | destructive, open-world | Refund a return: issues a Stripe refund of exactly `amount` cents to the customer's card (if the order was paid via Stripe and amount > 0), marks the return REFUNDED, sets the order's payment status to REFUNDED (amount >= order total, order status also REFUNDED) or PARTIALLY_REFUNDED, optionally restocks the returned items, and emails the customer a refund notice. |
 
-### Products, categories, inventory (16)
+### Products, categories, inventory (17)
 
 | Tool | Tag | Flags | What it does |
 |---|---|---|---|
@@ -215,7 +216,8 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 | `products_addons_get` | Read |  | List a product's add-ons (e.g. |
 | `products_addons_set` | Write | idempotent | Enable or disable the laser monogram add-on for a product. |
 | `products_generate_sku` | Read |  | Generate an unused SKU. |
-| `products_upload_image` | Write | open-world | Download an image from a public https URL (JPEG, PNG, WebP or HEIC, max 10MB), convert it to WebP in full/medium/thumbnail sizes, store it in the store's image bucket, and generate alt text. |
+| `products_upload_image` | Write | open-world | Download an image from a public https URL (JPEG, PNG, WebP or HEIC, max 10MB), convert it to WebP in full/medium/thumbnail sizes, store it in the store's image bucket, and generate alt text (falls back to "<product> — image <n>" if the AI is unavailable; never fails the upload). |
+| `products_regenerate_alt_text` | Write | idempotent | Ask the AI again for alt text on images that only have the fallback (or all images with `all`). Images it can't describe keep their text. |
 | `categories_list` | Read |  | List all categories by position with parent, children, and product count. |
 | `categories_get` | Read |  | Get one category with parent, children (with product counts), and its products (id, name, slug, status, price in cents). |
 | `categories_create` | Write |  | Create a category. |
@@ -285,14 +287,14 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 | `linktree_link_delete` | Sensitive write | house-only, destructive | Permanently delete a link and its click history. |
 | `linktree_links_reorder` | Sensitive write | house-only, idempotent | Set the display order of Link Hub links. |
 | `linktree_analytics` | Read | house-only | Link Hub clicks: all-time and last-7-days clicks per link, daily totals for the last 7 days, the 20 most recent clicks (time, referrer, link), and the all-time total. |
-| `instagram_status` | Read | house-only | For each artisan, whether an Instagram account is connected, the Instagram user id, and when the access token expires (tokens last about 60 days). |
+| `instagram_status` | Read | house-only | For each artisan, whether an Instagram account is connected, the Instagram user id, and when the access token expires (tokens last about 60 days). Unconnected or expired artisans include `connectAdminUrl`, the admin page with the Connect button (OAuth needs a browser). |
 
 
 ## Admin routes not covered
 
 | Route | Why |
 |---|---|
-| `GET/POST /api/admin/instagram/connect`, `/callback`, `/disconnect` | Browser OAuth flows. Replaced by the read-only `instagram_status` (never returns tokens). |
+| `GET/POST /api/admin/instagram/connect`, `/callback`, `/disconnect` | Browser OAuth flows, used by the Connect/Disconnect panel on the artisan edit page. MCP has the read-only `instagram_status` (never returns tokens), which links to that page. |
 | `GET /api/admin/orders?export=csv` | CSV download. `orders_list` returns the same data as JSON. |
 | `PATCH /api/admin/discounts/[id]` (toggle active) | Covered by `discounts_update` with `isActive`. |
 | `GET /api/admin/shipping/[id]` | Covered by `shipping_zones_list`, which returns every zone with its rates. |

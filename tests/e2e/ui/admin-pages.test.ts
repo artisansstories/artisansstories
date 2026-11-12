@@ -204,7 +204,7 @@ describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
 
     // The key is real: the MCP server accepts it for this store.
     const mcp = await connectMcp(token);
-    expect((await mcp.toolNames()).length).toBe(93);
+    expect((await mcp.toolNames()).length).toBe(95);
     await mcp.close();
 
     await page.getByRole("button", { name: "Done" }).click();
@@ -219,6 +219,117 @@ describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
     await expect.poll(() => row.count()).toBe(0);
     expect((await prisma.tenantApiKey.findUniqueOrThrow({ where: { id: minted.id } })).revokedAt).not.toBeNull();
     await expect(connectMcp(token)).rejects.toThrow();
+    await ctx.close();
+  }, 120_000);
+
+  // ── policy decisions in the UI: refused actions are hidden or disabled ──
+
+  it("order page: shipped/delivered orders offer Create return instead of Cancel; creating one works", async () => {
+    const ctx = await newContext(F.admin.super);
+    for (const [id, n] of [[F.order.delivered, "AS-1009"], [F.order.shipped, "AS-1008"]] as const) {
+      const { page, report } = await visit(ctx, `/admin/orders/${id}`);
+      expectHealthy(`/admin/orders/${id}`, report, n);
+      expect(await page.getByRole("button", { name: "Cancel Order" }).count(), n).toBe(0);
+      expect(await page.getByRole("button", { name: "Create return" }).count(), n).toBe(1);
+      await page.close();
+    }
+    const { page } = await visit(ctx, `/admin/orders/${F.order.shipped}`);
+    await page.getByRole("button", { name: "Create return" }).click();
+    await page.getByRole("checkbox").uncheck(); // no customer email in this test
+    await page.getByRole("button", { name: "Create return" }).last().click();
+    await expect.poll(() => prisma.return.count({ where: { orderId: F.order.shipped, status: "APPROVED" } })).toBe(1);
+    // An unshipped order still offers Cancel.
+    const { page: open } = await visit(ctx, `/admin/orders/${F.order.paidCancel}`);
+    expect(await open.getByRole("button", { name: "Cancel Order" }).count()).toBe(1);
+    await ctx.close();
+  }, 120_000);
+
+  it("order page: when the refund can't go through, the dialog says why and the order is not cancelled", async () => {
+    const ctx = await newContext(F.admin.super);
+    const { page } = await visit(ctx, `/admin/orders/${F.order.paidCancel}`);
+    await page.getByRole("button", { name: "Cancel Order" }).click();
+    await page.getByPlaceholder("Reason for cancellation...").fill("Out of stock");
+    const seen = recorder.requests.length;
+    await page.getByRole("button", { name: "Cancel Order" }).last().click();
+    // Stripe is unreachable from the test server (the outbound recorder refuses it).
+    const alert = page.getByRole("alert").filter({ hasText: /not cancelled|NOT cancelled/i });
+    await alert.waitFor({ timeout: 60_000 });
+    expect(await alert.textContent()).toMatch(/Nothing changed; try again|safe to try again/i);
+    const order = await prisma.order.findUniqueOrThrow({ where: { id: F.order.paidCancel } });
+    expect(order).toMatchObject({ status: "PROCESSING", financialStatus: "PAID", cancelledAt: null });
+    expect((await prisma.inventory.findUniqueOrThrow({ where: { id: F.inventory.hammockRed } })).quantity).toBe(2);
+    // The only outbound attempts were to Stripe, and they were refused. Drop
+    // them so the suite-wide "nothing left the machine" check still covers the rest.
+    const attempts = recorder.requests.splice(seen);
+    expect(attempts.length).toBeGreaterThan(0);
+    expect(attempts.every((r) => r.url.includes("api.stripe.com")), JSON.stringify(attempts)).toBe(true);
+    await ctx.close();
+  }, 180_000);
+
+  it("team page: owner protection is mirrored (ADMIN can't act on the owner; nobody acts on themselves)", async () => {
+    const menus = async (adminId: string) => {
+      const ctx = await newContext(adminId);
+      const { page, report } = await visit(ctx, "/admin/team");
+      expectHealthy("/admin/team", report, "Anna Super");
+      const n = await page.getByRole("button", { name: "···" }).count();
+      await ctx.close();
+      return n;
+    };
+    // Members: Anna (owner), Adam (ADMIN), Eddie (EDITOR), Gone (inactive EDITOR).
+    expect(await menus(F.admin.super)).toBe(3); // everyone but herself
+    expect(await menus(F.admin.admin)).toBe(2); // not himself, not the owner
+    expect(await menus(F.admin.editor)).toBe(0);
+    // Only an owner is offered Remove, and the "Super Admin" role only to owners.
+    const ctx = await newContext(F.admin.admin);
+    const { page } = await visit(ctx, "/admin/team");
+    await page.getByRole("button", { name: "···" }).first().click();
+    expect(await page.getByRole("button", { name: "Remove" }).count()).toBe(0);
+    await page.getByRole("button", { name: "Edit Role" }).click();
+    expect(await page.locator("option[value=SUPER_ADMIN]").count()).toBe(0);
+    await ctx.close();
+    const sctx = await newContext(F.admin.super);
+    const { page: sp } = await visit(sctx, "/admin/team");
+    await sp.getByRole("button", { name: "···" }).first().click();
+    expect(await sp.getByRole("button", { name: "Remove" }).count()).toBe(1);
+    await sp.getByRole("button", { name: "Edit Role" }).click();
+    expect(await sp.locator("option[value=SUPER_ADMIN]").count()).toBe(1);
+    await sctx.close();
+  }, 120_000);
+
+  it("settings: an EDITOR's Store status switch is disabled; an ADMIN's works", async () => {
+    const ctx = await newContext(F.admin.editor);
+    const { page, report } = await visit(ctx, "/admin/settings");
+    expectHealthy("/admin/settings", report, "Artisans Stories");
+    const sw = page.getByRole("switch");
+    await expect.poll(() => sw.getAttribute("aria-disabled")).toBe("true");
+    await sw.click();
+    expect(await sw.getAttribute("aria-checked")).toBe("false");
+    expect(report.text + (await page.evaluate(() => document.body.innerText))).toContain("Only an Admin or Super Admin can take the store live");
+    await ctx.close();
+    const actx = await newContext(F.admin.admin);
+    const { page: ap } = await visit(actx, "/admin/settings");
+    const asw = ap.getByRole("switch");
+    await expect.poll(() => asw.getAttribute("aria-disabled")).toBe("false");
+    await asw.click();
+    expect(await asw.getAttribute("aria-checked")).toBe("true");
+    await actx.close();
+  }, 120_000);
+
+  it("artisan edit page: Instagram panel shows status, a Connect link to the nonce-protected route, and Disconnect", async () => {
+    const ctx = await newContext(F.admin.super);
+    const { page, report } = await visit(ctx, `/admin/artisans/${F.artisan.maria}/edit`);
+    expectHealthy("maria edit", report, "Instagram Connection");
+    const panel = page.getByTestId("instagram-connection");
+    await expect.poll(() => panel.innerText()).toMatch(/Connected \(Instagram user 17841400000\)/);
+    expect(await panel.getByRole("link", { name: "Reconnect Instagram" }).getAttribute("href")).toBe(`/api/admin/instagram/connect?artisanId=${F.artisan.maria}`);
+    await panel.getByRole("button", { name: "Disconnect" }).click();
+    await expect.poll(async () => (await prisma.artisan.findUniqueOrThrow({ where: { id: F.artisan.maria } })).igAccessToken).toBeNull();
+    await expect.poll(() => panel.innerText()).toContain("Not connected.");
+    const { page: jose } = await visit(ctx, `/admin/artisans/${F.artisan.jose}/edit`);
+    const jp = jose.getByTestId("instagram-connection");
+    await expect.poll(() => jp.innerText()).toContain("Not connected.");
+    expect(await jp.getByRole("link", { name: "Connect Instagram" }).getAttribute("href")).toBe(`/api/admin/instagram/connect?artisanId=${F.artisan.jose}`);
+    expect(await jp.getByRole("button", { name: "Disconnect" }).count()).toBe(0);
     await ctx.close();
   }, 120_000);
 
