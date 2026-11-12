@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
-import { addTeamMember, listTeam, teamManageDenied } from "@/lib/admin-services/team";
+import { addTeamMember, listTeam, teamActorFromSession, teamManageDenied } from "@/lib/admin-services/team";
 import { toResponse } from "@/lib/admin-services/http";
 import { authErrorResponse } from "@/lib/admin-api";
 
@@ -24,7 +24,9 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const actor = { id: session.id, role: session.role, name: session.name };
+    // Live role, not the (possibly stale) role in the session token.
+    const actor = await teamActorFromSession(db, session.id);
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     // Role check before reading the body, as before.
     const denied = teamManageDenied(actor);
     if (denied) return toResponse(denied);

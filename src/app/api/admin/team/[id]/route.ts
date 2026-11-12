@@ -3,6 +3,7 @@ import { getAdminSession } from "@/lib/admin-auth";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import {
   removeTeamMember,
+  teamActorFromSession,
   teamManageDenied,
   updateTeamMember,
 } from "@/lib/admin-services/team";
@@ -19,7 +20,9 @@ export async function PUT(
     if (!session) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const actor = { id: session.id, role: session.role };
+    // Live role, not the (possibly stale) role in the session token.
+    const actor = await teamActorFromSession(db, session.id);
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     // Role check before reading the body, as before.
     const denied = teamManageDenied(actor);
     if (denied) return toResponse(denied);
@@ -45,7 +48,8 @@ export async function DELETE(
     if (!session) {
       return NextResponse.json({ error: "Forbidden — only SUPER_ADMIN can remove admins" }, { status: 403 });
     }
-    const actor = { id: session.id, role: session.role };
+    const actor = await teamActorFromSession(db, session.id);
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { id } = await params;
     return toResponse(await removeTeamMember(db, actor, id));

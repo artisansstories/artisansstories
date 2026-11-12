@@ -21,6 +21,22 @@ const MEMBER_SELECT = { id: true, email: true, name: true, role: true, isActive:
 
 // ── guards ──────────────────────────────────────────────────────────────────
 
+/**
+ * The acting admin for the team routes, read LIVE from the database. The
+ * session JWT lives 30 days, so its role can be stale: a deactivated admin
+ * could re-activate themselves, and a demoted one keep managing the team.
+ * Null when the admin no longer exists or is inactive (same bar as getMcpAdmin;
+ * MCP OAuth tokens get the same live check in mcp/auth.ts).
+ */
+export async function teamActorFromSession(db: TenantPrisma, sessionAdminId: string): Promise<TeamActor | null> {
+  const user = await db.adminUser.findUnique({
+    where: { id: sessionAdminId },
+    select: { id: true, role: true, name: true, isActive: true },
+  });
+  if (!user || !user.isActive) return null;
+  return { id: user.id, role: user.role, name: user.name };
+}
+
 /** 403 unless the actor may add/update team members. */
 export function teamManageDenied(actor: AdminActor): ServiceFail | null {
   if (actor.role !== "SUPER_ADMIN" && actor.role !== "ADMIN") return fail(403, "Forbidden");
