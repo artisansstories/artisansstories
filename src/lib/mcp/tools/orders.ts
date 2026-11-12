@@ -94,7 +94,7 @@ export const tools: McpTool[] = [
     destructive: true,
     openWorld: true,
     description:
-      "Cancel an order. If the payment was captured, the FULL amount is refunded via Stripe; if only authorized, the hold is released. Emails the customer a cancellation notice. The preview shows the exact payment action and email.",
+      "Cancel an order that hasn't shipped, money first: the remaining paid balance is refunded via Stripe (an authorized-only payment is released) and only then is the order set to CANCELLED and its unshipped items restocked, in one step. If Stripe fails, nothing is cancelled and the result says retrySafe:true; retrying never refunds twice. Delivered, shipped and partly shipped orders are refused with the next step (returns_create / orders_refund). Emails the customer a cancellation notice. The preview shows the exact refund amount and the items to restock.",
     input: { orderId: zId("Order"), reason: z.string().describe("Cancellation reason (included in the customer email)") },
     preview: (ctx, a) => svc.previewCancel(ctx.db, a.orderId, a.reason),
     execute: (ctx, a) => svc.cancelOrder(ctx.db, a.orderId, a.reason),

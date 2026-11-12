@@ -6,6 +6,7 @@ import { readTool, writeTool, zId, zPage, zLimit, type McpTool } from "../kit";
 import * as svc from "@/lib/admin-services/returns";
 
 const RETURN_STATUS = ["REQUESTED", "APPROVED", "REJECTED", "RECEIVED", "REFUNDED"] as const;
+const RETURN_REASON = ["DEFECTIVE", "WRONG_ITEM", "NOT_AS_DESCRIBED", "CHANGED_MIND", "OTHER"] as const;
 
 export const tools: McpTool[] = [
   readTool({
@@ -28,6 +29,32 @@ export const tools: McpTool[] = [
       "Get one return with its order (status, payment status, total in cents, customer) and items (order line, price, variant). Use before approving, rejecting, receiving, or refunding.",
     input: { returnId: zId("Return") },
     run: (ctx, a) => svc.getReturn(ctx.db, a.returnId),
+  }),
+
+  writeTool({
+    name: "returns_create",
+    title: "Create return",
+    kind: "sensitive",
+    openWorld: true,
+    description:
+      "Create a return for SHIPPED or DELIVERED items on the customer's behalf. It starts APPROVED; moves no money and restocks nothing. Use this when an order can't be cancelled because it already shipped. Next steps: returns_receive when the items arrive, then returns_refund. Optionally emails the customer the return-approved notice. Items that haven't shipped are refused (refund them with orders_refund).",
+    input: {
+      orderId: zId("Order"),
+      items: z
+        .array(z.object({
+          orderItemId: z.string().describe("Line item id from orders_get"),
+          quantity: z.number().int().min(1),
+          reason: z.enum(RETURN_REASON).nullish().describe("Default OTHER"),
+          note: z.string().nullish(),
+        }))
+        .min(1)
+        .describe("Shipped line items to return"),
+      adminNote: z.string().nullish().describe("Internal note on the return"),
+      notifyCustomer: z.boolean().nullish().describe("Email the customer the return-approved notice (default false)"),
+    },
+    preview: (ctx, a) => svc.previewCreateReturn(ctx.db, a),
+    execute: (ctx, a) => svc.createReturn(ctx.db, a),
+    checkWith: "returns_list",
   }),
 
   writeTool({

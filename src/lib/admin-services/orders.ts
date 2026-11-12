@@ -196,105 +196,299 @@ export async function markOrderDelivered(db: TenantPrisma, id: string) {
 
 // ── cancel ──────────────────────────────────────────────────────────────────
 
-export async function previewCancel(db: TenantPrisma, id: string, reason: string) {
-  const order = await db.order.findUnique({ where: { id } });
+/** Where an admin goes next when cancel is refused (named in every refusal). */
+function orderPage(orderNumber: string) {
+  return `Admin → Orders → ${orderNumber}`;
+}
+
+/** Stable Stripe idempotency keys: one key per order version and action. */
+export function orderCancelIdempotencyKey(orderId: string, action: "refund" | "void", version?: Date): string {
+  return version ? `order_cancel_${orderId}_${action}_${version.getTime()}` : `order_cancel_${orderId}_${action}`;
+}
+
+export interface CancelRestockLine {
+  orderItemId: string;
+  title: string;
+  variantTitle: string | null;
+  variantId: string | null;
+  quantity: number;
+  currentQuantity: number | null;
+  newQuantity: number | null;
+  action: "increment" | "skip";
+  note?: string;
+}
+
+type CancelPayment =
+  | { action: "stripe_refund"; amount: number; chargedAmount: number; alreadyRefunded: number }
+  | { action: "record_existing_refund"; amount: number; stripeRefundId: string }
+  | { action: "void_authorization" }
+  | { action: "release_unpaid" }
+  | { action: "none"; why: string };
+
+interface CancelPlan {
+  order: Prisma.OrderGetPayload<{ include: { items: true } }>;
+  payment: CancelPayment;
+  newFinancialStatus: FinancialStatus;
+  restock: CancelRestockLine[];
+}
+
+const CLOSED: OrderStatus[] = ["CANCELLED", "REFUNDED"];
+
+/**
+ * Everything cancel will do, computed without changing anything. Shared by the
+ * preview and the real cancel, so both refuse the same orders with the same
+ * words. Reads Stripe (refund list, charge balance) but never writes to it.
+ */
+async function planCancel(db: TenantPrisma, id: string): Promise<ServiceResult<CancelPlan>> {
+  const order = await db.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) return fail(404, "Order not found");
-  if (order.status === "CANCELLED" || order.status === "REFUNDED") {
+  if (CLOSED.includes(order.status)) {
     return fail(400, "Order is already cancelled or refunded");
   }
-  let paymentAction: string;
-  let expectedFinancialStatus = order.financialStatus as string;
-  if (order.stripePaymentIntentId && order.financialStatus === "PAID") {
-    paymentAction = `Full refund of ${order.total} cents to the customer's card via Stripe`;
-    expectedFinancialStatus = "REFUNDED";
-  } else if (order.stripePaymentIntentId && (order.financialStatus === "AUTHORIZED" || order.financialStatus === "PENDING")) {
-    paymentAction = "Release the uncaptured card authorization (no money moves, no fee)";
-    expectedFinancialStatus = "VOIDED";
-  } else {
-    paymentAction = "No payment action (no Stripe payment in a refundable/voidable state)";
+
+  const shipped = order.items.filter((i) => i.fulfillmentStatus === "fulfilled");
+  const unshipped = order.items.filter((i) => i.fulfillmentStatus !== "fulfilled");
+  if (order.status === "DELIVERED" || (shipped.length > 0 && unshipped.length === 0)) {
+    const what = order.status === "DELIVERED" ? "was delivered" : "has already shipped";
+    return fail(409, `Order ${order.orderNumber} ${what}, so it can't be cancelled. Create a return instead: use the returns_create tool, or the "Create return" button on the order page (${orderPage(order.orderNumber)}). When the items come back, refund them with returns_refund.`, {
+      nextAction: { tool: "returns_create", adminPage: `/admin/orders/${order.id}` },
+    });
   }
-  const refunded = expectedFinancialStatus === "REFUNDED";
+  if (shipped.length > 0) {
+    const unshippedValue = unshipped.reduce((sum, i) => sum + i.total, 0);
+    return fail(409, `Order ${order.orderNumber} is partly shipped (${shipped.map((i) => `${i.quantity}× ${i.title}`).join(", ")}), so it can't be cancelled as a whole. Create a return for the shipped items (returns_create, or "Create return" on ${orderPage(order.orderNumber)}), and refund the items that haven't shipped with orders_refund (or "Issue Refund" on the same page): they come to ${unshippedValue} cents before shipping and tax.`, {
+      nextAction: { tools: ["returns_create", "orders_refund"], adminPage: `/admin/orders/${order.id}` },
+      shippedItems: shipped.map((i) => ({ orderItemId: i.id, title: i.title, quantity: i.quantity })),
+      unshippedItems: unshipped.map((i) => ({ orderItemId: i.id, title: i.title, quantity: i.quantity, total: i.total })),
+      unshippedValue,
+    });
+  }
+
+  // ── payment ──
+  const pi = order.stripePaymentIntentId;
+  let payment: CancelPayment;
+  let newFinancialStatus: FinancialStatus = order.financialStatus;
+  if (pi && (order.financialStatus === "PAID" || order.financialStatus === "PARTIALLY_REFUNDED")) {
+    try {
+      // A refund an earlier cancel attempt issued (and failed to record) is
+      // reused, so a retry never refunds twice.
+      const earlier = await findEarlierRefund(stripe, pi, (m) => m.orderId === order.id && m.cancel === "true");
+      if (earlier) {
+        payment = { action: "record_existing_refund", amount: earlier.amount, stripeRefundId: earlier.id };
+      } else {
+        const intent = await stripe.paymentIntents.retrieve(pi, { expand: ["latest_charge"] });
+        const latest = intent.latest_charge as Stripe.Charge | string | null;
+        const charge = !latest ? null : typeof latest === "string" ? await stripe.charges.retrieve(latest) : latest;
+        if (!charge) {
+          payment = { action: "none", why: "Stripe has no captured charge on this payment, so there is nothing to refund." };
+        } else {
+          const alreadyRefunded = charge.amount_refunded ?? 0;
+          const remaining = charge.amount - alreadyRefunded;
+          payment = remaining > 0
+            ? { action: "stripe_refund", amount: remaining, chargedAmount: charge.amount, alreadyRefunded }
+            : { action: "none", why: "The Stripe charge is already fully refunded." };
+        }
+      }
+    } catch (err) {
+      return fail(502, `Couldn't check the payment with Stripe, so the order was not cancelled: ${errMessage(err)}. Nothing changed; try again in a minute.`, {
+        done: false, blocked: true, retrySafe: true, moneyMoved: false,
+      });
+    }
+    newFinancialStatus = "REFUNDED";
+  } else if (pi && order.financialStatus === "AUTHORIZED") {
+    payment = { action: "void_authorization" };
+    newFinancialStatus = "VOIDED";
+  } else if (pi && order.financialStatus === "PENDING") {
+    payment = { action: "release_unpaid" };
+    newFinancialStatus = "VOIDED";
+  } else {
+    payment = { action: "none", why: pi ? `Payment status is ${order.financialStatus}; nothing to refund or release.` : "No card payment on this order." };
+  }
+
+  return ok({ order, payment, newFinancialStatus, restock: await planCancelRestock(db, order) });
+}
+
+/**
+ * Which unshipped items go back on the shelf. Checkout (/api/checkout/confirm)
+ * takes stock only for variants that had an inventory row, and the hosted
+ * checkout-session flow never takes stock, so only that is given back. Items
+ * already restocked by a refunded return are not counted twice.
+ */
+async function planCancelRestock(db: TenantPrisma, order: CancelPlan["order"]): Promise<CancelRestockLine[]> {
+  const unshipped = order.items.filter((i) => i.fulfillmentStatus !== "fulfilled");
+  const base = (i: (typeof unshipped)[number]) => ({ orderItemId: i.id, title: i.title, variantTitle: i.variantTitle, variantId: i.variantId });
+  if (order.stripeCheckoutSessionId) {
+    return unshipped.map((i) => ({ ...base(i), quantity: 0, currentQuantity: null, newQuantity: null, action: "skip" as const, note: "Hosted-checkout orders never took stock, so nothing is given back." }));
+  }
+  const returned = await db.returnItem.findMany({
+    where: { orderItemId: { in: unshipped.map((i) => i.id) }, return: { status: "REFUNDED", restockItems: true } },
+    select: { orderItemId: true, quantity: true },
+  });
+  const alreadyBack = new Map<string, number>();
+  for (const r of returned) alreadyBack.set(r.orderItemId, (alreadyBack.get(r.orderItemId) ?? 0) + r.quantity);
+  const variantIds = unshipped.map((i) => i.variantId).filter((v): v is string => !!v);
+  const inv = await db.inventory.findMany({ where: { variantId: { in: variantIds } }, select: { variantId: true, quantity: true } });
+  const qty = new Map(inv.map((r) => [r.variantId, r.quantity]));
+  return unshipped.map((i) => {
+    const quantity = Math.max(0, i.quantity - (alreadyBack.get(i.id) ?? 0));
+    const current = i.variantId ? qty.get(i.variantId) : undefined;
+    if (quantity === 0) return { ...base(i), quantity: 0, currentQuantity: current ?? null, newQuantity: current ?? null, action: "skip" as const, note: "Already restocked by a refunded return." };
+    if (current === undefined) {
+      return { ...base(i), quantity: 0, currentQuantity: null, newQuantity: null, action: "skip" as const, note: "No inventory record for this item, so checkout took no stock and none is given back." };
+    }
+    return { ...base(i), quantity, currentQuantity: current, newQuantity: current + quantity, action: "increment" as const };
+  });
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function describePayment(p: CancelPayment): string {
+  switch (p.action) {
+    case "stripe_refund":
+      return p.alreadyRefunded > 0
+        ? `Refund the remaining ${p.amount} cents ($${(p.amount / 100).toFixed(2)}) to the customer's card via Stripe (charged ${p.chargedAmount}, already refunded ${p.alreadyRefunded}).`
+        : `Full refund of ${p.amount} cents ($${(p.amount / 100).toFixed(2)}) to the customer's card via Stripe.`;
+    case "record_existing_refund":
+      return `An earlier cancel attempt already refunded ${p.amount} cents (${p.stripeRefundId}) but didn't finish. No new money moves; the order is just recorded as cancelled.`;
+    case "void_authorization":
+      return "Release the uncaptured card authorization (no money moves, no fee).";
+    case "release_unpaid":
+      return "The customer never paid. The open payment is released so it can't be paid later; if Stripe is unreachable the order is cancelled anyway.";
+    case "none":
+      return `No payment action: ${p.why}`;
+  }
+}
+
+export async function previewCancel(db: TenantPrisma, id: string, reason: string) {
+  const planned = await planCancel(db, id);
+  if (!planned.ok) return planned;
+  const { order, payment, newFinancialStatus, restock } = planned.data;
+  const refundAmount = payment.action === "stripe_refund" || payment.action === "record_existing_refund" ? payment.amount : 0;
+  const refunded = newFinancialStatus === "REFUNDED";
   return ok({
     orderNumber: order.orderNumber,
     currentStatus: order.status,
     currentFinancialStatus: order.financialStatus,
     newStatus: "CANCELLED",
-    expectedFinancialStatus,
+    expectedFinancialStatus: newFinancialStatus,
     orderTotal: order.total,
-    paymentAction,
+    refundAmount,
+    refundAmountFormatted: `$${(refundAmount / 100).toFixed(2)}`,
+    paymentAction: describePayment(payment),
+    payment,
+    restock,
     reason,
     email: {
       to: order.email,
       subject: `Your order ${order.orderNumber} has been cancelled`,
       type: refunded ? "ORDER_REFUNDED" : "ORDER_CANCELLED",
     },
-    note: "If the Stripe call fails, the order is still cancelled, the result reports paymentError, and the payment must be handled manually (same as the admin UI).",
+    note: "Money first: if the Stripe refund or release fails, the order is NOT cancelled, nothing is restocked, and retrying is safe (it never refunds twice).",
   });
-}
-
-/** Stable Stripe idempotency keys: an order is cancelled at most once. */
-export function orderCancelIdempotencyKey(orderId: string, action: "refund" | "void"): string {
-  return `order_cancel_${orderId}_${action}`;
 }
 
 /**
- * Cancel an order. Status check first, then the Stripe action with a key derived
- * from the order id (a retry or double submit replays, never refunds twice),
- * then a status-conditional update so concurrent cancels record once.
- *
- * Unchanged product behavior: if the Stripe call fails the order is still
- * cancelled and the payment needs manual handling. The response now says so
- * (`paymentError`), instead of looking like a clean cancel.
+ * Cancel an order, money first:
+ *   1. Plan (same guards as the preview). Delivered, shipped and partly shipped
+ *      orders are refused with the next step to take.
+ *   2. Stripe: refund the remaining balance, or release the authorization. If
+ *      that fails, stop: the order keeps its status and nothing is restocked.
+ *      The failure is noted on the order, which also moves its version, so the
+ *      retry gets a fresh idempotency key instead of Stripe's cached error.
+ *      A refund that did go through is found by metadata and reused.
+ *   3. One transaction: status-conditional claim (concurrent cancels record
+ *      once), restock, inventory logs.
+ *   4. Customer email. A send failure is reported, never undone.
  */
 export async function cancelOrder(db: TenantPrisma, id: string, reason: string) {
-  const order = await db.order.findUnique({ where: { id } });
-  if (!order) return fail(404, "Order not found");
-  if (order.status === "CANCELLED" || order.status === "REFUNDED") {
-    return fail(400, "Order is already cancelled or refunded");
-  }
+  const planned = await planCancel(db, id);
+  if (!planned.ok) return planned;
+  const { order, payment, newFinancialStatus, restock } = planned.data;
+  const pi = order.stripePaymentIntentId as string;
 
-  let newFinancialStatus = order.financialStatus;
+  let refundedAmount = 0;
+  let stripeRefundId: string | null = null;
   let paymentError: string | null = null;
-
-  if (order.stripePaymentIntentId && order.financialStatus === "PAID") {
-    // Payment already captured — issue a full refund
-    try {
-      const earlier = await findEarlierRefund(stripe, order.stripePaymentIntentId, (m) => m.orderId === order.id && m.cancel === "true");
-      if (!earlier) {
-        await stripe.refunds.create(
-          { payment_intent: order.stripePaymentIntentId, reason: "requested_by_customer", metadata: { orderId: order.id, cancel: "true" } },
-          { idempotencyKey: orderCancelIdempotencyKey(order.id, "refund") },
-        );
-      }
-      newFinancialStatus = "REFUNDED";
-    } catch (stripeErr) {
-      console.error("Stripe refund error on cancel:", stripeErr);
-      paymentError = `Stripe refund failed: ${stripeErr instanceof Error ? stripeErr.message : String(stripeErr)}. Refund the customer manually.`;
+  try {
+    if (payment.action === "record_existing_refund") {
+      refundedAmount = payment.amount;
+      stripeRefundId = payment.stripeRefundId;
+    } else if (payment.action === "stripe_refund") {
+      const refund = await stripe.refunds.create(
+        { payment_intent: pi, amount: payment.amount, reason: "requested_by_customer", metadata: { orderId: order.id, cancel: "true" } },
+        { idempotencyKey: orderCancelIdempotencyKey(order.id, "refund", order.updatedAt) },
+      );
+      refundedAmount = refund.amount;
+      stripeRefundId = refund.id;
+    } else if (payment.action === "void_authorization") {
+      await stripe.paymentIntents.cancel(pi, undefined, { idempotencyKey: orderCancelIdempotencyKey(order.id, "void", order.updatedAt) });
     }
-  } else if (order.stripePaymentIntentId && (order.financialStatus === "AUTHORIZED" || order.financialStatus === "PENDING")) {
-    // Authorized but not captured (or not yet paid): release the hold. No money moves.
+  } catch (err) {
+    console.error(`Stripe ${payment.action} failed on cancel for order ${order.orderNumber}:`, err);
+    const what = payment.action === "void_authorization" ? "Releasing the card authorization" : "The Stripe refund";
+    const reasonText = `${what} failed, so order ${order.orderNumber} was NOT cancelled and nothing was restocked: ${errMessage(err)}. It's safe to try again (the customer can't be refunded twice). If it keeps failing, check the payment in Stripe.`;
+    const noteLine = `Cancel attempt failed (${new Date().toISOString().slice(0, 10)}): ${what.toLowerCase()} failed: ${errMessage(err)}. Order not cancelled.`;
+    await db.order.updateMany({
+      where: { id, status: { notIn: CLOSED } },
+      data: { adminNote: order.adminNote ? `${order.adminNote}\n\n${noteLine}` : noteLine },
+    }).catch((e) => console.error("Could not note the failed cancel attempt:", e));
+    return fail(502, reasonText, {
+      done: false,
+      blocked: true,
+      reason: reasonText,
+      retrySafe: true,
+      moneyMoved: false,
+      retry: "Safe to retry: nothing was cancelled and no money moved. Request a new preview and confirm again.",
+    });
+  }
+  if (payment.action === "release_unpaid") {
+    // Unpaid: no money is held, so a Stripe problem never blocks the cancel.
     try {
-      await stripe.paymentIntents.cancel(order.stripePaymentIntentId, undefined, {
-        idempotencyKey: orderCancelIdempotencyKey(order.id, "void"),
-      });
-      newFinancialStatus = "VOIDED";
-    } catch (stripeErr) {
-      console.error("Stripe cancel error on cancel:", stripeErr);
-      paymentError = `Releasing the card authorization failed: ${stripeErr instanceof Error ? stripeErr.message : String(stripeErr)}. Release it manually in Stripe.`;
+      await stripe.paymentIntents.cancel(pi, undefined, { idempotencyKey: orderCancelIdempotencyKey(order.id, "void") });
+    } catch (err) {
+      console.warn(`Could not release the unpaid payment for order ${order.orderNumber}:`, err);
+      paymentError = `The order is cancelled, but releasing its unpaid Stripe payment failed: ${errMessage(err)}. No money was taken.`;
     }
   }
 
-  const claimed = await db.order.updateMany({
-    where: { id, status: { notIn: ["CANCELLED", "REFUNDED"] } },
-    data: {
-      status: "CANCELLED",
-      financialStatus: newFinancialStatus,
-      cancelledAt: new Date(),
-      cancelReason: reason,
-    },
-  });
-  if (claimed.count === 0) return fail(409, "Order was cancelled by another request");
-  const updatedOrder = await db.order.findUniqueOrThrow({ where: { id } });
+  const tenantId = db.$tenantId;
+  const restocked = restock.filter((l) => l.action === "increment");
+  let updatedOrder;
+  try {
+    updatedOrder = await db.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id, status: { notIn: [...CLOSED, "DELIVERED"] } },
+        data: {
+          status: "CANCELLED",
+          financialStatus: newFinancialStatus,
+          cancelledAt: new Date(),
+          cancelReason: reason,
+        },
+      });
+      if (claimed.count === 0) return null;
+      for (const line of restocked) {
+        const inv = await tx.inventory.update({
+          where: { variantId: line.variantId as string },
+          data: { quantity: { increment: line.quantity } },
+        });
+        await tx.inventoryLog.create({
+          data: { tenantId, inventoryId: inv.id, delta: line.quantity, reason: "Order cancelled", note: `Order ${order.orderNumber}: ${line.title}${line.variantTitle ? ` (${line.variantTitle})` : ""}` },
+        });
+      }
+      return tx.order.findUniqueOrThrow({ where: { id } });
+    });
+  } catch (err) {
+    console.error(`DB update failed on cancel for order ${order.orderNumber}:`, err);
+    if (stripeRefundId || payment.action === "void_authorization") {
+      return fail(500, `Stripe ${stripeRefundId ? `refund ${stripeRefundId}` : "release"} went through, but the order could not be marked cancelled. Retrying is safe: it reuses that refund and won't charge or refund the customer again.`, {
+        moneyMoved: !!stripeRefundId, retrySafe: true, ...(stripeRefundId ? { refundId: stripeRefundId } : {}),
+      });
+    }
+    throw err;
+  }
+  if (!updatedOrder) return fail(409, "Order was cancelled by another request");
   const refunded = newFinancialStatus === "REFUNDED";
 
   // Send cancellation email
@@ -309,8 +503,8 @@ export async function cancelOrder(db: TenantPrisma, id: string, reason: string) 
       email: updatedOrder.email,
       firstName: customer?.firstName ?? undefined,
       cancelReason: reason || undefined,
-      refunded,
-      total: updatedOrder.total,
+      refunded: refundedAmount > 0,
+      total: refundedAmount,
     }, branding);
     const result = await resend.emails.send({
       from: branding.from,
@@ -327,7 +521,15 @@ export async function cancelOrder(db: TenantPrisma, id: string, reason: string) 
     console.error("Failed to send cancellation email:", emailErr);
   }
 
-  return ok({ order: updatedOrder, refunded, paymentError, emailSent });
+  return ok({
+    order: updatedOrder,
+    refunded,
+    refundedAmount,
+    stripeRefundId,
+    restocked: restocked.map((l) => ({ title: l.title, variantTitle: l.variantTitle, quantity: l.quantity, newQuantity: l.newQuantity })),
+    paymentError,
+    emailSent,
+  });
 }
 
 // ── refund ──────────────────────────────────────────────────────────────────

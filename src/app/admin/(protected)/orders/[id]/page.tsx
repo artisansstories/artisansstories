@@ -387,6 +387,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [actionMsg, setActionMsg] = useState("");
   const [actionError, setActionError] = useState("");
   const [resending, setResending] = useState(false);
+  const [showReturnDialog, setShowReturnDialog] = useState(false);
+  const [returnQty, setReturnQty] = useState<Record<string, string>>({});
+  const [returnNotify, setReturnNotify] = useState(true);
+  const [creatingReturn, setCreatingReturn] = useState(false);
 
   async function fetchOrder() {
     setLoading(true);
@@ -431,21 +435,58 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: cancelReason }),
       });
-      const data = await res.json() as { error?: string; refunded?: boolean };
+      const data = await res.json() as { error?: string; refunded?: boolean; refundedAmount?: number; restocked?: unknown[] };
       if (!res.ok) {
+        // The server explains why (e.g. the refund failed and nothing changed,
+        // or the order shipped and needs a return) and what to do next.
         setActionError(data.error ?? "Failed to cancel order");
+        fetchOrder();
         return;
       }
       setShowCancelDialog(false);
       setCancelReason("");
-      setActionMsg(data.refunded
-        ? "Order cancelled and full refund issued to customer."
-        : "Order cancelled successfully."
+      const restockedNote = data.restocked?.length ? ` ${data.restocked.length} item${data.restocked.length === 1 ? "" : "s"} put back in stock.` : "";
+      setActionMsg((data.refundedAmount
+        ? `Order cancelled and ${formatPrice(data.refundedAmount)} refunded to the customer.`
+        : "Order cancelled successfully.") + restockedNote
       );
       setTimeout(() => setActionMsg(""), 5000);
       fetchOrder();
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleCreateReturn() {
+    if (!order) return;
+    const items = order.items
+      .filter((i) => i.fulfillmentStatus === "fulfilled")
+      .map((i) => ({ orderItemId: i.id, quantity: parseInt(returnQty[i.id] ?? String(i.quantity), 10) }))
+      .filter((i) => Number.isInteger(i.quantity) && i.quantity > 0);
+    if (items.length === 0) {
+      setActionError("Choose at least one shipped item to return.");
+      return;
+    }
+    setCreatingReturn(true);
+    setActionError("");
+    try {
+      const res = await fetch("/api/admin/returns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, items, notifyCustomer: returnNotify }),
+      });
+      const data = await res.json() as { error?: string; return?: { id: string } };
+      if (!res.ok) {
+        setActionError(data.error ?? "Failed to create the return");
+        return;
+      }
+      setShowReturnDialog(false);
+      setReturnQty({});
+      setActionMsg("Return created and approved. Find it under Returns: mark it received when the items arrive, then refund it.");
+      setTimeout(() => setActionMsg(""), 8000);
+      fetchOrder();
+    } finally {
+      setCreatingReturn(false);
     }
   }
 
@@ -530,6 +571,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const addr = order.shippingAddress;
+  const shippedItems = order.items.filter((i) => i.fulfillmentStatus === "fulfilled");
   const hasUnfulfilled = order.items.some(i => i.fulfillmentStatus !== "fulfilled");
 
   return (
@@ -838,25 +880,44 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                 )}
 
-                {/* Cancel */}
-                <div>
-                  <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Cancel Order</p>
-                  <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
-                    {order.financialStatus === "PAID"
-                      ? "Cancels the order AND automatically issues a full refund to the customer's card. Cannot be undone."
-                      : order.financialStatus === "AUTHORIZED"
-                      ? "Cancels the order and releases the hold on the customer's card. No money was ever charged — no fees owed. Cannot be undone."
-                      : "Cancels the order. Cannot be undone."}
-                  </p>
-                  <button
-                    onClick={() => setShowCancelDialog(true)}
-                    style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fef2f2"; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
-                  >
-                    Cancel Order
-                  </button>
-                </div>
+                {/* Cancel, or a return once anything has shipped */}
+                {shippedItems.length === 0 && order.status !== "DELIVERED" ? (
+                  <div>
+                    <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Cancel Order</p>
+                    <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
+                      {order.financialStatus === "PAID"
+                        ? "Refunds the customer's card in full first, then cancels the order and puts the items back in stock. If the refund fails, nothing changes. Cannot be undone."
+                        : order.financialStatus === "PARTIALLY_REFUNDED"
+                        ? "Refunds the remaining balance first, then cancels the order and puts the items back in stock. If the refund fails, nothing changes. Cannot be undone."
+                        : order.financialStatus === "AUTHORIZED"
+                        ? "Releases the hold on the customer's card first (no money was charged, no fees), then cancels the order and puts the items back in stock. Cannot be undone."
+                        : "Cancels the order and puts the items back in stock. Cannot be undone."}
+                    </p>
+                    <button
+                      onClick={() => { setActionError(""); setShowCancelDialog(true); }}
+                      style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#fef2f2"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
+                    >
+                      Cancel Order
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>Return</p>
+                    <p style={{ margin: "0 0 12px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
+                      {shippedItems.length < order.items.length
+                        ? "Part of this order has shipped, so it can't be cancelled. Create a return for the shipped items, and use Issue Refund for the items that haven't shipped."
+                        : `This order ${order.status === "DELIVERED" ? "was delivered" : "has shipped"}, so it can't be cancelled. Create a return instead; refund it from the return once the items are back.`}
+                    </p>
+                    <button
+                      onClick={() => { setActionError(""); setShowReturnDialog(true); }}
+                      style={{ padding: "9px 20px", borderRadius: 8, border: "1px solid #fca5a5", background: "#fff", color: "#b91c1c", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: "pointer" }}
+                    >
+                      Create return
+                    </button>
+                  </div>
+                )}
 
               </div>
             </div>
@@ -972,12 +1033,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               rows={4}
               style={{ width: "100%", padding: "10px 12px", border: "1px solid #e0d5c5", borderRadius: 8, fontSize: 13, fontFamily: "'Inter', sans-serif", color: "#3a2e24", resize: "vertical", outline: "none", boxSizing: "border-box", marginBottom: 16 }}
             />
-            {actionMsg && (
-              <p style={{ fontSize: 13, color: "#b91c1c", fontFamily: "'Inter', sans-serif", margin: "0 0 12px" }}>{actionMsg}</p>
+            {actionError && (
+              <p role="alert" style={{ fontSize: 13, color: "#b91c1c", fontFamily: "'Inter', sans-serif", margin: "0 0 12px" }}>{actionError}</p>
             )}
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button
-                onClick={() => { setShowCancelDialog(false); setCancelReason(""); setActionMsg(""); }}
+                onClick={() => { setShowCancelDialog(false); setCancelReason(""); setActionError(""); }}
                 style={{ ...btnBase }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "#fff"; }}
@@ -990,6 +1051,49 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: !cancelReason.trim() || cancelling ? "#fca5a5" : "#b91c1c", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: !cancelReason.trim() || cancelling ? "not-allowed" : "pointer" }}
               >
                 {cancelling ? "Cancelling..." : "Cancel Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Return Dialog */}
+      {showReturnDialog && order && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 28, maxWidth: 480, width: "100%", boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 700, color: "#3a2e24", fontFamily: "'Cormorant Garamond', serif" }}>Create return</h3>
+            <p style={{ margin: "0 0 16px", fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif" }}>
+              The return starts approved. No money moves yet: refund it from the Returns page once the items are back.
+            </p>
+            {shippedItems.map((i) => (
+              <div key={i.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                <span style={{ fontSize: 13, color: "#3a2e24", fontFamily: "'Inter', sans-serif" }}>{i.title}{i.variantTitle ? ` (${i.variantTitle})` : ""}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={i.quantity}
+                  aria-label={`Quantity of ${i.title} to return`}
+                  value={returnQty[i.id] ?? String(i.quantity)}
+                  onChange={e => setReturnQty((q) => ({ ...q, [i.id]: e.target.value }))}
+                  style={{ width: 70, height: 34, padding: "0 8px", border: "1px solid #e0d5c5", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+            ))}
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#6b5540", fontFamily: "'Inter', sans-serif", margin: "8px 0 16px" }}>
+              <input type="checkbox" checked={returnNotify} onChange={e => setReturnNotify(e.target.checked)} />
+              Email the customer the return instructions
+            </label>
+            {actionError && (
+              <p role="alert" style={{ fontSize: 13, color: "#b91c1c", fontFamily: "'Inter', sans-serif", margin: "0 0 12px" }}>{actionError}</p>
+            )}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => { setShowReturnDialog(false); setActionError(""); }} style={btnBase}>Close</button>
+              <button
+                onClick={handleCreateReturn}
+                disabled={creatingReturn}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: creatingReturn ? "#fca5a5" : "#b91c1c", color: "#fff", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", cursor: creatingReturn ? "not-allowed" : "pointer" }}
+              >
+                {creatingReturn ? "Creating..." : "Create return"}
               </button>
             </div>
           </div>

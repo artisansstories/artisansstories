@@ -7,7 +7,7 @@
  */
 import Stripe from "stripe";
 import { Resend } from "resend";
-import { ReturnStatus, Prisma } from "@prisma/client";
+import { ReturnStatus, ReturnReason, Prisma } from "@prisma/client";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { returnApprovedHtml } from "@/lib/emails/return-approved";
 import { returnRejectedHtml } from "@/lib/emails/return-rejected";
@@ -105,6 +105,126 @@ export async function getReturn(db: TenantPrisma, id: string) {
   });
   if (!ret) return fail(404, "Return not found");
   return ok({ return: ret });
+}
+
+// ── create (admin) ──────────────────────────────────────────────────────────
+
+export interface CreateReturnBody {
+  orderId: string;
+  items: Array<{ orderItemId: string; quantity: number; reason?: string; note?: string }>;
+  adminNote?: string;
+  /** Email the customer the return-approved notice (with return instructions). */
+  notifyCustomer?: boolean;
+}
+
+const RETURN_REASONS = ["DEFECTIVE", "WRONG_ITEM", "NOT_AS_DESCRIBED", "CHANGED_MIND", "OTHER"] as const;
+
+/**
+ * Validate an admin-created return against the order, read-only. Only shipped
+ * items can be returned (unshipped ones are refunded with orders_refund), and
+ * never more than was bought minus what other open returns already cover.
+ */
+async function checkCreateReturn(db: Pick<TenantPrisma, "order" | "returnItem">, body: CreateReturnBody) {
+  if (!body?.orderId || !Array.isArray(body.items) || body.items.length === 0) {
+    return fail(400, "orderId and at least one item are required");
+  }
+  const order = await db.order.findUnique({ where: { id: body.orderId }, include: { items: true } });
+  if (!order) return fail(404, "Order not found");
+  if (order.status === "CANCELLED" || order.status === "REFUNDED") {
+    return fail(400, `Order ${order.orderNumber} is ${order.status.toLowerCase()}; there is nothing left to return.`);
+  }
+  const open = await db.returnItem.findMany({
+    where: { orderItemId: { in: order.items.map((i) => i.id) }, return: { status: { not: "REJECTED" } } },
+    select: { orderItemId: true, quantity: true },
+  });
+  const inReturns = new Map<string, number>();
+  for (const r of open) inReturns.set(r.orderItemId, (inReturns.get(r.orderItemId) ?? 0) + r.quantity);
+  const byId = new Map(order.items.map((i) => [i.id, i]));
+  const lines = [];
+  for (const it of body.items) {
+    const oi = byId.get(it.orderItemId);
+    if (!oi) return fail(400, `Order item ${it.orderItemId} is not on order ${order.orderNumber}`);
+    if (!Number.isInteger(it.quantity) || it.quantity < 1) return fail(400, "Each item quantity must be a whole number of at least 1");
+    if (oi.fulfillmentStatus !== "fulfilled") {
+      return fail(409, `"${oi.title}" hasn't shipped, so it can't be returned. Refund it instead with orders_refund (or "Issue Refund" on the order page).`);
+    }
+    const left = oi.quantity - (inReturns.get(oi.id) ?? 0);
+    if (it.quantity > left) {
+      return fail(409, `Only ${Math.max(0, left)} of "${oi.title}" can still be returned (${inReturns.get(oi.id) ?? 0} already in another return).`);
+    }
+    const reason = it.reason ?? "OTHER";
+    if (!(RETURN_REASONS as readonly string[]).includes(reason)) return fail(400, `reason must be one of ${RETURN_REASONS.join(", ")}`);
+    lines.push({ orderItemId: oi.id, title: oi.title, variantTitle: oi.variantTitle, quantity: it.quantity, price: oi.price, reason: reason as ReturnReason, note: it.note });
+  }
+  return ok({ order, lines });
+}
+
+export async function previewCreateReturn(db: TenantPrisma, body: CreateReturnBody) {
+  const c = await checkCreateReturn(db, body);
+  if (!c.ok) return c;
+  const { order, lines } = c.data;
+  const branding = body.notifyCustomer ? await getEmailBranding(db.$tenantId) : null;
+  return ok({
+    orderNumber: order.orderNumber,
+    newStatus: "APPROVED",
+    items: lines.map(({ price, ...l }) => ({ ...l, value: price * l.quantity })),
+    itemsValue: lines.reduce((sum, l) => sum + l.price * l.quantity, 0),
+    email: branding ? { to: order.email, subject: `Your return has been approved — ${branding.storeName}`, type: "RETURN_APPROVED" } : null,
+    moneyMoved: false,
+    next: "When the items arrive, mark them received (returns_receive), then refund with returns_refund (restock optional). You can also refund straight away.",
+  });
+}
+
+/** Create a return on the customer's behalf, already APPROVED. Moves no money. */
+export async function createReturn(db: TenantPrisma, body: CreateReturnBody) {
+  const tenantId = db.$tenantId;
+  // Lock the order row so two concurrent creates can't both claim the same items.
+  const created = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Order" WHERE id = ${body?.orderId ?? ""} AND "tenantId" = ${tenantId} FOR UPDATE`;
+    const c = await checkCreateReturn(tx, body);
+    if (!c.ok) return c;
+    const { order, lines } = c.data;
+    const ret = await tx.return.create({
+      data: {
+        tenantId,
+        orderId: order.id,
+        status: "APPROVED",
+        adminNote: body.adminNote ?? "Created by an admin",
+        items: { create: lines.map((l) => ({ tenantId, orderItemId: l.orderItemId, quantity: l.quantity, reason: l.reason, note: l.note })) },
+      },
+      include: { items: { include: { orderItem: { select: { title: true, variantTitle: true } } } } },
+    });
+    return ok({ ret, order });
+  });
+  if (!created.ok) return created;
+  const { ret, order } = created.data;
+
+  let emailSent: boolean | null = null;
+  if (body.notifyCustomer) {
+    emailSent = false;
+    try {
+      const branding = await getEmailBranding(tenantId);
+      const subject = `Your return has been approved — ${branding.storeName}`;
+      const result = await resend.emails.send({
+        from: branding.from,
+        to: order.email,
+        replyTo: branding.replyTo ?? branding.fromAddress,
+        subject,
+        html: returnApprovedHtml({
+          orderNumber: order.orderNumber,
+          email: order.email,
+          returnId: ret.id,
+          items: ret.items.map((i) => ({ title: i.orderItem.title, variantTitle: i.orderItem.variantTitle ?? undefined, quantity: i.quantity })),
+        }, branding),
+      });
+      if (result.error) throw new Error(result.error.message);
+      await logEmail({ tenantId, type: "RETURN_APPROVED", toEmail: order.email, fromEmail: branding.fromAddress, subject, resendId: result.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+      emailSent = true;
+    } catch (err) {
+      console.error(`[returns] approval email failed for new return ${ret.id}:`, err);
+    }
+  }
+  return ok({ return: ret, emailSent }, 201);
 }
 
 // ── admin note ──────────────────────────────────────────────────────────────
