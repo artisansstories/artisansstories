@@ -20,14 +20,14 @@ E2E_SKIP_UI=1 npm run test:e2e   # skip the next build + browser tests
 - **MCP path:** the SDK client talks Streamable HTTP to the real `/api/mcp` route handler in-process, with real `TenantApiKey` rows. Every write tool is run as preview (DB unchanged, no Stripe or email call) → confirm (change applied) → replay of the same confirm (blocked, no second side effect) → read back with the read tool. Every read tool is checked against seeded values.
 - **Admin UI:** `next build --webpack` + `next start` against the local DB, opened in headless Chromium.
   - The server runs with `.env` loading disabled (`__NEXT_PROCESSED_ENV`) and every `.env` key neutralised.
-  - All outbound HTTP goes through a local proxy that refuses and records it. The suite fails if anything tried to leave the machine.
+  - All outbound HTTP goes through a local proxy that refuses and records it. Clients that ignore proxy settings (the Stripe SDK does) are refused at the socket by a preload (`tests/e2e/ui/block-outbound.cjs`) that logs the target. The suite fails if anything tried to leave the machine either way.
 
 ## Counts
 
 | Suite | Files | Tests |
 |---|---|---|
 | Unit (`npx vitest run`) | 16 | 151 |
-| E2E (`npm run test:e2e`) | 25 | 640 |
+| E2E (`npm run test:e2e`) | 27 | 695 |
 
 ## Matrix
 

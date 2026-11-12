@@ -18,7 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { F, OTHER } from "../seed";
 import { signInAs } from "../helpers/session";
 import { connectMcp } from "../helpers/mcp";
-import { buildApp, startApp, startOutboundRecorder, type Recorder, type RunningServer } from "./next-server";
+import { buildApp, startApp, startOutboundRecorder, blockedConnections, clearBlockedConnections, type Recorder, type RunningServer } from "./next-server";
 
 const SKIP = process.env.E2E_SKIP_UI === "1";
 const PORT = Number(process.env.E2E_UI_PORT ?? 3999);
@@ -120,6 +120,7 @@ function expectHealthy(path: string, r: PageReport, marker: string | RegExp) {
 
 describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
   beforeAll(async () => {
+    clearBlockedConnections();
     recorder = await startOutboundRecorder();
     if (process.env.E2E_SKIP_BUILD !== "1") await buildApp(recorder.url);
     server = await startApp(recorder.url, PORT);
@@ -131,6 +132,8 @@ describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
     await server?.stop();
     // The build and every page load above went through the recorder.
     expect(recorder?.requests ?? [], "outbound requests from next build / next start").toEqual([]);
+    // Clients that ignore the proxy were refused at the socket; there must be none.
+    expect(blockedConnections(), "direct outbound connections from next build / next start").toEqual([]);
     await recorder?.close();
   });
 
@@ -250,19 +253,24 @@ describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
     await page.getByRole("button", { name: "Cancel Order" }).click();
     await page.getByPlaceholder("Reason for cancellation...").fill("Out of stock");
     const seen = recorder.requests.length;
+    clearBlockedConnections();
     await page.getByRole("button", { name: "Cancel Order" }).last().click();
-    // Stripe is unreachable from the test server (the outbound recorder refuses it).
+    // Stripe is unreachable from the test server: the request is refused.
     const alert = page.getByRole("alert").filter({ hasText: /not cancelled|NOT cancelled/i });
     await alert.waitFor({ timeout: 60_000 });
     expect(await alert.textContent()).toMatch(/Nothing changed; try again|safe to try again/i);
     const order = await prisma.order.findUniqueOrThrow({ where: { id: F.order.paidCancel } });
     expect(order).toMatchObject({ status: "PROCESSING", financialStatus: "PAID", cancelledAt: null });
     expect((await prisma.inventory.findUniqueOrThrow({ where: { id: F.inventory.hammockRed } })).quantity).toBe(2);
-    // The only outbound attempts were to Stripe, and they were refused. Drop
-    // them so the suite-wide "nothing left the machine" check still covers the rest.
-    const attempts = recorder.requests.splice(seen);
-    expect(attempts.length).toBeGreaterThan(0);
-    expect(attempts.every((r) => r.url.includes("api.stripe.com")), JSON.stringify(attempts)).toBe(true);
+    // Stripe was the only thing it tried to reach, and it was refused (the
+    // Stripe SDK ignores the proxy, so it's stopped at the socket). Clear those
+    // so the suite-wide "nothing left the machine" checks still cover the rest.
+    const direct = blockedConnections();
+    clearBlockedConnections();
+    const proxied = recorder.requests.splice(seen);
+    expect(direct.length + proxied.length).toBeGreaterThan(0);
+    expect(direct.every((h) => h.startsWith("api.stripe.com:")), JSON.stringify(direct)).toBe(true);
+    expect(proxied.every((r) => r.url.includes("api.stripe.com")), JSON.stringify(proxied)).toBe(true);
     await ctx.close();
   }, 180_000);
 
@@ -302,7 +310,7 @@ describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
     expectHealthy("/admin/settings", report, "Artisans Stories");
     const sw = page.getByRole("switch");
     await expect.poll(() => sw.getAttribute("aria-disabled")).toBe("true");
-    await sw.click();
+    await sw.click({ force: true }); // aria-disabled: Playwright won't click it unforced
     expect(await sw.getAttribute("aria-checked")).toBe("false");
     expect(report.text + (await page.evaluate(() => document.body.innerText))).toContain("Only an Admin or Super Admin can take the store live");
     await ctx.close();

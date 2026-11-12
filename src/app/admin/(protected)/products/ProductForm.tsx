@@ -1349,7 +1349,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                           }}
                           placeholder="Type a value, press Enter"
                         />
-                        <p style={{ fontSize: 11, color: "#9a876e", margin: "4px 0 0", fontFamily: "'Inter', sans-serif" }}>Phrases with spaces are fine — e.g. "Rose Gold", "Sterling Silver"</p>
+                        <p style={{ fontSize: 11, color: "#9a876e", margin: "4px 0 0", fontFamily: "'Inter', sans-serif" }}>Phrases with spaces are fine — e.g. &ldquo;Rose Gold&rdquo;, &ldquo;Sterling Silver&rdquo;</p>
                       </div>
                       <button
                         type="button"

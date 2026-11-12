@@ -13,7 +13,25 @@ import { spawn, type ChildProcess } from "child_process";
 import http from "http";
 import net from "net";
 import path from "path";
+import fs from "fs";
+import os from "os";
 import { E2E_ENV, assertLocalDatabaseUrl } from "../env";
+
+/** Where block-outbound.cjs records refused direct connections (host:port per line). */
+export const BLOCKED_LOG = path.join(os.tmpdir(), `as-e2e-blocked-${process.pid}.log`);
+
+/** Direct (non-proxy) connections the build/server tried, all refused. */
+export function blockedConnections(): string[] {
+  try {
+    return fs.readFileSync(BLOCKED_LOG, "utf8").split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+export function clearBlockedConnections(): void {
+  fs.rmSync(BLOCKED_LOG, { force: true });
+}
 
 const root = path.resolve(__dirname, "../../..");
 
@@ -76,6 +94,9 @@ export function nextEnv(proxyUrl: string, port: number): NodeJS.ProcessEnv {
     NO_PROXY: "localhost,127.0.0.1,.localhost",
     no_proxy: "localhost,127.0.0.1,.localhost",
     NODE_USE_ENV_PROXY: "1",
+    // Clients that ignore the proxy (the Stripe SDK does) are refused at the socket.
+    NODE_OPTIONS: `--require ${path.join(root, "tests/e2e/ui/block-outbound.cjs")}`,
+    E2E_BLOCKED_LOG: BLOCKED_LOG,
   };
   assertLocalDatabaseUrl(env.DATABASE_URL);
   return env;

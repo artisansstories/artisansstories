@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- route and tool results are arbitrary JSON. */
 /**
  * Cancel policy (decisions 1 + 2), through the admin route AND MCP:
  *   - money first: a failed refund/void cancels nothing and is retry-safe;
