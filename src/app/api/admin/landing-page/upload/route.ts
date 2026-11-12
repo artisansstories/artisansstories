@@ -2,18 +2,18 @@ import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { toResponse } from "@/lib/admin-services/http";
 import { uploadLandingPageImage } from "@/lib/admin-services/landing-page";
+import { resolveTenantFromAdminSession } from "@/lib/tenant-context";
 
 export async function POST(req: Request) {
-  let session;
   try {
-    session = await requireAdminSession();
+    await requireAdminSession();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // Tenant prefix derived ONLY from the admin session (never the request body),
-  // mirroring the product uploader. Falls back to the historical flat key if a
-  // legacy session carries no tenantId.
-  const tenantId = session.tenantId;
+  // Tenant derived ONLY from the admin session (never the request body). The
+  // service refuses (403) anything but the house store.
+  const tenantId = await resolveTenantFromAdminSession().catch(() => null);
+  if (!tenantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const formData = await req.formData();

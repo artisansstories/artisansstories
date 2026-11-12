@@ -6,12 +6,16 @@
  * read-only single-message getter (MCP only — the admin UI reads via the list)
  * and `preview*` helpers. The reply email is built by `buildContactReplyEmail`,
  * used by both preview and send, so the preview is exactly what gets emailed.
+ *
+ * SECURITY (deliberate change vs main): user/admin text in the reply email HTML
+ * and in the logged email HTML is HTML-escaped (see src/lib/escape-html.ts).
  */
 import { Resend } from "resend";
 import { Prisma, type ContactMessage } from "@prisma/client";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { getEmailBranding, emailLogoHtml, type EmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
+import { escapeHtml, escapeHtmlMultiline } from "@/lib/escape-html";
 import { ok, fail } from "./result";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -107,6 +111,13 @@ export async function previewUpdateContactMessage(db: TenantPrisma, id: string, 
 /** The exact email the reply route sends. */
 export function buildContactReplyEmail(branding: EmailBranding, contactMsg: ContactMessage, replyText: string) {
   const text = replyText.trim();
+  // SECURITY: every user/admin-supplied value is HTML-escaped before it goes
+  // into the email HTML (line breaks become <br> after escaping). The plain
+  // `text` part and the subject header are not HTML and stay unescaped.
+  const name = escapeHtml(contactMsg.name);
+  const storeName = escapeHtml(branding.storeName);
+  const replyHtml = escapeHtmlMultiline(text);
+  const originalHtml = escapeHtmlMultiline(contactMsg.message);
   return {
     from: branding.from,
     to: [contactMsg.email],
@@ -118,20 +129,20 @@ export function buildContactReplyEmail(branding: EmailBranding, contactMsg: Cont
             ${emailLogoHtml(branding)}
           </div>
           <div style="padding:32px 40px;">
-            <p style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;color:#3a2e24;margin:0 0 16px;">Hi ${contactMsg.name},</p>
-            <div style="font-size:15px;color:#3a2e24;line-height:1.7;white-space:pre-wrap;margin:0 0 24px;">${text}</div>
+            <p style="font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;color:#3a2e24;margin:0 0 16px;">Hi ${name},</p>
+            <div style="font-size:15px;color:#3a2e24;line-height:1.7;white-space:pre-wrap;margin:0 0 24px;">${replyHtml}</div>
             <div style="border-top:1px solid #ede8df;padding-top:20px;">
               <p style="font-size:13px;color:#9a876e;margin:0 0 4px;">Warmly,</p>
-              <p style="font-size:14px;font-weight:600;color:#3a2e24;margin:0;">${branding.storeName}</p>
+              <p style="font-size:14px;font-weight:600;color:#3a2e24;margin:0;">${storeName}</p>
             </div>
           </div>
           <div style="padding:16px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.4);">&copy; ${new Date().getFullYear()} ${branding.storeName}. All rights reserved.</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.4);">&copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
           </div>
         </div>
         <div style="margin-top:24px;padding:16px 20px;background:#f5f5f5;border-radius:8px;font-family:Inter,sans-serif;border-left:3px solid #d8cfc0;">
-          <p style="font-size:11px;color:#999;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.05em;">Original message from ${contactMsg.name}</p>
-          <p style="font-size:13px;color:#666;line-height:1.6;white-space:pre-wrap;margin:0;">${contactMsg.message}</p>
+          <p style="font-size:11px;color:#999;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.05em;">Original message from ${name}</p>
+          <p style="font-size:13px;color:#666;line-height:1.6;white-space:pre-wrap;margin:0;">${originalHtml}</p>
         </div>
       `,
     text: `Hi ${contactMsg.name},\n\n${text}\n\nWarmly,\n${branding.storeName}\n\n---\nOriginal message:\n${contactMsg.message}`,
@@ -195,7 +206,7 @@ export async function sendContactReply(db: TenantPrisma, id: string, replyText: 
 
   const replyBodyHtml = replyResult.data ? (replyResult as { data?: { html?: string } }).data?.html ?? null : null;
   // Build body from the sent html (extract from request since Resend doesn't return body)
-  const contactReplyHtml = `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;"><p><strong>To:</strong> ${contactMsg.name} &lt;${contactMsg.email}&gt;</p><p><strong>Subject:</strong> Re: ${contactMsg.subject}</p><hr/><p style="white-space:pre-wrap;">${replyText.trim()}</p></div>`;
+  const contactReplyHtml = `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;"><p><strong>To:</strong> ${escapeHtml(contactMsg.name)} &lt;${escapeHtml(contactMsg.email)}&gt;</p><p><strong>Subject:</strong> Re: ${escapeHtml(contactMsg.subject)}</p><hr/><p style="white-space:pre-wrap;">${escapeHtmlMultiline(replyText.trim())}</p></div>`;
   await logEmail({ tenantId: db.$tenantId, type: "CONTACT_REPLY", toEmail: contactMsg.email, fromEmail: branding.fromAddress, subject: `Re: ${contactMsg.subject}`, bodyHtml: replyBodyHtml ?? contactReplyHtml, resendId: replyResult.data?.id, relatedId: id, relatedType: "CONTACT" });
 
   // Mark as REPLIED

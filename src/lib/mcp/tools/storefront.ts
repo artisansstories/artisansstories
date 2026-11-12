@@ -320,9 +320,9 @@ export const tools: McpTool[] = [
       const b = await landingBody(a as Row);
       return b.ok ? landing.previewLandingPageUpdate(b.data) : b;
     }),
-    execute: house(async (_ctx, a) => {
+    execute: house(async (ctx, a) => {
       const b = await landingBody(a as Row);
-      return b.ok ? landing.saveLandingPageSettings(b.data) : b;
+      return b.ok ? landing.saveLandingPageSettings(ctx.tenantId, b.data) : b;
     }),
   }),
 

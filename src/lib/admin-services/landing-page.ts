@@ -7,8 +7,10 @@
  * Data lives in the raw-SQL table "LandingPageSettings" (not in the Prisma
  * schema; see prisma/migrations/add_landing_page_*.sql). It is a single GLOBAL
  * row `id = 'singleton'` with NO tenantId column — it is the house (Artisans
- * Stories) public landing page. Only the house tenant may reach these functions
- * (the MCP tools are houseOnly and also check ctx.isHouse).
+ * Stories) public landing page. Writes take the caller's tenantId and refuse
+ * (403) anything but the house tenant. Before this check, any store's admin
+ * could overwrite the public page through the API. The MCP tools are also
+ * houseOnly and check ctx.isHouse.
  *
  * Additions for MCP only: `landingPageParams` (the exact values the upsert
  * writes), `previewLandingPageUpdate`, and the shared upload helper.
@@ -17,7 +19,8 @@ import { randomUUID } from "crypto";
 import sharp from "sharp";
 import { Client } from "pg";
 import { putObject, publicUrl } from "@/lib/r2";
-import { ok, type ServiceResult } from "./result";
+import { isHouseTenant } from "@/lib/tenant-features";
+import { ok, fail, type ServiceFail, type ServiceResult } from "./result";
 
 type Row = Record<string, unknown>;
 
@@ -97,7 +100,18 @@ export function landingPageParams(body: LandingPageBody): unknown[] {
   ];
 }
 
-export async function saveLandingPageSettings(body: LandingPageBody): Promise<ServiceResult<{ settings: Row }>> {
+const NOT_HOUSE = "Only the Artisans Stories house store can edit the landing page.";
+
+function houseGate(tenantId: string | null | undefined): ServiceFail | null {
+  return isHouseTenant(tenantId) ? null : fail(403, NOT_HOUSE);
+}
+
+export async function saveLandingPageSettings(
+  tenantId: string | null | undefined,
+  body: LandingPageBody,
+): Promise<ServiceResult<{ settings: Row }>> {
+  const denied = houseGate(tenantId);
+  if (denied) return denied;
   console.log('[Landing Page Settings] Saving:', {
     aboutTitle: body.aboutTitle,
     aboutContentLength: ((body.aboutContent as string) || '').length,
@@ -185,14 +199,15 @@ export interface UploadFile {
 
 /**
  * Store a landing-page image. `tenantId` must come from the admin session /
- * verified MCP credential (never the request body); falls back to the
- * historical flat key when absent.
+ * verified MCP credential (never the request body). House tenant only.
  */
 export async function uploadLandingPageImage(
   tenantId: string | undefined | null,
   field: string,
   file: UploadFile,
 ): Promise<ServiceResult<{ url: string }>> {
+  const denied = houseGate(tenantId);
+  if (denied) return denied;
   const buffer = file.buffer;
   const ext = (file.name.split(".").pop() ?? "").toLowerCase();
   // Bring landing-page assets onto the WebP standard (specs row 4): rasters →
@@ -218,9 +233,7 @@ export async function uploadLandingPageImage(
     }
   }
 
-  const key = tenantId
-    ? `tenants/${tenantId}/landing-page/${field}-${randomUUID()}.${outExt}`
-    : `landing-page/${field}-${randomUUID()}.${outExt}`;
+  const key = `tenants/${tenantId}/landing-page/${field}-${randomUUID()}.${outExt}`;
 
   await putObject(key, body, contentType);
 

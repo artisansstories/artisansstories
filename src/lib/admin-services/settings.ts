@@ -3,7 +3,9 @@
  * /api/admin/settings (GET/PUT/PATCH) and MCP.
  *
  * `getSettings`, `updateSettings`, and `updateEmailBranding` are extracted
- * verbatim from the route (behavior unchanged, including GET's create-if-missing).
+ * from the route (GET's create-if-missing unchanged). Security fix: PUT now
+ * writes only WRITABLE_SETTINGS_FIELDS; it used to pass the whole body through,
+ * so `tenantId` or `mcpEnabled` could be set from the request.
  * Additions for MCP: `readSettings` (never creates), `mergeEmailBranding`
  * (omitted fields keep their current value instead of being cleared), and
  * read-only `preview*` functions.
@@ -71,27 +73,61 @@ export async function readSettings(db: TenantPrisma): Promise<ServiceResult<unkn
 
 // ── PUT (StoreSettings) ─────────────────────────────────────────────────────
 
-/** PUT /api/admin/settings — `body` is the raw request JSON (mutated, as before). */
+/**
+ * StoreSettings columns an admin may write through PUT /api/admin/settings or
+ * settings_update. Everything else is dropped: `id`/`tenantId`/timestamps
+ * (moving or forging the row), `mcpEnabled` (has its own ADMIN-gated switch at
+ * /api/admin/mcp), and the email-branding fields (they live on TenantTheme and
+ * save through PATCH). Unknown keys are ignored rather than sent to Prisma.
+ */
+export const WRITABLE_SETTINGS_FIELDS = [
+  "storeName",
+  "storeDescription",
+  "storeLogo",
+  "storeFavicon",
+  "primaryColor",
+  "accentColor",
+  "fontHeading",
+  "fontBody",
+  "contactEmail",
+  "contactPhone",
+  "returnPolicyDays",
+  "returnPolicyText",
+  "storeEnabled",
+  "instagramUrl",
+  "tiktokUrl",
+  "facebookUrl",
+  "pinterestUrl",
+  "metaTitle",
+  "metaDescription",
+  "googleAnalyticsId",
+  "facebookPixelId",
+  "lowStockThreshold",
+  "lowStockAlertEmail",
+  "orderNotificationEmail",
+  "adminLogoSize",
+  "productDisclaimer",
+] as const;
+
+export function pickWritableSettings(body: Record<string, unknown>): Record<string, unknown> {
+  const data: Record<string, unknown> = {};
+  for (const k of WRITABLE_SETTINGS_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(body, k) && body[k] !== undefined) data[k] = body[k];
+  }
+  return data;
+}
+
+/** PUT /api/admin/settings — `body` is the raw request JSON; only whitelisted fields are written. */
 export async function updateSettings(
   db: TenantPrisma,
   body: Record<string, unknown>,
 ): Promise<ServiceResult<unknown>> {
-  // Remove read-only fields
-  delete body.id;
-  delete body.createdAt;
-  delete body.updatedAt;
-  // Email branding lives on TenantTheme, not StoreSettings — strip it out here
-  // so the StoreSettings upsert doesn't choke on unknown columns. The Email
-  // section saves through PATCH below.
-  delete body.emailFromName;
-  delete body.emailReplyTo;
-  delete body.emailAccentColor;
-  delete body.emailLogoUrl;
+  const data = pickWritableSettings(body);
   // Upsert on tenantId (unique constraint); scoped client injects tenantId automatically
   const existing = await db.storeSettings.findFirst({ where: {} });
   const settings = existing
-    ? await db.storeSettings.update({ where: { id: existing.id }, data: body })
-    : await db.storeSettings.create({ data: body as never });
+    ? await db.storeSettings.update({ where: { id: existing.id }, data })
+    : await db.storeSettings.create({ data: data as never });
   return ok(settings);
 }
 
@@ -100,7 +136,8 @@ export async function previewUpdateSettings(
   db: TenantPrisma,
   patch: Record<string, unknown>,
 ): Promise<ServiceResult<unknown>> {
-  const fields = Object.keys(patch).filter((k) => patch[k] !== undefined);
+  patch = pickWritableSettings(patch);
+  const fields = Object.keys(patch);
   if (fields.length === 0) return fail(400, "No settings fields provided to change");
 
   const existing = (await db.storeSettings.findFirst({ where: {} })) as Record<string, unknown> | null;
