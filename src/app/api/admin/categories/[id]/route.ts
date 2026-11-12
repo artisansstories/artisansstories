@@ -24,7 +24,17 @@ export async function PUT(
     const db = await getTenantPrismaForAdmin();
 
     const { id } = await params;
-    const body = await request.json() as CategoryUpdateBody;
+    // main checked existence BEFORE parsing the body: a missing category is a 404
+    // even when the body is unparseable. Keep that order on the parse-error path.
+    let body: CategoryUpdateBody;
+    try {
+      body = await request.json() as CategoryUpdateBody;
+    } catch (parseErr) {
+      if (!(await db.category.findUnique({ where: { id }, select: { id: true } }))) {
+        return NextResponse.json({ error: "Category not found" }, { status: 404 });
+      }
+      throw parseErr;
+    }
     return toResponse(await updateCategory(db, id, body));
   } catch (err) {
     console.error("PUT /api/admin/categories/[id] error:", err);

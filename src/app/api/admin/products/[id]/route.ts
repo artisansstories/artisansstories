@@ -24,7 +24,17 @@ export async function PUT(
     const db = await getTenantPrismaForAdmin();
 
     const { id } = await params;
-    const body = await request.json() as ProductUpdateBody;
+    // main checked existence BEFORE parsing the body: a missing product is a 404
+    // even when the body is unparseable. Keep that order on the parse-error path.
+    let body: ProductUpdateBody;
+    try {
+      body = await request.json() as ProductUpdateBody;
+    } catch (parseErr) {
+      if (!(await db.product.findUnique({ where: { id }, select: { id: true } }))) {
+        return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      }
+      throw parseErr;
+    }
     return toResponse(await updateProduct(db, id, body));
   } catch (err) {
     console.error("PUT /api/admin/products/[id] error:", err);

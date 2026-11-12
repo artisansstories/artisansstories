@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
-import { processProductImage } from "@/lib/admin-services/uploads";
+import { checkProductImage, processProductImage } from "@/lib/admin-services/uploads";
 import { toResponse } from "@/lib/admin-services/http";
 
 export async function POST(request: NextRequest) {
@@ -28,6 +28,10 @@ export async function POST(request: NextRequest) {
     }
     const blob = file as Blob;
     const fileName = (file as File).name ?? "";
+    // main rejected a bad type BEFORE reading the file body; keep that order.
+    // (processProductImage re-runs the same check, including the size limit.)
+    const typeCheck = checkProductImage({ contentType: blob.type, fileName, size: 0 });
+    if (!typeCheck.ok) return toResponse(typeCheck);
     const buffer = Buffer.from(await blob.arrayBuffer());
     return toResponse(await processProductImage({
       buffer,
