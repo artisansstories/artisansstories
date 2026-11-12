@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import { updateContactMessage } from "@/lib/admin-services/contact";
+import { toResponse } from "@/lib/admin-services/http";
 
 export async function PATCH(
   request: NextRequest,
@@ -10,15 +12,7 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json() as { status?: string; notes?: string };
 
-    const message = await db.contactMessage.update({
-      where: { id },
-      data: {
-        ...(body.status !== undefined && { status: body.status as "UNREAD" | "READ" | "REPLIED" | "ARCHIVED" }),
-        ...(body.notes !== undefined && { notes: body.notes }),
-      },
-    });
-
-    return NextResponse.json({ message });
+    return toResponse(await updateContactMessage(db, id, body));
   } catch (error) {
     console.error("PATCH /api/admin/contact/[id] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

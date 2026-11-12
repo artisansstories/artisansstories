@@ -1,28 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
-import { DiscountType } from "@prisma/client";
+import { createDiscount, listDiscounts, type DiscountCreateBody } from "@/lib/admin-services/discounts";
+import { toResponse } from "@/lib/admin-services/http";
 export async function GET(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
 
     const searchParams = request.nextUrl.searchParams;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
-    const skip = (page - 1) * limit;
-    const [discounts, total] = await Promise.all([
-      db.discount.findMany({
-        orderBy: { createdAt: "desc" },
-        skip,
-        take: limit,
-      }),
-      db.discount.count(),
-    ]);
-    return NextResponse.json({
-      discounts,
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
-    });
+    return toResponse(
+      await listDiscounts(db, {
+        page: parseInt(searchParams.get("page") ?? "1", 10),
+        limit: parseInt(searchParams.get("limit") ?? "20", 10),
+      })
+    );
   } catch (err) {
     console.error("GET /api/admin/discounts error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -32,46 +22,11 @@ export async function POST(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
 
-    const body = await request.json() as {
-      code: string;
-      type: DiscountType;
-      value: number;
-      minimumOrderAmount?: number;
-      appliesToAll?: boolean;
-      productIds?: string[];
-      categoryIds?: string[];
-      usageLimit?: number;
-      perCustomerLimit?: number;
-      startsAt?: string;
-      endsAt?: string;
-      isActive?: boolean;
-    };
-    if (!body.code || !body.type || body.value === undefined) {
-      return NextResponse.json({ error: "code, type and value are required" }, { status: 400 });
-    }
-    const discount = await db.discount.create({
-      data: {
-        tenantId: db.$tenantId,
-        code: body.code.trim().toUpperCase(),
-        type: body.type,
-        value: body.value,
-        minimumOrderAmount: body.minimumOrderAmount ?? null,
-        appliesToAll: body.appliesToAll ?? true,
-        productIds: body.productIds ?? [],
-        categoryIds: body.categoryIds ?? [],
-        usageLimit: body.usageLimit ?? null,
-        perCustomerLimit: body.perCustomerLimit ?? null,
-        startsAt: body.startsAt ? new Date(body.startsAt) : null,
-        endsAt: body.endsAt ? new Date(body.endsAt) : null,
-        isActive: body.isActive ?? true,
-      },
-    });
-    return NextResponse.json({ discount }, { status: 201 });
+    const body = await request.json() as DiscountCreateBody;
+    // P2002 (duplicate code) → 409 is handled inside createDiscount.
+    return toResponse(await createDiscount(db, body));
   } catch (err: unknown) {
     console.error("POST /api/admin/discounts error:", err);
-    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "P2002") {
-      return NextResponse.json({ error: "Discount code already exists" }, { status: 409 });
-    }
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

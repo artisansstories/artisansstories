@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import { getCustomer, updateCustomer, type CustomerUpdateBody } from "@/lib/admin-services/customers";
+import { toResponse } from "@/lib/admin-services/http";
 
 export async function GET(
   _request: NextRequest,
@@ -8,57 +10,7 @@ export async function GET(
   try {
     const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-
-    const customer = await db.customer.findUnique({
-      where: { id },
-      include: {
-        addresses: { orderBy: { isDefault: "desc" } },
-        orders: {
-          orderBy: { createdAt: "desc" },
-          include: {
-            items: {
-              include: {
-                variant: {
-                  include: {
-                    product: { select: { name: true, images: { take: 1, select: { urlThumb: true, url: true } } } },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!customer) {
-      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
-    }
-
-    // Compute live stats from actual orders (ignoring stale denormalized counters)
-    const cancelledStatuses = new Set(["CANCELLED", "REFUNDED"]);
-    const voidedFinancial = new Set(["VOIDED", "REFUNDED", "PARTIALLY_REFUNDED"]);
-
-    const activeOrders = customer.orders.filter(
-      (o) => !cancelledStatuses.has(o.status) && !voidedFinancial.has(o.financialStatus)
-    );
-    const cancelledOrders = customer.orders.filter(
-      (o) => cancelledStatuses.has(o.status) || voidedFinancial.has(o.financialStatus)
-    );
-
-    const netSpent = activeOrders.reduce((sum, o) => sum + o.total, 0);
-    const grossSpent = customer.orders.reduce((sum, o) => sum + o.total, 0);
-    const refundedAmount = cancelledOrders.reduce((sum, o) => sum + o.total, 0);
-
-    const liveStats = {
-      totalOrdersAll: customer.orders.length,
-      totalOrdersActive: activeOrders.length,
-      totalOrdersCancelled: cancelledOrders.length,
-      netSpent,
-      grossSpent,
-      refundedAmount,
-    };
-
-    return NextResponse.json({ customer, liveStats });
+    return toResponse(await getCustomer(db, id));
   } catch (error) {
     console.error("GET /api/admin/customers/[id] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -72,17 +24,8 @@ export async function PATCH(
   try {
     const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const body = await request.json() as { notes?: string; tags?: string[] };
-
-    const customer = await db.customer.update({
-      where: { id },
-      data: {
-        ...(body.notes !== undefined && { notes: body.notes }),
-        ...(body.tags !== undefined && { tags: body.tags }),
-      },
-    });
-
-    return NextResponse.json({ customer });
+    const body = await request.json() as CustomerUpdateBody;
+    return toResponse(await updateCustomer(db, id, body));
   } catch (error) {
     console.error("PATCH /api/admin/customers/[id] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

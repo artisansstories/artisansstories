@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import {
+  removeTeamMember,
+  teamManageDenied,
+  updateTeamMember,
+} from "@/lib/admin-services/team";
+import { toResponse } from "@/lib/admin-services/http";
 
 export async function PUT(
   request: NextRequest,
@@ -9,38 +15,17 @@ export async function PUT(
   try {
     const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
-    if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
+    if (!session) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    const actor = { id: session.id, role: session.role };
+    // Role check before reading the body, as before.
+    const denied = teamManageDenied(actor);
+    if (denied) return toResponse(denied);
 
     const { id } = await params;
     const body = await request.json() as { role?: string; isActive?: boolean };
-    const { role, isActive } = body;
-
-    const target = await db.adminUser.findUnique({ where: { id } });
-    if (!target) {
-      return NextResponse.json({ error: "Admin not found" }, { status: 404 });
-    }
-
-    // Cannot change SUPER_ADMIN role via UI
-    if (role !== undefined && target.role === "SUPER_ADMIN") {
-      return NextResponse.json({ error: "Cannot change SUPER_ADMIN role" }, { status: 403 });
-    }
-
-    if (role !== undefined && !["ADMIN", "EDITOR"].includes(role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-    }
-
-    const updated = await db.adminUser.update({
-      where: { id },
-      data: {
-        ...(role !== undefined && { role: role as "ADMIN" | "EDITOR" }),
-        ...(isActive !== undefined && { isActive }),
-      },
-      select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
-    });
-
-    return NextResponse.json({ admin: updated });
+    return toResponse(await updateTeamMember(db, actor, id, body));
   } catch (err) {
     console.error("PUT /api/admin/team/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -54,24 +39,13 @@ export async function DELETE(
   try {
     const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
-    if (!session || session.role !== "SUPER_ADMIN") {
+    if (!session) {
       return NextResponse.json({ error: "Forbidden — only SUPER_ADMIN can remove admins" }, { status: 403 });
     }
+    const actor = { id: session.id, role: session.role };
 
     const { id } = await params;
-
-    if (session.id === id) {
-      return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
-    }
-
-    const target = await db.adminUser.findUnique({ where: { id } });
-    if (!target) {
-      return NextResponse.json({ error: "Admin not found" }, { status: 404 });
-    }
-
-    await db.adminUser.delete({ where: { id } });
-
-    return NextResponse.json({ success: true });
+    return toResponse(await removeTeamMember(db, actor, id));
   } catch (err) {
     console.error("DELETE /api/admin/team/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

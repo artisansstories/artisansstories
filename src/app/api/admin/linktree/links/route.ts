@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
-import { Client } from "pg";
-import { randomUUID } from "crypto";
 import { resolveTenantFromAdminSession, DEFAULT_TENANT_ID } from "@/lib/tenant-context";
+import { toResponse } from "@/lib/admin-services/http";
+import {
+  listLinkTreeLinks,
+  createLinkTreeLink,
+  updateLinkTreeLink,
+  deleteLinkTreeLink,
+} from "@/lib/admin-services/linktree";
 
 // These handlers use raw `pg` SQL, which bypasses the scoped Prisma client, so
 // the tenant filter/stamp is applied by hand on every statement. Tenant is taken
@@ -9,95 +14,45 @@ import { resolveTenantFromAdminSession, DEFAULT_TENANT_ID } from "@/lib/tenant-c
 // (un-gated) behavior for the single-tenant store.
 
 export async function GET() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
-    await client.connect();
-    const result = await client.query(
-      `SELECT * FROM "LinkTreeLink" WHERE "tenantId" = $1 ORDER BY "sortOrder" ASC`,
-      [tenantId]
-    );
-    return NextResponse.json({ links: result.rows });
+    return toResponse(await listLinkTreeLinks(tenantId));
   } catch (error) {
     console.error("Failed to fetch links:", error);
     return NextResponse.json({ error: "Failed to fetch links" }, { status: 500 });
-  } finally {
-    await client.end();
   }
 }
 
 export async function POST(req: Request) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
     const body = await req.json();
-    await client.connect();
-
-    const maxOrder = await client.query(
-      `SELECT MAX("sortOrder") as max FROM "LinkTreeLink" WHERE "tenantId" = $1`,
-      [tenantId]
-    );
-    const nextOrder = (maxOrder.rows[0]?.max ?? -1) + 1;
-
-    const result = await client.query(
-      `INSERT INTO "LinkTreeLink" (id, "tenantId", title, url, description, icon, "isEnabled", "sortOrder", "updatedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-       RETURNING *`,
-      [randomUUID(), tenantId, body.title, body.url, body.description || null, body.icon || null, true, nextOrder]
-    );
-
-    return NextResponse.json({ link: result.rows[0] });
+    return toResponse(await createLinkTreeLink(tenantId, body));
   } catch (error) {
     console.error("Failed to create link:", error);
     return NextResponse.json({ error: "Failed to create link" }, { status: 500 });
-  } finally {
-    await client.end();
   }
 }
 
 export async function PUT(req: Request) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
     const body = await req.json();
-    await client.connect();
-
-    const result = await client.query(
-      `UPDATE "LinkTreeLink"
-       SET title = COALESCE($2, title),
-           url = COALESCE($3, url),
-           description = $4,
-           "isEnabled" = COALESCE($5, "isEnabled"),
-           "updatedAt" = NOW()
-       WHERE id = $1 AND "tenantId" = $6
-       RETURNING *`,
-      [body.id, body.title, body.url, body.description || null, body.isEnabled, tenantId]
-    );
-
-    return NextResponse.json({ link: result.rows[0] });
+    return toResponse(await updateLinkTreeLink(tenantId, body));
   } catch (error) {
     console.error("Failed to update link:", error);
     return NextResponse.json({ error: "Failed to update link" }, { status: 500 });
-  } finally {
-    await client.end();
   }
 }
 
 export async function DELETE(req: Request) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
   try {
     const tenantId = (await resolveTenantFromAdminSession()) ?? DEFAULT_TENANT_ID;
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
-
-    await client.connect();
-    await client.query(`DELETE FROM "LinkTreeLink" WHERE id = $1 AND "tenantId" = $2`, [id, tenantId]);
-
-    return NextResponse.json({ success: true });
+    return toResponse(await deleteLinkTreeLink(tenantId, id));
   } catch (error) {
     console.error("Failed to delete link:", error);
     return NextResponse.json({ error: "Failed to delete link" }, { status: 500 });
-  } finally {
-    await client.end();
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
-import { RateCondition } from "@prisma/client";
+import { deleteRate, updateRate, type RateUpdateBody } from "@/lib/admin-services/shipping";
+import { toResponse } from "@/lib/admin-services/http";
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; rateId: string }> }
@@ -9,22 +10,8 @@ export async function PUT(
     const db = await getTenantPrismaForAdmin();
 
     const { rateId } = await params;
-    const body = await request.json();
-    const { name, condition, minValue, maxValue, price, isActive } = body;
-    const rate = await db.shippingRate.update({
-      where: { id: rateId },
-      data: {
-        ...(name !== undefined && { name: name.trim() }),
-        ...(condition !== undefined && { condition }),
-        ...(minValue !== undefined && { minValue }),
-        ...(maxValue !== undefined && { maxValue }),
-        ...(price !== undefined && {
-          price: condition === RateCondition.FREE ? 0 : price,
-        }),
-        ...(isActive !== undefined && { isActive }),
-      },
-    });
-    return NextResponse.json({ rate });
+    const body = await request.json() as RateUpdateBody;
+    return toResponse(await updateRate(db, rateId, body));
   } catch (err) {
     console.error("PUT /api/admin/shipping/[id]/rates/[rateId] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -38,8 +25,7 @@ export async function DELETE(
     const db = await getTenantPrismaForAdmin();
 
     const { rateId } = await params;
-    await db.shippingRate.delete({ where: { id: rateId } });
-    return NextResponse.json({ success: true });
+    return toResponse(await deleteRate(db, rateId));
   } catch (err) {
     console.error("DELETE /api/admin/shipping/[id]/rates/[rateId] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

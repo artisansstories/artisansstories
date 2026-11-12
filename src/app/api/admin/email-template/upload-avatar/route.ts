@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/admin-auth";
-import { putObject, publicUrl } from "@/lib/r2";
+import { toResponse } from "@/lib/admin-services/http";
+import { uploadEmailTemplateImage } from "@/lib/admin-services/email-template";
 
 export async function POST(req: Request) {
   try {
@@ -16,13 +17,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop() || "jpg";
-    const key = `email/avatar-${Date.now()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-
-    await putObject(key, buffer, file.type);
-
-    return NextResponse.json({ url: publicUrl(key), filename: file.name });
+    return toResponse(await uploadEmailTemplateImage("avatar", { buffer, name: file.name, type: file.type }));
   } catch (error) {
     console.error("Avatar upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });

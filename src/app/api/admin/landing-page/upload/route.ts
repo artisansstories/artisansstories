@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import sharp from "sharp";
 import { requireAdminSession } from "@/lib/admin-auth";
-import { putObject, publicUrl } from "@/lib/r2";
+import { toResponse } from "@/lib/admin-services/http";
+import { uploadLandingPageImage } from "@/lib/admin-services/landing-page";
 
 export async function POST(req: Request) {
   let session;
@@ -26,37 +25,7 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = (file.name.split(".").pop() ?? "").toLowerCase();
-    // Bring landing-page assets onto the WebP standard (specs row 4): rasters →
-    // single max-width-2000 q85 WebP, like the product full-size. SVG (and
-    // anything sharp can't raster) is stored raw so it isn't corrupted.
-    const isSvg = file.type === "image/svg+xml" || ext === "svg";
-    let body: Buffer = buffer;
-    let outExt = ext || "bin";
-    let contentType = file.type || "application/octet-stream";
-    if (!isSvg) {
-      try {
-        body = await sharp(buffer)
-          .resize({ width: 2000, withoutEnlargement: true })
-          .webp({ quality: 85 })
-          .toBuffer();
-        outExt = "webp";
-        contentType = "image/webp";
-      } catch {
-        // Non-raster input sharp can't decode — fall back to raw passthrough.
-        body = buffer;
-        outExt = ext || "bin";
-        contentType = file.type || "application/octet-stream";
-      }
-    }
-
-    const key = tenantId
-      ? `tenants/${tenantId}/landing-page/${field}-${randomUUID()}.${outExt}`
-      : `landing-page/${field}-${randomUUID()}.${outExt}`;
-
-    await putObject(key, body, contentType);
-
-    return NextResponse.json({ url: publicUrl(key) });
+    return toResponse(await uploadLandingPageImage(tenantId, field, { buffer, name: file.name, type: file.type }));
   } catch (error) {
     console.error("R2 upload failed:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });

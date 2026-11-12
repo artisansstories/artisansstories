@@ -1,38 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
-import { Prisma } from "@prisma/client";
+import { listContactMessages } from "@/lib/admin-services/contact";
+import { toResponse } from "@/lib/admin-services/http";
 
 export async function GET(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
     const searchParams = request.nextUrl.searchParams;
-    const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
+    const page = parseInt(searchParams.get("page") ?? "1", 10);
+    const limit = parseInt(searchParams.get("limit") ?? "20", 10);
     const status = searchParams.get("status");
 
-    const where: Prisma.ContactMessageWhereInput = {};
-    if (status && status !== "ALL") {
-      where.status = status as Prisma.EnumContactMessageStatusFilter["equals"];
-    }
-
-    const [messages, total, unreadCount] = await Promise.all([
-      db.contactMessage.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * limit,
-        take: limit,
-        include: { replies: { orderBy: { createdAt: "asc" } } },
-      }),
-      db.contactMessage.count({ where }),
-      db.contactMessage.count({ where: { status: "UNREAD" } }),
-    ]);
-
-    return NextResponse.json({
-      messages,
-      total,
-      pages: Math.ceil(total / limit),
-      unreadCount,
-    });
+    return toResponse(await listContactMessages(db, { page, limit, status }));
   } catch (error) {
     console.error("GET /api/admin/contact error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

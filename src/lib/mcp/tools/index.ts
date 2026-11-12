@@ -4,10 +4,22 @@
  * file splits them into the separate read / write registries.
  */
 import type { McpTool } from "../kit";
+import { tools as admin } from "./admin";
 import { tools as orders } from "./orders";
+import { tools as returns } from "./returns";
+import { tools as catalog } from "./catalog";
+import { tools as commerce } from "./commerce";
+import { tools as content } from "./content";
+import { tools as storefront } from "./storefront";
 
 export const TOOL_AREAS: Record<string, McpTool[]> = {
+  admin,
   orders,
+  returns,
+  catalog,
+  commerce,
+  content,
+  storefront,
 };
 
 export const ALL_TOOLS: McpTool[] = Object.values(TOOL_AREAS).flat();

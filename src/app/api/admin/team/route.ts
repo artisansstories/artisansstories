@@ -1,22 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/lib/admin-auth";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import { addTeamMember, listTeam, teamManageDenied } from "@/lib/admin-services/team";
+import { toResponse } from "@/lib/admin-services/http";
 
 export async function GET() {
   try {
     const db = await getTenantPrismaForAdmin();
-    const admins = await db.adminUser.findMany({
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-        createdAt: true,
-      },
-    });
-    return NextResponse.json({ admins });
+    return toResponse(await listTeam(db));
   } catch (err) {
     console.error("GET /api/admin/team error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -27,53 +18,16 @@ export async function POST(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
     const session = await getAdminSession();
-    if (!session || (session.role !== "SUPER_ADMIN" && session.role !== "ADMIN")) {
+    if (!session) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+    const actor = { id: session.id, role: session.role, name: session.name };
+    // Role check before reading the body, as before.
+    const denied = teamManageDenied(actor);
+    if (denied) return toResponse(denied);
 
     const body = await request.json() as { name: string; email: string; role: string };
-    const { name, email, role } = body;
-
-    if (!name || !email || !role) {
-      return NextResponse.json({ error: "Name, email, and role are required" }, { status: 400 });
-    }
-
-    if (!["ADMIN", "EDITOR"].includes(role)) {
-      return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const existing = await db.adminUser.findFirst({ where: { email: normalizedEmail } });
-    if (existing) {
-      return NextResponse.json({ error: "An admin with this email already exists" }, { status: 409 });
-    }
-
-    const newAdmin = await db.adminUser.create({
-      data: {
-        tenantId: db.$tenantId,
-        name,
-        email: normalizedEmail,
-        role: role as "ADMIN" | "EDITOR",
-        isActive: true,
-      },
-      select: { id: true, email: true, name: true, role: true, isActive: true, createdAt: true },
-    });
-
-    // Send invite magic link email
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
-    await fetch(`${siteUrl}/api/auth/admin/magic-link`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: normalizedEmail,
-        isInvite: true,
-        inviterName: session.name,
-        role,
-      }),
-    });
-
-    return NextResponse.json({ admin: newAdmin }, { status: 201 });
+    return toResponse(await addTeamMember(db, actor, body));
   } catch (err) {
     console.error("POST /api/admin/team error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

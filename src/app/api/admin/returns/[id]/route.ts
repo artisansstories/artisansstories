@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import { getReturn, setReturnNote } from "@/lib/admin-services/returns";
+import { toResponse } from "@/lib/admin-services/http";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -7,41 +9,7 @@ export async function GET(
   try {
     const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const ret = await db.return.findUnique({
-      where: { id },
-      include: {
-        order: {
-          select: {
-            id: true,
-            orderNumber: true,
-            email: true,
-            total: true,
-            status: true,
-            stripePaymentIntentId: true,
-            financialStatus: true,
-            customer: { select: { id: true, firstName: true, lastName: true, email: true } },
-          },
-        },
-        items: {
-          include: {
-            orderItem: {
-              select: {
-                id: true,
-                title: true,
-                variantTitle: true,
-                quantity: true,
-                price: true,
-                total: true,
-                variantId: true,
-                productSnapshot: true,
-              },
-            },
-          },
-        },
-      },
-    });
-    if (!ret) return NextResponse.json({ error: "Return not found" }, { status: 404 });
-    return NextResponse.json({ return: ret });
+    return toResponse(await getReturn(db, id));
   } catch (err) {
     console.error("GET /api/admin/returns/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -55,11 +23,7 @@ export async function PUT(
     const db = await getTenantPrismaForAdmin();
     const { id } = await params;
     const body = await request.json() as { adminNote?: string };
-    const ret = await db.return.update({
-      where: { id },
-      data: { adminNote: body.adminNote },
-    });
-    return NextResponse.json({ return: ret });
+    return toResponse(await setReturnNote(db, id, body.adminNote));
   } catch (err) {
     console.error("PUT /api/admin/returns/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

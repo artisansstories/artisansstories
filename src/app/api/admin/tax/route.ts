@@ -1,29 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
-import type { TenantPrisma } from "@/lib/tenant-prisma";
-// Tax settings are stored as a JSON string in StoreSettings.facebookPixelId
-// using the prefix "TAX:" to distinguish from real pixel IDs.
-// Note: This is a pragmatic workaround until the schema can be updated with
-// dedicated tax fields.
-const TAX_PREFIX = "TAX:";
-const DEFAULT_TAX = { stripeTaxEnabled: false, defaultTaxRate: 8.25, nexusStates: ["CA"] };
-async function readTaxSettings(db: TenantPrisma) {
-  try {
-    const settings = await db.storeSettings.findUnique({ where: { id: "singleton" } });
-    if (settings?.facebookPixelId?.startsWith(TAX_PREFIX)) {
-      return JSON.parse(settings.facebookPixelId.slice(TAX_PREFIX.length));
-    }
-  } catch {
-    // fall through to defaults
-  }
-  return { ...DEFAULT_TAX };
-}
+import { getTaxSettings, updateTaxSettings, type TaxUpdateBody } from "@/lib/admin-services/tax";
+import { toResponse } from "@/lib/admin-services/http";
 export async function GET() {
   try {
     const db = await getTenantPrismaForAdmin();
 
-    const taxSettings = await readTaxSettings(db);
-    return NextResponse.json(taxSettings);
+    return toResponse(await getTaxSettings(db));
   } catch (err) {
     console.error("GET /api/admin/tax error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -33,25 +16,8 @@ export async function PUT(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
 
-    const body = await request.json();
-    const { stripeTaxEnabled, defaultTaxRate, nexusStates } = body;
-    const taxSettings = {
-      stripeTaxEnabled: Boolean(stripeTaxEnabled),
-      defaultTaxRate: Number(defaultTaxRate) || 0,
-      nexusStates: Array.isArray(nexusStates) ? nexusStates : [],
-    };
-    await db.storeSettings.upsert({
-      where: { id: "singleton" },
-      create: {
-        id: "singleton",
-        tenantId: db.$tenantId,
-        facebookPixelId: TAX_PREFIX + JSON.stringify(taxSettings),
-      },
-      update: {
-        facebookPixelId: TAX_PREFIX + JSON.stringify(taxSettings),
-      },
-    });
-    return NextResponse.json(taxSettings);
+    const body = await request.json() as TaxUpdateBody;
+    return toResponse(await updateTaxSettings(db, body));
   } catch (err) {
     console.error("PUT /api/admin/tax error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });

@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
-import { DiscountType } from "@prisma/client";
+import {
+  deleteDiscount,
+  getDiscount,
+  setDiscountActive,
+  updateDiscount,
+  type DiscountUpdateBody,
+} from "@/lib/admin-services/discounts";
+import { toResponse } from "@/lib/admin-services/http";
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -9,9 +16,7 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     const db = await getTenantPrismaForAdmin();
 
     const { id } = await params;
-    const discount = await db.discount.findUnique({ where: { id } });
-    if (!discount) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ discount });
+    return toResponse(await getDiscount(db, id));
   } catch (err) {
     console.error("GET /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -22,46 +27,11 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     const db = await getTenantPrismaForAdmin();
 
     const { id } = await params;
-    const body = await request.json() as {
-      code?: string;
-      type?: DiscountType;
-      value?: number;
-      minimumOrderAmount?: number | null;
-      appliesToAll?: boolean;
-      productIds?: string[];
-      categoryIds?: string[];
-      usageLimit?: number | null;
-      perCustomerLimit?: number | null;
-      startsAt?: string | null;
-      endsAt?: string | null;
-      isActive?: boolean;
-    };
-    const discount = await db.discount.update({
-      where: { id },
-      data: {
-        ...(body.code !== undefined && { code: body.code.trim().toUpperCase() }),
-        ...(body.type !== undefined && { type: body.type }),
-        ...(body.value !== undefined && { value: body.value }),
-        ...(body.minimumOrderAmount !== undefined && { minimumOrderAmount: body.minimumOrderAmount }),
-        ...(body.appliesToAll !== undefined && { appliesToAll: body.appliesToAll }),
-        ...(body.productIds !== undefined && { productIds: body.productIds }),
-        ...(body.categoryIds !== undefined && { categoryIds: body.categoryIds }),
-        ...(body.usageLimit !== undefined && { usageLimit: body.usageLimit }),
-        ...(body.perCustomerLimit !== undefined && { perCustomerLimit: body.perCustomerLimit }),
-        ...(body.startsAt !== undefined && { startsAt: body.startsAt ? new Date(body.startsAt) : null }),
-        ...(body.endsAt !== undefined && { endsAt: body.endsAt ? new Date(body.endsAt) : null }),
-        ...(body.isActive !== undefined && { isActive: body.isActive }),
-      },
-    });
-    return NextResponse.json({ discount });
+    const body = await request.json() as DiscountUpdateBody;
+    // P2002 → 409 and P2025 → 404 are handled inside updateDiscount.
+    return toResponse(await updateDiscount(db, id, body));
   } catch (err: unknown) {
     console.error("PUT /api/admin/discounts/[id] error:", err);
-    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "P2002") {
-      return NextResponse.json({ error: "Discount code already exists" }, { status: 409 });
-    }
-    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "P2025") {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    }
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
@@ -71,11 +41,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     const { id } = await params;
     const body = await request.json() as { isActive: boolean };
-    const discount = await db.discount.update({
-      where: { id },
-      data: { isActive: body.isActive },
-    });
-    return NextResponse.json({ discount });
+    return toResponse(await setDiscountActive(db, id, body.isActive));
   } catch (err) {
     console.error("PATCH /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -86,8 +52,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     const db = await getTenantPrismaForAdmin();
 
     const { id } = await params;
-    await db.discount.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    return toResponse(await deleteDiscount(db, id));
   } catch (err) {
     console.error("DELETE /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
