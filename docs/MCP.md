@@ -2,10 +2,24 @@
 
 A remote [Model Context Protocol](https://modelcontextprotocol.io) server that lets an AI assistant (Muse, Grokbot, Claude, ChatGPT, …) do anything a store admin can do in `/admin`, for **one store**, with a human approving every change.
 
-- **Transport:** Streamable HTTP, stateless (`sessionIdGenerator: undefined`, JSON responses). One fresh server per POST.
+- **Transport:** Streamable HTTP, stateless (`sessionIdGenerator: undefined`, `enableJsonResponse: true`). One fresh server per POST, and every reply is a plain JSON body, never a long-lived SSE stream, so it fits Vercel serverless (`runtime = "nodejs"`, `maxDuration = 60`).
 - **SDK:** `@modelcontextprotocol/sdk` `WebStandardStreamableHTTPServerTransport` inside Next 16 route handlers.
 - **Tenant isolation:** the store comes **only** from the verified key/token. No tool takes a tenant argument. Tools run on the tenant-scoped Prisma client (`getTenantPrisma(ctx.tenantId)`).
 - **Same logic as the admin UI:** every tool calls the same `src/lib/admin-services/*` function the matching `/api/admin/*` route calls.
+
+## Launch checklist (operator)
+
+Do these in order. Step 1 must come before the deploy: `schema.prisma` now declares `StoreSettings.mcpEnabled`, so every generated `storeSettings` query selects that column, and **deploying before the SQL runs breaks the storefront and admin for every store.**
+
+1. **Run the migration** against production Neon (and any other database the build talks to, such as preview branches):
+   ```bash
+   psql "$DATABASE_URL" -f prisma/migrations/add_mcp.sql
+   ```
+   It's idempotent, so re-running it is harmless. It adds `StoreSettings."mcpEnabled"` (default `false`) and the `McpNonce` table. Rollback SQL is in the file header. Do **not** use `prisma migrate` or `prisma db push` for this.
+2. **Set the env vars** in Vercel (Production, plus Preview if wanted): `MCP_ENABLED=true` and `MCP_TOKEN_SECRET` (`openssl rand -base64 48`). `MCP_OAUTH_REDIRECT_HOSTS` is optional. See [Environment variables](#environment-variables-set-in-vercel).
+3. **Deploy.**
+4. **Enable per store:** a SUPER_ADMIN or ADMIN of that store opens **Admin → AI Assistants**, turns access **On**, and creates a key. The setup message shows the MCP URL of the host they're on (`https://artisansstories.com/api/mcp` for the house store, `https://{slug}.artisansstories.com/api/mcp` for a tenant). Either URL works for any store's key, because the key picks the store.
+5. **Smoke test** with a real key: `MCP_KEY=oss_live_… MCP_URL=https://<host>/api/mcp npx tsx scripts/mcp-smoke.ts` (read-only: `initialize` + `tools/list`).
 
 ## Endpoints
 
@@ -21,7 +35,21 @@ A remote [Model Context Protocol](https://modelcontextprotocol.io) server that l
 | `POST /oauth/token` | `authorization_code` + PKCE S256 → 30-day access token |
 | `GET/PATCH /api/admin/mcp`, `POST /api/admin/mcp/keys`, `DELETE /api/admin/mcp/keys/:id` | Back the Settings → AI Assistants page |
 
-`GET`/`DELETE /api/mcp` return 405 (no sessions). An unauthenticated POST returns 401 with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/api/mcp"`, which is how OAuth clients discover the flow.
+`GET`/`DELETE /api/mcp` return 405 with `Allow: POST, OPTIONS`, as the spec requires of a stateless server with no SSE stream and no sessions. An unauthenticated POST returns 401 with `WWW-Authenticate: Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource"`, which is how OAuth clients discover the flow. `<origin>` is the host the client called.
+
+**CORS:** `/api/mcp`, `/api/mcp/<token>`, `/oauth/register`, `/oauth/token`, `/oauth/authorize` and both `.well-known` documents answer `OPTIONS` preflights (204) and send `Access-Control-Allow-Origin: *` on their responses. Allowed request headers: `Authorization`, `Content-Type`, `Accept`, `Mcp-Session-Id`, `Mcp-Protocol-Version`, `Last-Event-ID`. Exposed: `WWW-Authenticate`, `Mcp-Session-Id`, `Mcp-Protocol-Version`, `Retry-After`. The wildcard is safe because none of these endpoints use cookies. `/oauth/authorize/decision` (the consent form target, which rides the admin session cookie) deliberately has no CORS and checks same-origin.
+
+**Accept header:** the SDK rejects a POST unless `Accept` lists both `application/json` and `text/event-stream`. Since we always answer with JSON, a client that sends only `application/json`, `*/*`, or no `Accept` is accepted too.
+
+**Rate limits (best effort, per instance):**
+
+| Endpoint | Key | Limit |
+|---|---|---|
+| `/api/mcp` | client IP | 300 / minute |
+| `/api/mcp` | credential (sha256 of it) | 120 / minute |
+| `/oauth/token` | client IP | 20 / minute |
+
+Over the limit, the server answers 429 with `Retry-After`, before any database work. ⚠️ Counters live in each serverless instance's memory and reset on cold start, so the real ceiling across Vercel is the limit × the number of warm instances. This blunts bursts and brute force from one client; it is not a quota. For a hard global limit, add a shared store (Upstash/Redis) or Vercel WAF rate-limit rules.
 
 The server works on the apex **and** on tenant subdomains (`{slug}.artisansstories.com/api/mcp`). The host does not pick the store; the credential does.
 
@@ -30,7 +58,7 @@ The server works on the apex **and** on tenant subdomains (`{slug}.artisansstori
 Access needs **all** of these, checked live on **every** request. Each one fails closed:
 
 1. **Platform switch:** env `MCP_ENABLED=true` and `MCP_TOKEN_SECRET` set (≥ 32 chars). If either is missing, every MCP/OAuth endpoint returns **404**.
-2. **Store switch:** `StoreSettings."mcpEnabled"`, set from **Settings → AI Assistants**. Default off. ⚠️ This column comes from `prisma/migrations/add_mcp_enabled.sql`, which is **NOT APPLIED**. Until it runs, the toggle is disabled and every store reads as off. See [Migration](#migration).
+2. **Store switch:** `StoreSettings.mcpEnabled`, set from **Settings → AI Assistants** (SUPER_ADMIN/ADMIN only). Default off. Comes from `prisma/migrations/add_mcp.sql`. See [Migration](#migration). It can't be written through the general settings save, because that only accepts a whitelist of fields.
 3. **Store active:** `Tenant.status === "ACTIVE"`.
 4. **Credential valid:** the API key exists, isn't revoked, and has an `mcp:*` scope. For OAuth tokens, the admin user still exists, is active, and belongs to the token's store.
 
@@ -52,7 +80,7 @@ API keys act with the `ADMIN` role. `team_remove` needs `SUPER_ADMIN` (same as t
 
 For clients that only do OAuth (claude.ai, ChatGPT). Give the client the URL `https://<host>/api/mcp`; it discovers everything from the 401. Redirect URIs must be `https` on an **exact** hostname in `MCP_OAUTH_REDIRECT_HOSTS` (default `claude.ai, www.claude.ai, claude.com, www.claude.com, chatgpt.com, platform.openai.com`). One bad URI rejects the whole registration. The user signs in with the normal admin magic link, then picks Full or Read-only on the consent page. The token carries `sub` (AdminUser id), `tenantId`, `scope`, `via:"mcp"`.
 
-No OAuth tables exist: client ids, 5-minute auth codes and access tokens are HS256 JWTs signed with `MCP_TOKEN_SECRET`, each with a distinct `typ`.
+Client ids, 5-minute auth codes and access tokens are HS256 JWTs signed with `MCP_TOKEN_SECRET`, each with a distinct `typ`. **Auth codes are single-use:** once the code, client, `redirect_uri` and PKCE verifier all check out, `/oauth/token` claims the code in `McpNonce` (kind `oauth_code`). A replay, or a second concurrent exchange, gets `invalid_grant` "Code was already used". The claim happens only after PKCE passes, so someone holding a stolen code without the verifier can't burn the real client's code. If the claim can't be recorded (DB error), the endpoint returns 503 and issues nothing.
 
 ## Connecting Muse
 
@@ -79,8 +107,9 @@ Claude and ChatGPT connectors: give them `https://<host>/api/mcp` and they run t
 - **Tags:** every description starts with `[Read]`, `[Write]` or `[Sensitive write]`. Every tool sets `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` (true for anything that emails a customer, moves money, or calls an outside service).
 - **Sensitive** covers refunds, cancellations, payment capture (fulfilling an authorized order), customer emails and replies, resend-email, team changes, deletes, and anything that publishes (product or artisan to ACTIVE, store live/unlive, landing page, Link Hub, email template).
 - **Preview → confirm** (every write). The first call, without `confirmToken`, writes nothing and returns `status:"pending_confirmation"`, a `preview` with real values (refund amount and refundable balance, email recipient and subject, rows affected, before/after diffs), and a `confirmToken`. The second call with identical arguments plus the token executes. The token is an HMAC over (tenant, tool, canonical args, expiry): keys sorted, nulls dropped, 10-minute TTL, compared with `timingSafeEqual`. The preview is **re-run** on confirm, so a state change in between (e.g. the order was already refunded) blocks instead of executing.
-- **Outcomes:** `pending_confirmation` → `confirmed` (`done:true`), or `done:false, blocked:true, reason, retry` with retry guidance by status (401 reconnect, 403 don't retry, 404 recheck ids, 409 conflict, 5xx retry once). Expected failures are never `isError`.
-- **Idempotency:** Stripe refund, cancel and capture calls get an idempotency key derived from the confirm token, so re-confirming the same token can't move money twice.
+- **Single-use confirm tokens:** after the token verifies and the preview re-runs, the kit claims the token by inserting `sha256(token)` into `McpNonce` (kind `confirm`), **before** the side effect. The primary key is the only arbiter, so of any number of sequential or concurrent confirms with one token, exactly one executes. The rest get `{done:false, blocked:true, reason:"This confirmation was already used. Request a new preview."}`. If the claim itself fails (DB error), nothing runs and the result says so (fail closed).
+- **Outcomes:** `pending_confirmation` → `confirmed` (`done:true`), or `done:false, blocked:true, reason, retry` with retry guidance by status (401 reconnect, 403 don't retry, 404 recheck ids, 409 conflict, 5xx retry once). Expected failures are never `isError`. If the side effect **throws** midway, the token stays claimed and the result is `status:"unknown"` with `checkWith` naming the read tool to check first (e.g. `orders_get` for `orders_refund`, `returns_get` for returns, `contact_message_get` for replies). Any retry needs a new preview.
+- **Idempotency:** Stripe refund, cancel and capture calls also get an idempotency key derived from the confirm token, as a second line of defence against moving money twice.
 - **Optional fields** are `.nullish()`, and null is normalized to undefined before handlers run (enforced by a unit test over every tool).
 - **Registries:** `mcp:read` credentials get only the read tools registered. House-only areas (artisans, KB, Link Hub, landing page, email template, Instagram) are registered only for the house store, matching the admin nav.
 - **Audit:** every executed write (confirmed or failed) is written to `PlatformAuditLog` with `action:"mcp.<tool>"`, `operatorId` set to the key or user id, `operatorEmail` set to the admin email or `mcp-key:<name>`, `tenantId`, and `detail` JSON `{via:"mcp", principal, args, outcome}`. These rows show up on Platform → Activity.
@@ -98,17 +127,22 @@ Existing vars used as before: `DATABASE_URL`, `NEXTAUTH_SECRET`, `STRIPE_SECRET_
 
 ## Migration
 
-`prisma/migrations/add_mcp_enabled.sql`, **NOT APPLIED**:
+`prisma/migrations/add_mcp.sql` is **NOT APPLIED** yet. The operator runs it by hand ([launch checklist](#launch-checklist-operator) step 1). It's idempotent (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`), and its names and types match `prisma migrate diff` output for the schema:
 
-```sql
-ALTER TABLE "StoreSettings" ADD COLUMN IF NOT EXISTS "mcpEnabled" BOOLEAN NOT NULL DEFAULT false;
-```
+- `StoreSettings."mcpEnabled" BOOLEAN NOT NULL DEFAULT false`
+- `McpNonce` (`id` TEXT PK = sha256 hex of the token/code, `kind`, `tenantId`, `expiresAt` TIMESTAMP(3), `createdAt` TIMESTAMP(3) default now) with index `McpNonce_expiresAt_idx`
 
-The column is read and written with raw SQL (`src/lib/mcp/tenant-flag.ts`) and is deliberately **not** in `schema.prisma` yet. Adding it there before the column exists would break every `storeSettings` query in production. After applying the SQL everywhere, add `mcpEnabled Boolean @default(false)` to `StoreSettings`. **Do not run `prisma db push` until that line exists**, or Prisma will try to drop the column.
+Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the typed client. If the column is missing (Prisma `P2022`), the flag reads as off, the toggle explains that the migration is pending, and MCP stays closed. **But every other `storeSettings` query fails without the column too**, which is why the SQL must run before the deploy. `McpNonce` is global (not in `TENANT_SCOPED_MODELS`), because it's looked up by a globally unique hash.
+
+**Nonce cleanup:** rows matter only until `expiresAt` (10 minutes for confirm tokens, 5 for codes). Once every 50 claims per instance, a fire-and-forget `deleteMany` removes rows that expired more than a day ago. No cron is needed. Expect a few hundred rows at most.
 
 ## Testing
 
-- `npm test`: vitest unit tests, mocks only, no DB. Covers confirm-token canonicalization, expiry and forgery; the redirect allowlist; whitespace stripping; tenant isolation (a tenant-A credential can't produce a tenant-B context; smuggled `tenantId` args are ignored; no tool schema has a tenant field); registry conventions; and the transport (`initialize`/`tools/list` through the real SDK transport, read-only registry, 401 discovery header).
+- `npm test`: vitest unit tests, mocks only, no DB. Covers:
+  - **MCP core:** confirm-token canonicalization, expiry and forgery; the redirect allowlist; whitespace stripping; tenant isolation (a tenant-A credential can't produce a tenant-B context; smuggled `tenantId` args are ignored; no tool schema has a tenant field); registry conventions.
+  - **Single-use credentials:** confirm-token double use, concurrent double claim (exactly one success), claim-before-side-effect, fail closed on a claim error, the status-unknown result naming the check tool, and the same cases for OAuth codes.
+  - **Transport:** `initialize`/`tools/list` through the real SDK transport, read-only registry, the 401 discovery header, CORS, lenient Accept, 429s, the route segment config, and 405/OPTIONS.
+  - **Admin routes** (`tests/admin/`): order refund/cancel/fulfill/resend-email, return refund, contact reply (escaping), Link Hub/email template, and the settings whitelist and landing-page house gate.
 - `MCP_KEY=oss_live_… npx tsx scripts/mcp-smoke.ts` (optionally `MCP_URL=…`, `MCP_PATH_TOKEN=1`): runs `initialize` + `tools/list` against a running server. It never calls a tool.
 
 ## Tool list (93)
@@ -258,11 +292,16 @@ The column is read and written with raw SQL (`src/lib/mcp/tenant-flag.ts`) and i
 
 ## Known gaps
 
-1. **Store switch needs the migration** (above). Until it's applied, MCP is off for every store even with `MCP_ENABLED=true`.
-2. **Auth codes aren't single-use** (no DB table). Each code is bound to the client, the redirect URI and the PKCE challenge, and expires in 5 minutes, so a replay also needs the client's `code_verifier`.
-3. **No refresh tokens, and no per-token OAuth revocation.** Access tokens last 30 days. To cut access, deactivate the admin, turn the store switch off, or rotate `MCP_TOKEN_SECRET` (all stores). API keys revoke individually and immediately.
-4. **Confirm tokens are reusable for their 10 minutes** (stateless). Stripe idempotency stops duplicate money movement, and the re-run preview blocks most repeats (already refunded or cancelled). But a model that re-confirms the same token could re-send an email (resend confirmation, contact reply) or re-append a refund note on a partial refund. The instructions tell it not to.
-5. **No real-time push to other open admin screens** (spec §9). The app has no pub/sub layer.
-6. **Image fetch DNS rebinding:** the hostname is resolved and checked, then fetched, so there is a small TOCTOU window.
-7. **Activity filter:** Platform → Activity's action dropdown has no `mcp.*` entry, so MCP rows show under "All actions".
-8. **Not run end-to-end against a live key.** The local smoke covered the auth and OAuth surface; `initialize`/`tools/list` are covered in-process. A real-key smoke run needs a key minted in a database, which wasn't done because `.env` points at production.
+1. **No refresh tokens, and no per-token OAuth revocation.** Access tokens last 30 days. To cut access, deactivate the admin, turn the store switch off, or rotate `MCP_TOKEN_SECRET` (all stores). API keys revoke individually and immediately. A replayed auth code is refused, but the token issued from the first use is not revoked (RFC 6749 suggests revoking it; there's no token table).
+2. **Rate limits are per instance** (see [Endpoints](#endpoints)). They don't hold globally across Vercel instances.
+3. **No real-time push to other open admin screens** (spec §9). The app has no pub/sub layer.
+4. **Image fetch DNS rebinding:** the hostname is resolved and checked, then fetched, so there is a small TOCTOU window.
+5. **Activity filter:** Platform → Activity's action dropdown has no `mcp.*` entry, so MCP rows show under "All actions".
+6. **Not run end-to-end against a live key.** `initialize`/`tools/list`, nonces and OAuth are covered in-process with mocks. A real-key smoke run (launch checklist step 5) needs the migration and a key minted in the database.
+7. **Pre-existing admin issues** found during the refactor audit (also on `main`, not fixed) are listed in [MCP-REFACTOR-AUDIT.md](MCP-REFACTOR-AUDIT.md). These include tax settings stored in `facebookPixelId`, team invites for non-house stores never arriving, and the artisan form nulling fields.
+
+## Security fixes shipped with this branch (live on prod before it)
+
+- **Settings mass-assignment:** `PUT /api/admin/settings` passed the whole body to the update, including `tenantId`. Both it and `settings_update` now write only `WRITABLE_SETTINGS_FIELDS` (`src/lib/admin-services/settings.ts`). `tenantId`, `id`, `mcpEnabled` and the timestamps are dropped.
+- **Landing page:** any store's admin could overwrite the public Artisans Stories landing page through the API. `saveLandingPageSettings` and `uploadLandingPageImage` now return 403 unless the caller is the house tenant.
+- **Email HTML injection:** contact-reply emails (sent and logged) and the public contact-form notification now HTML-escape user and admin text (`src/lib/escape-html.ts`).
