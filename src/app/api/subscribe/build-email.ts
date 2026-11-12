@@ -109,7 +109,7 @@ export async function buildWelcomeEmail(): Promise<string> {
   const template = await fetchTemplateFromDB();
 
   if (!template) {
-    const { welcomeEmailHtml } = await import('./route');
+    const { welcomeEmailHtml } = await import('./welcome-email-html');
     return welcomeEmailHtml;
   }
 

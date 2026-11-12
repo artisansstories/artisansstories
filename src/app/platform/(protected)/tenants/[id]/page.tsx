@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ActionChip, fmtAuditTime, fmtDetail } from "../../activity/page";
+import { ActionChip, fmtAuditTime, fmtDetail } from "../../_components/audit";
 import { Modal } from "../../_components/Modal";
 import { MintKeyModal, scopeTitle } from "../../_components/keys";
 import { ROOT_DOMAIN } from "@/lib/tenant-host";
