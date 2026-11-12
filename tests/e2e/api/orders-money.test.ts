@@ -73,10 +73,18 @@ describe("POST /api/admin/orders/[id]/refund", () => {
 
   it("double submit, concurrent: one Stripe refund, recorded once, one email", async () => {
     await signInAs(F.admin.super);
-    const [a, b] = await Promise.all([refund(F.order.paid, {}), refund(F.order.paid, {})]);
-    expect([a.status, b.status]).toEqual([200, 200]);
-    expect(a.body.refundId).toBe(b.body.refundId);
-    expect([a.body.alreadyRecorded, b.body.alreadyRecorded].sort()).toEqual([false, true]);
+    const rs = await Promise.all([refund(F.order.paid, {}), refund(F.order.paid, {})]);
+    // One records the refund. The other either replays the same Stripe refund
+    // and finds it already recorded (200, alreadyRecorded), or — if it reads the
+    // order after the first committed — is refused as not refundable (400).
+    const winner = rs.find((r) => r.status === 200 && r.body.alreadyRecorded === false)!;
+    expect(winner).toBeDefined();
+    const loser = rs.find((r) => r !== winner)!;
+    if (loser.status === 200) {
+      expect(loser.body).toMatchObject({ alreadyRecorded: true, refundId: winner.body.refundId });
+    } else {
+      expect(loser.status).toBe(400);
+    }
     expect(stripeState.refunds).toHaveLength(1);
     expect(stripeState.charges.get("ch_paid")!.amount_refunded).toBe(12000);
     expect(resendState.sent).toHaveLength(1);
@@ -351,7 +359,11 @@ describe("POST /api/admin/orders/[id]/cancel", () => {
   it("double submit, concurrent: one Stripe refund, one 409, one email", async () => {
     await signInAs(F.admin.super);
     const rs = await Promise.all([cancel(F.order.paidCancel), cancel(F.order.paidCancel)]);
-    expect(rs.map((r) => r.status).sort()).toEqual([200, 409]);
+    // The loser is refused either at the status check (400, it already sees
+    // CANCELLED) or at the conditional write (409), depending on timing.
+    const statuses = rs.map((r) => r.status).sort();
+    expect(statuses[0]).toBe(200);
+    expect([400, 409]).toContain(statuses[1]);
     expect(stripeState.refunds).toHaveLength(1);
     expect(stripeState.charges.get("ch_paid_cancel")!.amount_refunded).toBe(12000);
     expect(resendState.sent).toHaveLength(1);
