@@ -81,29 +81,30 @@ export async function resolveTenantFromApiKey(
 
 /**
  * Resolve the tenant for the current admin session (as-admin-session cookie).
- * The session JWT may not carry a tenantId (older tokens), so we fall back to
- * looking up the AdminUser. Returns null only when there is NO valid session.
+ * Returns null when there is NO valid session, and also when the session's
+ * admin no longer exists, has been deactivated, or belongs to a different
+ * tenant than the session claims. Sessions last 30 days, so the AdminUser row
+ * is checked live on every request: deactivating or removing an admin cuts
+ * off their API access immediately, not when the cookie expires.
  */
 export async function resolveTenantFromAdminSession(
   _req?: HeaderCarrier,
 ): Promise<string | null> {
+  void _req;
   const session = await getAdminSession();
   if (!session) return null;
 
-  // Prefer a tenantId embedded in the session token when present.
-  const embedded = (session as { tenantId?: string }).tenantId;
-  if (embedded) return embedded;
-
-  // Otherwise derive it from the AdminUser record (id is globally unique).
+  // AdminUser id is globally unique; read it through the raw client.
   const admin = await prisma.adminUser.findUnique({
     where: { id: session.id },
-    select: { tenantId: true },
+    select: { tenantId: true, isActive: true },
   });
-  // Fail CLOSED: an unresolvable/orphaned session must NOT silently serve
-  // tenant-zero's data. Return null so getTenantPrismaForAdmin throws a 401.
-  // A valid post-P2 session always embeds tenantId (handled above), so this
-  // null path only affects malformed sessions — which should be rejected.
-  return admin?.tenantId ?? null;
+  // Fail CLOSED: an orphaned, deactivated or mismatched session must NOT serve
+  // any tenant's data (and never falls back to tenant zero).
+  if (!admin || !admin.isActive) return null;
+  const embedded = (session as { tenantId?: string }).tenantId;
+  if (embedded && embedded !== admin.tenantId) return null;
+  return admin.tenantId;
 }
 
 // ── Slug → tenantId LRU cache ────────────────────────────────────────────────
