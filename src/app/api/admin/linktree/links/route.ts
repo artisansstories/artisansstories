@@ -9,9 +9,8 @@ import {
 import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 // These handlers use raw `pg` SQL, which bypasses the scoped Prisma client, so
-// the tenant filter/stamp is applied by hand on every statement. Tenant is taken
-// from the admin session; falls back to tenant zero to preserve the pre-existing
-// (un-gated) behavior for the single-tenant store.
+// the tenant filter/stamp is applied by hand on every statement. The tenant comes
+// only from the admin session (401 without one), and Link Hub is house-only (403).
 
 export async function GET() {
   try {

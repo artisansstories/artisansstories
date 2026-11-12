@@ -12,14 +12,17 @@ const db = vi.hoisted(() => ({
 }));
 const stripe = vi.hoisted(() => ({
   paymentIntents: { retrieve: vi.fn(), cancel: vi.fn(), capture: vi.fn() },
-  refunds: { create: vi.fn() },
+  refunds: { create: vi.fn(), list: vi.fn(async () => ({ data: [] as unknown[] })) },
 }));
 const emails = vi.hoisted(() => ({ send: vi.fn() }));
 const auth = vi.hoisted(() => ({ getAdminSession: vi.fn(), getTenantPrismaForAdmin: vi.fn() }));
 const mail = vi.hoisted(() => ({ logEmail: vi.fn(), getEmailBranding: vi.fn() }));
 
 vi.mock("@/lib/admin-auth", () => ({ getAdminSession: auth.getAdminSession }));
-vi.mock("@/lib/tenant-context", () => ({ getTenantPrismaForAdmin: auth.getTenantPrismaForAdmin }));
+vi.mock("@/lib/tenant-context", async () => ({
+  ...(await import("../helpers/tenant-context-mock")).tenantContextBase,
+  getTenantPrismaForAdmin: auth.getTenantPrismaForAdmin,
+}));
 const gprisma = vi.hoisted(() => ({ magicLinkToken: { create: vi.fn() } }));
 vi.mock("@/lib/prisma", () => ({ prisma: gprisma }));
 vi.mock("stripe", () => ({ default: class { paymentIntents = stripe.paymentIntents; refunds = stripe.refunds; } }));
@@ -30,8 +33,6 @@ vi.mock("@/lib/emails/order-cancelled", () => ({ orderCancelledHtml: () => "<can
 vi.mock("@/lib/emails/order-shipped", () => ({ orderShippedHtml: () => "<shipped/>" }));
 vi.mock("@/lib/emails/order-confirmation", () => ({ orderConfirmationHtml: () => "<confirm/>" }));
 vi.mock("@/lib/tracking", () => ({ checkTracking: vi.fn() }));
-
-
 
 import { POST } from "@/app/api/admin/orders/[id]/resend-email/route";
 
@@ -92,6 +93,14 @@ describe("POST /api/admin/orders/[id]/resend-email", () => {
     expect(emails.send).not.toHaveBeenCalled();
   });
 
+  it("Resend {error} result is a 502 with the provider message and nothing is logged", async () => {
+    emails.send.mockResolvedValueOnce({ data: null, error: { message: "domain not verified" } });
+    const res = await POST(req("resend-email"), ctx);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "The email provider rejected the confirmation email: domain not verified" });
+    expect(mail.logEmail).not.toHaveBeenCalled();
+  });
+
   it("send failure is a 500 'Server error' and nothing is logged", async () => {
     emails.send.mockRejectedValueOnce(new Error("resend down"));
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -100,5 +109,15 @@ describe("POST /api/admin/orders/[id]/resend-email", () => {
     expect(await res.json()).toEqual({ error: "Server error" });
     expect(mail.logEmail).not.toHaveBeenCalled();
     errSpy.mockRestore();
+  });
+
+  it("401 (not 500) when the admin session cannot be resolved, no email", async () => {
+    const { TenantResolutionError } = await import("../helpers/tenant-context-mock");
+    auth.getTenantPrismaForAdmin.mockRejectedValueOnce(new TenantResolutionError("No admin session"));
+    const res = await POST(req("resend-email"), ctx);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Unauthorized" });
+    expect(db.order.findUnique).not.toHaveBeenCalled();
+    expect(emails.send).not.toHaveBeenCalled();
   });
 });

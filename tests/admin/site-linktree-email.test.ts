@@ -2,8 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Parity checks for the SITE group routes that moved into
 // admin-services/{linktree,email-template}.ts: tenant comes from the admin
-// session (fallback tenant zero), every statement is tenant-scoped, and the
+// session (never a fallback tenant: no session -> 401), these areas are
+// house-only (other stores -> 403), every statement is tenant-scoped, and the
 // response bodies / 500 messages match main.
+
+const HOUSE = "tenant_artisans_stories";
 
 const pg = vi.hoisted(() => ({
   queries: [] as Array<{ sql: string; params: unknown[] }>,
@@ -25,9 +28,9 @@ vi.mock("pg", () => ({
     }
   },
 }));
-vi.mock("@/lib/tenant-context", () => ({
+vi.mock("@/lib/tenant-context", async () => ({
+  ...(await import("../helpers/tenant-context-mock")).tenantContextBase,
   resolveTenantFromAdminSession: tc.resolve,
-  DEFAULT_TENANT_ID: "tenant_zero",
 }));
 vi.mock("@/lib/r2", () => ({ putObject: r2.putObject, publicUrl: (k: string) => `https://cdn.test/${k}` }));
 vi.mock("@/lib/admin-auth", () => ({ requireAdminSession: auth.requireAdminSession }));
@@ -48,8 +51,8 @@ beforeEach(() => {
   pg.rows.length = 0;
   pg.connect.mockResolvedValue(undefined);
   pg.end.mockResolvedValue(undefined);
-  tc.resolve.mockResolvedValue("tenant_a");
-  auth.requireAdminSession.mockResolvedValue({ id: "a1", tenantId: "tenant_a" });
+  tc.resolve.mockResolvedValue(HOUSE);
+  auth.requireAdminSession.mockResolvedValue({ id: "a1", tenantId: HOUSE });
 });
 
 describe("linktree links", () => {
@@ -58,14 +61,37 @@ describe("linktree links", () => {
     const res = await links.GET();
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ links: [{ id: "l1" }] });
-    expect(pg.queries[0].params).toEqual(["tenant_a"]);
+    expect(pg.queries[0].params).toEqual([HOUSE]);
     expect(pg.end).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to tenant zero when the session has no tenant (as main)", async () => {
+  it("no session tenant -> 401, never falls back to the house tenant, no DB work", async () => {
     tc.resolve.mockResolvedValue(null);
-    await links.GET();
-    expect(pg.queries[0].params).toEqual(["tenant_zero"]);
+    const res = await links.GET();
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "Unauthorized" });
+    expect(pg.connect).not.toHaveBeenCalled();
+    expect(pg.queries).toHaveLength(0);
+  });
+
+  it("another store's admin gets 403 on every linktree handler, no DB work", async () => {
+    tc.resolve.mockResolvedValue("tenant_b");
+    const responses = [
+      await links.GET(),
+      await links.POST(json("POST", { title: "T", url: "https://u" })),
+      await links.PUT(json("PUT", { id: "l1", title: "X" })),
+      await links.DELETE(new Request("http://localhost/x?id=l9", { method: "DELETE" })),
+      await reorder.POST(json("POST", { linkIds: ["a"] })),
+      await ltSettings.GET(),
+      await ltSettings.POST(json("POST", { isEnabled: true })),
+      await analytics.GET(),
+    ];
+    for (const res of responses) {
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toMatch(/only available for the Artisans Stories store/);
+    }
+    expect(pg.connect).not.toHaveBeenCalled();
+    expect(pg.queries).toHaveLength(0);
   });
 
   it("POST stamps tenant and next sortOrder", async () => {
@@ -73,7 +99,7 @@ describe("linktree links", () => {
     const res = await links.POST(json("POST", { title: "T", url: "https://u" }));
     expect(await res.json()).toEqual({ link: { id: "new" } });
     const [, ins] = pg.queries;
-    expect(ins.params.slice(1)).toEqual(["tenant_a", "T", "https://u", null, null, true, 5]);
+    expect(ins.params.slice(1)).toEqual([HOUSE, "T", "https://u", null, null, true, 5]);
   });
 
   it("PUT scopes by id AND tenant; missing row -> {} (link undefined), 200", async () => {
@@ -81,13 +107,13 @@ describe("linktree links", () => {
     const res = await links.PUT(json("PUT", { id: "l1", title: "X" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({});
-    expect(pg.queries[0].params).toEqual(["l1", "X", undefined, null, undefined, "tenant_a"]);
+    expect(pg.queries[0].params).toEqual(["l1", "X", undefined, null, undefined, HOUSE]);
   });
 
   it("DELETE scopes by id AND tenant", async () => {
     const res = await links.DELETE(new Request("http://localhost/x?id=l9", { method: "DELETE" }));
     expect(await res.json()).toEqual({ success: true });
-    expect(pg.queries[0].params).toEqual(["l9", "tenant_a"]);
+    expect(pg.queries[0].params).toEqual(["l9", HOUSE]);
   });
 
   it("DB failure -> 500 with main's message", async () => {
@@ -104,7 +130,7 @@ describe("linktree reorder / settings / analytics", () => {
   it("reorder updates each id scoped to tenant", async () => {
     const res = await reorder.POST(json("POST", { linkIds: ["b", "a"] }));
     expect(await res.json()).toEqual({ success: true });
-    expect(pg.queries.map((q) => q.params)).toEqual([[0, "b", "tenant_a"], [1, "a", "tenant_a"]]);
+    expect(pg.queries.map((q) => q.params)).toEqual([[0, "b", HOUSE], [1, "a", HOUSE]]);
   });
 
   it("settings GET -> {settings:null} when missing; POST upserts on tenant", async () => {
@@ -113,16 +139,15 @@ describe("linktree reorder / settings / analytics", () => {
     pg.rows.push([{ id: "s" }]);
     res = await ltSettings.POST(json("POST", { isEnabled: true, profileName: "P", backgroundColor: "#1", buttonColor: "#2", textColor: "#3" }));
     expect(await res.json()).toEqual({ settings: { id: "s" } });
-    expect(pg.queries[1].params).toEqual([true, "P", null, null, null, "#1", "#2", "#3", "tenant_a"]);
+    expect(pg.queries[1].params).toEqual([true, "P", null, null, null, "#1", "#2", "#3", HOUSE]);
   });
 
   it("analytics: 401 before any DB work when unauthenticated", async () => {
-    auth.requireAdminSession.mockRejectedValue(new Error("no"));
+    tc.resolve.mockResolvedValue(null);
     const res = await analytics.GET();
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "Unauthorized" });
     expect(pg.connect).not.toHaveBeenCalled();
-    expect(tc.resolve).not.toHaveBeenCalled();
   });
 
   it("analytics: shape and totalAllTime", async () => {
@@ -134,7 +159,7 @@ describe("linktree reorder / settings / analytics", () => {
       dailyTotals: [{ date: "d", clicks: "7" }],
       totalAllTime: 7,
     });
-    expect(pg.queries.every((q) => q.params[0] === "tenant_a")).toBe(true);
+    expect(pg.queries.every((q) => q.params[0] === HOUSE)).toBe(true);
   });
 });
 
@@ -150,7 +175,7 @@ describe("email template", () => {
     expect(p[3]).toBe("Hi");
     expect(p[4]).toBe(true);
     expect(p[21]).toBe("#E4405F");
-    expect(p[30]).toBe("tenant_a");
+    expect(p[30]).toBe(HOUSE);
   });
 
   it("POST failure -> 500 'Failed to save template'", async () => {
@@ -162,10 +187,22 @@ describe("email template", () => {
     err.mockRestore();
   });
 
-  it("upload-logo: 401 first, 400 without file, then email/logo-<ts>.<ext>", async () => {
-    auth.requireAdminSession.mockRejectedValueOnce(new Error("no"));
+  it("GET/POST: 401 with no session, 403 for another store, no DB work", async () => {
+    tc.resolve.mockResolvedValueOnce(null).mockResolvedValueOnce("tenant_b");
+    expect((await emailTpl.GET()).status).toBe(401);
+    expect((await emailTpl.POST(json("POST", { greetingText: "Hi" }))).status).toBe(403);
+    expect(pg.connect).not.toHaveBeenCalled();
+  });
+
+  it("upload-logo: 401 first, 403 for another store, 400 without file, then email/logo-<ts>.<ext>", async () => {
+    tc.resolve.mockResolvedValueOnce(null).mockResolvedValueOnce("tenant_b");
     let res = await uploadLogo.POST(new Request("http://localhost/x", { method: "POST", body: new FormData() }));
     expect(res.status).toBe(401);
+    const fd403 = new FormData();
+    fd403.append("file", new File([new Uint8Array([1, 2])], "logo.png", { type: "image/png" }));
+    res = await uploadLogo.POST(new Request("http://localhost/x", { method: "POST", body: fd403 }));
+    expect(res.status).toBe(403);
+    expect(r2.putObject).not.toHaveBeenCalled();
 
     res = await uploadLogo.POST(new Request("http://localhost/x", { method: "POST", body: new FormData() }));
     expect(res.status).toBe(400);

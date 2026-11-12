@@ -500,6 +500,16 @@ async function planRestock(db: TenantPrisma, ret: RefundGuarded): Promise<Restoc
   });
 }
 
+/** A refund already on this payment intent whose metadata matches, if any. */
+export async function findEarlierRefund(
+  stripe: Stripe,
+  paymentIntentId: string,
+  match: (metadata: Record<string, string>) => boolean,
+): Promise<Stripe.Refund | null> {
+  const list = await stripe.refunds.list({ payment_intent: paymentIntentId, limit: 100 });
+  return list.data.find((r) => r.status !== "failed" && r.status !== "canceled" && match(r.metadata ?? {})) ?? null;
+}
+
 /** Stable Stripe idempotency key: one return is refunded at most once. */
 export function returnRefundIdempotencyKey(returnId: string): string {
   return `return_refund_${returnId}`;
@@ -599,7 +609,19 @@ export async function refundReturn(db: TenantPrisma, id: string, body: ReturnRef
   let stripeRefundId: string | null = null;
   if (order.stripePaymentIntentId && body.amount > 0) {
     try {
-      const refund = await getStripe().refunds.create(
+      const stripe = getStripe();
+      // A refund from an earlier attempt whose DB write failed is reused, not
+      // repeated. Looking it up by metadata also covers retries after Stripe's
+      // 24h idempotency window.
+      const earlier = await findEarlierRefund(stripe, order.stripePaymentIntentId, (m) => m.returnId === ret.id);
+      if (earlier && earlier.amount !== body.amount) {
+        return fail(409, `A Stripe refund of ${earlier.amount} cents (${earlier.id}) was already issued for this return, but not recorded. Retry with amount ${earlier.amount} to record it.`, {
+          moneyMoved: true,
+          stripeRefundId: earlier.id,
+          refundedAmount: earlier.amount,
+        });
+      }
+      const refund = earlier ?? await stripe.refunds.create(
         { payment_intent: order.stripePaymentIntentId, amount: body.amount, metadata: { returnId: ret.id, orderId: order.id } },
         { idempotencyKey: returnRefundIdempotencyKey(ret.id) },
       );

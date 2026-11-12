@@ -14,10 +14,10 @@ const db = vi.hoisted(() => ({
 const tc = vi.hoisted(() => ({ resolve: vi.fn() }));
 const pg = vi.hoisted(() => ({ query: vi.fn() }));
 const r2 = vi.hoisted(() => ({ putObject: vi.fn() }));
-const auth = vi.hoisted(() => ({ requireAdminSession: vi.fn() }));
+const auth = vi.hoisted(() => ({ requireAdminSession: vi.fn(), getAdminSession: vi.fn() }));
 
-vi.mock("@/lib/tenant-context", () => ({
-  DEFAULT_TENANT_ID: "tenant_artisans_stories",
+vi.mock("@/lib/tenant-context", async () => ({
+  ...(await import("../helpers/tenant-context-mock")).tenantContextBase,
   getTenantPrismaForAdmin: async () => ({
     $tenantId: "tenant_b",
     storeSettings: { findFirst: db.findFirst, update: db.update, create: db.create },
@@ -32,7 +32,10 @@ vi.mock("pg", () => ({
   },
 }));
 vi.mock("@/lib/r2", () => ({ putObject: r2.putObject, publicUrl: (k: string) => `https://cdn.test/${k}` }));
-vi.mock("@/lib/admin-auth", () => ({ requireAdminSession: auth.requireAdminSession }));
+vi.mock("@/lib/admin-auth", () => ({
+  requireAdminSession: auth.requireAdminSession,
+  getAdminSession: auth.getAdminSession,
+}));
 
 import * as settingsRoute from "@/app/api/admin/settings/route";
 import * as landingRoute from "@/app/api/admin/landing-page/settings/route";
@@ -92,6 +95,7 @@ describe("landing page is house-only", () => {
     r2.putObject.mockReset();
     tc.resolve.mockReset();
     auth.requireAdminSession.mockReset().mockResolvedValue({ id: "u", tenantId: "whatever" });
+    auth.getAdminSession.mockReset().mockResolvedValue({ id: "u", tenantId: "whatever" });
   });
 
   const save = () =>
@@ -125,6 +129,16 @@ describe("landing page is house-only", () => {
     fd.set("field", "heroImageUrl");
     const res = await landingUpload.POST(new Request("https://x/api/admin/landing-page/upload", { method: "POST", body: fd }));
     expect(res.status).toBe(403);
+    expect(r2.putObject).not.toHaveBeenCalled();
+  });
+
+  it("landing image upload with no admin session is 401 before any tenant lookup", async () => {
+    auth.getAdminSession.mockResolvedValue(null);
+    const fd = new FormData();
+    fd.set("file", new File([new Uint8Array([1, 2, 3])], "a.png", { type: "image/png" }));
+    const res = await landingUpload.POST(new Request("https://x/api/admin/landing-page/upload", { method: "POST", body: fd }));
+    expect(res.status).toBe(401);
+    expect(tc.resolve).not.toHaveBeenCalled();
     expect(r2.putObject).not.toHaveBeenCalled();
   });
 });

@@ -196,15 +196,15 @@ describe("POST /api/admin/contact/[id]/reply", () => {
       expect(resendSend).not.toHaveBeenCalled();
     });
 
-    it("route itself (proxy bypassed): no email, no DB writes; status matches main (500)", async () => {
+    it("route itself (proxy bypassed): 401, no email, no DB writes", async () => {
       getAdminSession.mockResolvedValue(null);
       const spy = vi.spyOn(console, "error").mockImplementation(() => {});
       const res = await POST(req({ replyText: "hi" }), params);
       spy.mockRestore();
-      // main has no in-route session check here: the TenantResolutionError from
-      // getTenantPrismaForAdmin lands in the catch-all. Kept for parity.
-      expect(res.status).toBe(500);
-      expect(await res.json()).toEqual({ error: "Failed to send reply" });
+      // The TenantResolutionError from getTenantPrismaForAdmin is mapped to 401
+      // by authErrorResponse at the top of the route's catch block.
+      expect(res.status).toBe(401);
+      expect(await res.json()).toEqual({ error: "Unauthorized" });
       expect(resendSend).not.toHaveBeenCalled();
       expect(logEmail).not.toHaveBeenCalled();
       expect(db.contactReply.create).not.toHaveBeenCalled();

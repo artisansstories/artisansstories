@@ -18,6 +18,7 @@ import { getEmailBranding, emailLogoHtml } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 import { checkTracking } from "@/lib/tracking";
 import { ok, fail, type ServiceResult } from "./result";
+import { findEarlierRefund } from "./returns";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
@@ -252,10 +253,13 @@ export async function cancelOrder(db: TenantPrisma, id: string, reason: string) 
   if (order.stripePaymentIntentId && order.financialStatus === "PAID") {
     // Payment already captured — issue a full refund
     try {
-      await stripe.refunds.create(
-        { payment_intent: order.stripePaymentIntentId, reason: "requested_by_customer", metadata: { orderId: order.id } },
-        { idempotencyKey: orderCancelIdempotencyKey(order.id, "refund") },
-      );
+      const earlier = await findEarlierRefund(stripe, order.stripePaymentIntentId, (m) => m.orderId === order.id && m.cancel === "true");
+      if (!earlier) {
+        await stripe.refunds.create(
+          { payment_intent: order.stripePaymentIntentId, reason: "requested_by_customer", metadata: { orderId: order.id, cancel: "true" } },
+          { idempotencyKey: orderCancelIdempotencyKey(order.id, "refund") },
+        );
+      }
       newFinancialStatus = "REFUNDED";
     } catch (stripeErr) {
       console.error("Stripe refund error on cancel:", stripeErr);
@@ -395,13 +399,17 @@ export async function refundOrder(db: TenantPrisma, id: string, body: RefundBody
   // Refund amount: partial if specified, full (remaining balance) if not
   const refundAmount = body.amount && body.amount > 0 ? body.amount : undefined;
 
+  // The order version this refund acts on. A retry after a failed DB write sees
+  // the same version, finds the earlier refund by metadata, and reuses it.
+  const version = String(order.updatedAt.getTime());
   let refund: Stripe.Refund;
   try {
-    refund = await stripe.refunds.create({
+    const earlier = await findEarlierRefund(stripe, piId, (m) => m.orderId === order.id && m.orderVersion === version);
+    refund = earlier ?? await stripe.refunds.create({
       payment_intent: piId,
       ...(refundAmount ? { amount: refundAmount } : {}),
       reason: "requested_by_customer",
-      metadata: { orderId: order.id },
+      metadata: { orderId: order.id, orderVersion: version },
     }, { idempotencyKey: orderRefundIdempotencyKey(order.id, order.updatedAt, refundAmount) });
   } catch (err) {
     console.error(`Stripe refund failed for order ${order.orderNumber}:`, err);
@@ -709,6 +717,9 @@ export async function resendOrderConfirmation(db: TenantPrisma, id: string) {
     subject: `Order Confirmed — ${order.orderNumber}`,
     html: confirmHtml,
   });
+  if (resendResult.error) {
+    return fail(502, `The email provider rejected the confirmation email: ${resendResult.error.message}`);
+  }
   await logEmail({ tenantId: db.$tenantId, type: "ORDER_CONFIRMATION", toEmail: order.email, fromEmail: branding.fromAddress, subject: `Order Confirmed — ${order.orderNumber}`, bodyHtml: confirmHtml, resendId: resendResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
   return ok({ ok: true });
 }
