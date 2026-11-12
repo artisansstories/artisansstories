@@ -1,4 +1,6 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { IG_STATE_COOKIE, encodeIgState } from "@/lib/instagram-oauth";
 import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 // Step 1: Redirect to Instagram OAuth
@@ -22,7 +24,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "INSTAGRAM_APP_ID not configured" }, { status: 500 });
   }
 
-  const state = Buffer.from(JSON.stringify({ artisanId })).toString("base64");
+  // The state carries a one-time nonce that must match an httpOnly cookie set
+  // here, so a callback URL crafted by someone else can't attach their
+  // Instagram account to an artisan (OAuth CSRF).
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const state = encodeIgState({ artisanId, nonce });
   const params = new URLSearchParams({
     client_id: appId,
     redirect_uri: redirectUri,
@@ -31,5 +37,13 @@ export async function GET(request: NextRequest) {
     state,
   });
 
-  return NextResponse.redirect(`https://api.instagram.com/oauth/authorize?${params}`);
+  const res = NextResponse.redirect(`https://api.instagram.com/oauth/authorize?${params}`);
+  res.cookies.set(IG_STATE_COOKIE, nonce, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax", // sent on Instagram's top-level redirect back to the callback
+    path: "/api/admin/instagram",
+    maxAge: 10 * 60,
+  });
+  return res;
 }

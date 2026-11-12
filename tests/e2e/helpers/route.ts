@@ -13,6 +13,8 @@ export interface CallOptions {
   query?: Record<string, string>;
   formData?: FormData;
   host?: string;
+  /** Extra request headers (e.g. cookie). */
+  headers?: Record<string, string>;
 }
 
 export interface RouteResult<T = any> {
@@ -25,7 +27,7 @@ export interface RouteResult<T = any> {
 export async function call<T = any>(handler: Handler, method: string, path: string, opts: CallOptions = {}): Promise<RouteResult<T>> {
   const url = new URL(path, `https://${opts.host ?? "artisansstories.com"}`);
   for (const [k, v] of Object.entries(opts.query ?? {})) url.searchParams.set(k, v);
-  const init: RequestInit = { method, headers: { host: url.host } };
+  const init: RequestInit = { method, headers: { host: url.host, ...(opts.headers ?? {}) } };
   if (opts.formData) init.body = opts.formData;
   else if (opts.body !== undefined) {
     init.body = typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body);

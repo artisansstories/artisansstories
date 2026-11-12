@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
+import { IG_STATE_COOKIE, decodeIgState, nonceMatches } from "@/lib/instagram-oauth";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -14,13 +15,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=${encodeURIComponent(error ?? "missing_code")}`);
   }
 
-  let artisanId: string;
-  try {
-    artisanId = JSON.parse(Buffer.from(stateRaw, "base64").toString()).artisanId;
-    if (typeof artisanId !== "string" || !artisanId) throw new Error("no artisanId");
-  } catch {
+  // The state must carry the nonce this browser was given by /connect.
+  const state = decodeIgState(stateRaw);
+  if (!state || !nonceMatches(state.nonce, request.cookies.get(IG_STATE_COOKIE)?.value)) {
     return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=invalid_state`);
   }
+  const artisanId = state.artisanId;
 
   const appId = process.env.INSTAGRAM_APP_ID!;
   const appSecret = process.env.INSTAGRAM_APP_SECRET!;
@@ -63,11 +63,17 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.redirect(`${siteUrl}/admin/artisans/${artisanId}/edit?ig_connected=1`);
+    return consumed(NextResponse.redirect(`${siteUrl}/admin/artisans/${artisanId}/edit?ig_connected=1`));
   } catch (err) {
     const unauthorized = authErrorResponse(err);
     if (unauthorized) return unauthorized;
     console.error("[IG callback]", err);
-    return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=token_failed`);
+    return consumed(NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=token_failed`));
   }
+}
+
+/** The state nonce is single-use: clear it once the callback has acted on it. */
+function consumed(res: NextResponse): NextResponse {
+  res.cookies.set(IG_STATE_COOKIE, "", { path: "/api/admin/instagram", maxAge: 0 });
+  return res;
 }

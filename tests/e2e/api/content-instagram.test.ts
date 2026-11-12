@@ -1,8 +1,9 @@
 /**
  * Instagram admin routes: /api/admin/instagram/connect (GET), /callback (GET),
- * /disconnect (POST). Real OAuth can't run locally: INSTAGRAM_APP_ID/SECRET are
- * unset by the harness and the fetch guard refuses api.instagram.com, so these
- * tests cover every branch up to (and the failure path of) the token exchange.
+ * /disconnect (POST). Instagram itself can't be reached locally: the fetch guard
+ * refuses api.instagram.com unless a test opts in to its fake token endpoints
+ * (fetchState.instagram), which is how the full connect → callback success path
+ * runs here. The OAuth state is bound to a nonce cookie set by /connect.
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { prisma } from "@/lib/prisma";
@@ -13,12 +14,17 @@ import { fetchState } from "../helpers/fakes";
 import * as connect from "@/app/api/admin/instagram/connect/route";
 import * as callback from "@/app/api/admin/instagram/callback/route";
 import * as disconnect from "@/app/api/admin/instagram/disconnect/route";
+import { IG_STATE_COOKIE, encodeIgState, decodeIgState } from "@/lib/instagram-oauth";
 
 const SECRET = "IGSECRET_TOKEN_SHOULD_NEVER_LEAK";
-const state = (artisanId: string) => Buffer.from(JSON.stringify({ artisanId })).toString("base64");
+const NONCE = "0123456789abcdef0123456789abcdef";
+const state = (artisanId: string, nonce = NONCE) => encodeIgState({ artisanId, nonce });
+/** The browser that ran /connect holds this cookie; an attacker's victim does not. */
+const WITH_NONCE = { cookie: `${IG_STATE_COOKIE}=${NONCE}` };
 
 const connectRoute = (query?: Record<string, string>) => call(connect.GET as never, "GET", "/api/admin/instagram/connect", { query });
-const callbackRoute = (query?: Record<string, string>) => call(callback.GET as never, "GET", "/api/admin/instagram/callback", { query });
+const callbackRoute = (query?: Record<string, string>, headers: Record<string, string> = WITH_NONCE) =>
+  call(callback.GET as never, "GET", "/api/admin/instagram/callback", { query, headers });
 const disconnectRoute = (body: unknown) => call(disconnect.POST as never, "POST", "/api/admin/instagram/disconnect", { body });
 
 async function igFields(id: string) {
@@ -63,12 +69,52 @@ describe("GET /api/admin/instagram/connect", () => {
     expect(loc.searchParams.get("client_id")).toBe("e2e-ig-app");
     expect(loc.searchParams.get("redirect_uri")).toBe("https://artisansstories.com/api/admin/instagram/callback");
     expect(loc.searchParams.get("response_type")).toBe("code");
-    expect(JSON.parse(Buffer.from(loc.searchParams.get("state")!, "base64").toString())).toEqual({ artisanId: F.artisan.jose });
+    const st = decodeIgState(loc.searchParams.get("state")!);
+    expect(st?.artisanId).toBe(F.artisan.jose);
+    // The same nonce is set as an httpOnly cookie scoped to the Instagram routes.
+    const setCookie = r.headers.get("set-cookie")!;
+    expect(setCookie).toContain(`${IG_STATE_COOKIE}=${st!.nonce}`);
+    expect(setCookie.toLowerCase()).toContain("httponly");
+    expect(setCookie).toContain("Path=/api/admin/instagram");
     expect(fetchState.blocked).toEqual([]); // a redirect, not a server-side call
   });
 });
 
 describe("GET /api/admin/instagram/callback", () => {
+  it("full connect → callback: tokens stored for that artisan, nonce single-use", async () => {
+    process.env.INSTAGRAM_APP_ID = "e2e-ig-app";
+    fetchState.instagram = true;
+    await signInAs(F.admin.super);
+    const start = await connectRoute({ artisanId: F.artisan.jose });
+    const st = new URL(start.headers.get("location")!).searchParams.get("state")!;
+    const nonce = decodeIgState(st)!.nonce;
+    const cookie = { cookie: `${IG_STATE_COOKIE}=${nonce}` };
+    const r = await callbackRoute({ code: "ig-code", state: st }, cookie);
+    expect(r.status).toBe(307);
+    expect(r.headers.get("location")).toBe(`https://artisansstories.com/admin/artisans/${F.artisan.jose}/edit?ig_connected=1`);
+    expect(r.headers.get("set-cookie")).toMatch(new RegExp(`${IG_STATE_COOKIE}=;.*Max-Age=0`, "i"));
+    const jose = await prisma.artisan.findUniqueOrThrow({ where: { id: F.artisan.jose } });
+    expect(jose.igAccessToken).toBe("IG_LONG_TOKEN_E2E");
+    expect(jose.igUserId).toBe("17841400999");
+    expect(jose.igTokenExpiry!.getTime()).toBeGreaterThan(Date.now() + 59 * 24 * 3600 * 1000);
+    expect(await igFields(F.artisan.maria)).toEqual(MARIA_CONNECTED);
+    expect(fetchState.blocked).toEqual([]);
+  });
+
+  it("OAuth CSRF: a callback URL without this browser's nonce cookie (or a different nonce) changes nothing", async () => {
+    fetchState.instagram = true;
+    await signInAs(F.admin.super);
+    const noCookie = await callbackRoute({ code: "attacker-code", state: state(F.artisan.jose) }, {});
+    expect(noCookie.headers.get("location")).toBe("https://artisansstories.com/admin/artisans?ig_error=invalid_state");
+    const otherNonce = await callbackRoute({ code: "attacker-code", state: state(F.artisan.jose, "f".repeat(32)) });
+    expect(otherNonce.headers.get("location")).toBe("https://artisansstories.com/admin/artisans?ig_error=invalid_state");
+    // The old state format (artisanId only) is refused too.
+    const legacy = await callbackRoute({ code: "attacker-code", state: Buffer.from(JSON.stringify({ artisanId: F.artisan.jose })).toString("base64") });
+    expect(legacy.headers.get("location")).toBe("https://artisansstories.com/admin/artisans?ig_error=invalid_state");
+    expect(fetchState.served).toEqual([]);
+    expect(await igFields(F.artisan.jose)).toEqual(NOT_CONNECTED);
+  });
+
   it("error / missing code / missing state → redirect with ig_error, no DB change", async () => {
     await signInAs(F.admin.super);
     const denied = await callbackRoute({ error: "access_denied", state: state(F.artisan.jose) });
@@ -81,7 +127,7 @@ describe("GET /api/admin/instagram/callback", () => {
     const badState = await callbackRoute({ code: "abc", state: "%%%not-base64-json" });
     expect(badState.headers.get("location")).toBe("https://artisansstories.com/admin/artisans?ig_error=invalid_state");
     // Well-formed state without an artisanId would otherwise update with `where: { id: undefined }`.
-    const noArtisan = await callbackRoute({ code: "abc", state: Buffer.from("{}").toString("base64") });
+    const noArtisan = await callbackRoute({ code: "abc", state: Buffer.from(JSON.stringify({ nonce: NONCE })).toString("base64url") });
     expect(noArtisan.headers.get("location")).toBe("https://artisansstories.com/admin/artisans?ig_error=invalid_state");
     expect(fetchState.blocked).toEqual([]);
     expect(await igFields(F.artisan.jose)).toEqual(NOT_CONNECTED);

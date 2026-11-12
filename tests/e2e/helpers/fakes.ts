@@ -251,11 +251,17 @@ export const PNG_1PX = Buffer.from(
   "base64",
 );
 
-export const fetchState = { blocked: [] as string[], served: [] as string[] };
+export const fetchState = {
+  blocked: [] as string[],
+  served: [] as string[],
+  /** Opt in to fake Instagram OAuth token endpoints (refused by default). */
+  instagram: false,
+};
 
 export function resetFetch(): void {
   fetchState.blocked = [];
   fetchState.served = [];
+  fetchState.instagram = false;
 }
 
 /** Replaces global fetch: serves the fake image host, refuses everything else. */
@@ -266,6 +272,14 @@ export async function guardedFetch(input: RequestInfo | URL): Promise<Response> 
     fetchState.served.push(url);
     if (url.endsWith("/missing.png")) return new Response("not found", { status: 404 });
     return new Response(PNG_1PX, { status: 200, headers: { "content-type": "image/png", "content-length": String(PNG_1PX.length) } });
+  }
+  if (fetchState.instagram && host === "api.instagram.com" && new URL(url).pathname === "/oauth/access_token") {
+    fetchState.served.push(url);
+    return Response.json({ access_token: "IG_SHORT_TOKEN_E2E", user_id: 17841400999 });
+  }
+  if (fetchState.instagram && host === "graph.instagram.com" && new URL(url).pathname === "/access_token") {
+    fetchState.served.push(url);
+    return Response.json({ access_token: "IG_LONG_TOKEN_E2E", expires_in: 5184000 });
   }
   fetchState.blocked.push(url);
   throw new Error(`[e2e] blocked outbound fetch to ${url}`);
