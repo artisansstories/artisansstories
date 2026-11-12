@@ -110,7 +110,6 @@ export const tools: McpTool[] = [
       restock: z.boolean().describe("Add the returned quantities back to inventory"),
     },
     preview: (ctx, a) => svc.previewRefundReturn(ctx.db, a.returnId, { amount: a.amount, restock: a.restock }),
-    execute: (ctx, a, x) =>
-      svc.refundReturn(ctx.db, a.returnId, { amount: a.amount, restock: a.restock }, { idempotencyKey: x.idempotencyKey }),
+    execute: (ctx, a) => svc.refundReturn(ctx.db, a.returnId, { amount: a.amount, restock: a.restock }),
   }),
 ];

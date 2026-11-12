@@ -7,6 +7,7 @@ import {
   updateTeamMember,
 } from "@/lib/admin-services/team";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function PUT(
   request: NextRequest,
@@ -27,6 +28,8 @@ export async function PUT(
     const body = await request.json() as { role?: string; isActive?: boolean };
     return toResponse(await updateTeamMember(db, actor, id, body));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PUT /api/admin/team/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -47,6 +50,8 @@ export async function DELETE(
     const { id } = await params;
     return toResponse(await removeTeamMember(db, actor, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("DELETE /api/admin/team/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

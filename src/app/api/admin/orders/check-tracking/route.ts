@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { checkShippedTracking } from "@/lib/admin-services/orders";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 /**
  * POST /api/admin/orders/check-tracking
@@ -14,6 +15,8 @@ export async function POST() {
     const db = await getTenantPrismaForAdmin();
     return toResponse(await checkShippedTracking(db));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("check-tracking error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

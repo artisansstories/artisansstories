@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { markOrderDelivered } from "@/lib/admin-services/orders";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function POST(
   _request: NextRequest,
@@ -12,6 +13,8 @@ export async function POST(
     const { id } = await params;
     return toResponse(await markOrderDelivered(db, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/orders/[id]/deliver error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

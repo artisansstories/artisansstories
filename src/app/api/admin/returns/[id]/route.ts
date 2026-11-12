@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { getReturn, setReturnNote } from "@/lib/admin-services/returns";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -11,6 +12,8 @@ export async function GET(
     const { id } = await params;
     return toResponse(await getReturn(db, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/returns/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -25,6 +28,8 @@ export async function PUT(
     const body = await request.json() as { adminNote?: string };
     return toResponse(await setReturnNote(db, id, body.adminNote));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PUT /api/admin/returns/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

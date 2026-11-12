@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAdminSession } from "@/lib/admin-auth";
 import { toResponse } from "@/lib/admin-services/http";
 import { uploadEmailTemplateImage } from "@/lib/admin-services/email-template";
+import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 export async function POST(req: Request) {
   try {
-    await requireAdminSession();
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  try {
+    await requireHouseAdminTenantId();
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     if (!file) {
@@ -20,6 +15,8 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     return toResponse(await uploadEmailTemplateImage("avatar", { buffer, name: file.name, type: file.type }));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("Avatar upload error:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }

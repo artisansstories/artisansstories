@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { listInventory } from "@/lib/admin-services/inventory";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 export async function GET(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
@@ -14,6 +15,8 @@ export async function GET(request: NextRequest) {
       limit: parseInt(searchParams.get("limit") ?? "50", 10),
     }));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/inventory error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

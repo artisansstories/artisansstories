@@ -191,6 +191,12 @@ export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
   if (!g.ok) return g;
   const baseSlug = generateSlug(body.name);
   const slug = await makeUniqueSlug(db, baseSlug);
+  // The artisan link (join row + denormalized name) is part of the same create,
+  // so a bad artisanId leaves no half-created product behind.
+  const artisan = body.artisanId
+    ? await db.artisan.findUnique({ where: { id: body.artisanId }, select: { id: true, name: true } })
+    : null;
+  if (body.artisanId && !artisan) return fail(400, `Artisan not found: ${body.artisanId}`);
   const product = await db.product.create({
     data: {
       tenantId: db.$tenantId,
@@ -206,7 +212,7 @@ export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
       costPrice: body.costPrice,
       status: body.status ?? ProductStatus.DRAFT,
       tags: body.tags ?? [],
-      artisanName: body.artisanName, // kept for backward compat; overwritten below if artisanId provided
+      artisanName: artisan?.name ?? body.artisanName, // denormalized cache of the linked artisan
       originCountry: body.originCountry ?? "El Salvador",
       materialsUsed: body.materialsUsed ?? [],
       requiresShipping: body.requiresShipping ?? true,
@@ -225,6 +231,7 @@ export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
             create: body.categoryIds.map((categoryId) => ({ categoryId, tenantId: db.$tenantId })),
           }
         : undefined,
+      artisans: artisan ? { create: [{ tenantId: db.$tenantId, artisanId: artisan.id }] } : undefined,
       images: body.images?.length
         ? {
             create: body.images.map((img, i) => ({
@@ -267,12 +274,6 @@ export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
       options: true,
     },
   });
-  // Link artisan via join table if provided
-  if (body.artisanId) {
-    await db.productArtisan.create({ data: { tenantId: db.$tenantId, productId: product.id, artisanId: body.artisanId } });
-    const artisan = await db.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
-    if (artisan) await db.product.update({ where: { id: product.id }, data: { artisanName: artisan.name } });
-  }
   return ok({ product }, 201);
 }
 
@@ -440,118 +441,138 @@ export async function updateProduct(db: TenantPrisma, id: string, body: ProductU
   }
   const slug = await resolveSlug(db, id, existing, body);
   const updateData = scalarUpdateData(body, existing.slug, slug);
-  // Update artisan link (ProductArtisan join table)
-  if (body.artisanId !== undefined) {
-    await db.productArtisan.deleteMany({ where: { productId: id } });
-    if (body.artisanId) {
-      await db.productArtisan.create({ data: { tenantId: db.$tenantId, productId: id, artisanId: body.artisanId } });
-      // Backfill denormalized artisanName for backward compat
-      const artisan = await db.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
-      if (artisan) updateData.artisanName = artisan.name;
-    } else {
-      updateData.artisanName = null;
-    }
-  }
+  const tenantId = db.$tenantId;
 
-  // Update categories if provided
-  if (body.categoryIds !== undefined) {
-    updateData.categories = {
-      deleteMany: {},
-      create: body.categoryIds.map((categoryId) => ({ categoryId, tenantId: db.$tenantId })),
-    };
-  }
-  // Update options if provided — delete all existing and re-insert
-  if (body.options !== undefined) {
-    await db.productOption.deleteMany({ where: { productId: id } });
-    if (body.options.length > 0) {
-      await db.productOption.createMany({
-        data: body.options.map((o, i) => ({
-          tenantId: db.$tenantId,
-          productId: id,
-          name: o.name,
-          values: o.values,
-          position: o.position ?? i,
-        })),
-      });
-    }
-  }
-
-  // Update variants if provided — upsert by id, delete removed ones, create new ones
-  if (body.variants !== undefined) {
-    const incomingIds = body.variants.filter(v => v.id).map(v => v.id as string);
-    // Delete variants not in incoming list
-    await db.productVariant.deleteMany({
-      where: { productId: id, id: { notIn: incomingIds } },
-    });
-    // Upsert each variant
-    for (const v of body.variants) {
-      if (v.id) {
-        // Update existing
-        await db.productVariant.update({
-          where: { id: v.id },
-          data: {
-            name: v.name,
-            sku: v.sku || null,
-            price: v.price ?? null,
-            optionValues: v.optionValues,
-            position: v.position,
-          },
-        });
-        // Update inventory quantity
-        await db.inventory.upsert({
-          where: { variantId: v.id },
-          update: { quantity: v.quantity ?? 0 },
-          create: { tenantId: db.$tenantId, variantId: v.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
-        });
+  // Every write below (artisan link, options, variants + inventory, images,
+  // product row) commits together or not at all. A failure halfway used to
+  // leave e.g. variants replaced but images gone.
+  const product = await db.$transaction(async (tx) => {
+    // Update artisan link (ProductArtisan join table)
+    if (body.artisanId !== undefined) {
+      await tx.productArtisan.deleteMany({ where: { productId: id } });
+      if (body.artisanId) {
+        await tx.productArtisan.create({ data: { tenantId, productId: id, artisanId: body.artisanId } });
+        // Backfill denormalized artisanName for backward compat
+        const artisan = await tx.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
+        if (artisan) updateData.artisanName = artisan.name;
       } else {
-        // Create new variant
-        const newVariant = await db.productVariant.create({
-          data: {
-            tenantId: db.$tenantId,
+        updateData.artisanName = null;
+      }
+    }
+
+    // Update categories if provided
+    if (body.categoryIds !== undefined) {
+      updateData.categories = {
+        deleteMany: {},
+        create: body.categoryIds.map((categoryId) => ({ categoryId, tenantId })),
+      };
+    }
+    // Update options if provided — delete all existing and re-insert
+    if (body.options !== undefined) {
+      await tx.productOption.deleteMany({ where: { productId: id } });
+      if (body.options.length > 0) {
+        await tx.productOption.createMany({
+          data: body.options.map((o, i) => ({
+            tenantId,
             productId: id,
-            name: v.name,
-            sku: v.sku || null,
-            price: v.price ?? null,
-            optionValues: v.optionValues,
-            position: v.position,
-          },
-        });
-        await db.inventory.create({
-          data: { tenantId: db.$tenantId, variantId: newVariant.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+            name: o.name,
+            values: o.values,
+            position: o.position ?? i,
+          })),
         });
       }
     }
-  }
 
-  // Update images if provided — delete all existing and re-insert
-  // Note: done AFTER variants so new variant IDs are available for variantId FK
-  if (body.images !== undefined) {
-    // Refresh variant list to get new IDs for any just-created variants
-    const freshVariants = await db.productVariant.findMany({ where: { productId: id } });
-    const resolvedImages = body.images.map((img, i) => ({
-      tenantId: db.$tenantId,
-      productId: id,
-      url: img.url,
-      urlMedium: img.urlMedium ?? null,
-      urlThumb: img.urlThumb ?? null,
-      altText: img.altText ?? null,
-      position: img.position ?? i,
-      isDefault: img.isDefault ?? i === 0,
-      // If variantId is a valid existing variant ID, use it; otherwise null
-      variantId: img.variantId && freshVariants.some(v => v.id === img.variantId) ? img.variantId : null,
-    }));
-    console.log('[PUT products] saving images with variantIds:', resolvedImages.map(img => img.variantId));
-    await db.productImage.deleteMany({ where: { productId: id } });
-    if (resolvedImages.length > 0) {
-      await db.productImage.createMany({ data: resolvedImages });
+    // Update variants if provided — upsert by id, delete removed ones, create new ones
+    if (body.variants !== undefined) {
+      const incomingIds = body.variants.filter(v => v.id).map(v => v.id as string);
+      // Delete variants not in incoming list
+      await tx.productVariant.deleteMany({
+        where: { productId: id, id: { notIn: incomingIds } },
+      });
+      // Upsert each variant
+      for (const v of body.variants) {
+        if (v.id) {
+          // Update existing (scoped to this product, so another product's variant id is refused)
+          const { count } = await tx.productVariant.updateMany({
+            where: { id: v.id, productId: id },
+            data: {
+              name: v.name,
+              sku: v.sku || null,
+              price: v.price ?? null,
+              optionValues: v.optionValues,
+              position: v.position,
+            },
+          });
+          if (count === 0) throw new ProductUpdateError(400, `Variant ${v.id} does not belong to this product`);
+          // Update inventory quantity
+          await tx.inventory.upsert({
+            where: { variantId: v.id },
+            update: { quantity: v.quantity ?? 0 },
+            create: { tenantId, variantId: v.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+          });
+        } else {
+          // Create new variant
+          const newVariant = await tx.productVariant.create({
+            data: {
+              tenantId,
+              productId: id,
+              name: v.name,
+              sku: v.sku || null,
+              price: v.price ?? null,
+              optionValues: v.optionValues,
+              position: v.position,
+            },
+          });
+          await tx.inventory.create({
+            data: { tenantId, variantId: newVariant.id, quantity: v.quantity ?? 0, reservedQuantity: 0, allowBackorder: false, trackedInventory: true },
+          });
+        }
+      }
     }
-  }
-  const product = await db.product.update({
-    where: { id },
-    data: updateData,
-    include: PRODUCT_DETAIL_INCLUDE,
+
+    // Update images if provided — delete all existing and re-insert
+    // Note: done AFTER variants so new variant IDs are available for variantId FK
+    if (body.images !== undefined) {
+      // Refresh variant list to get new IDs for any just-created variants
+      const freshVariants = await tx.productVariant.findMany({ where: { productId: id } });
+      const resolvedImages = body.images.map((img, i) => ({
+        tenantId,
+        productId: id,
+        url: img.url,
+        urlMedium: img.urlMedium ?? null,
+        urlThumb: img.urlThumb ?? null,
+        altText: img.altText ?? null,
+        position: img.position ?? i,
+        isDefault: img.isDefault ?? i === 0,
+        // If variantId is a valid existing variant ID, use it; otherwise null
+        variantId: img.variantId && freshVariants.some(v => v.id === img.variantId) ? img.variantId : null,
+      }));
+      await tx.productImage.deleteMany({ where: { productId: id } });
+      if (resolvedImages.length > 0) {
+        await tx.productImage.createMany({ data: resolvedImages });
+      }
+    }
+    return tx.product.update({
+      where: { id },
+      data: updateData,
+      include: PRODUCT_DETAIL_INCLUDE,
+    });
+  }).catch((err: unknown) => {
+    if (err instanceof ProductUpdateError) return err;
+    // Unknown category/artisan id → FK violation; nothing was written.
+    if ((err as { code?: string })?.code === "P2003") return new ProductUpdateError(400, "A referenced category, artisan or variant does not exist");
+    throw err;
   });
+  if (product instanceof ProductUpdateError) return fail(product.status, product.message);
   return ok({ product });
+}
+
+/** A validation failure raised inside the update transaction (rolls it back). */
+class ProductUpdateError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
 }
 
 function same(a: unknown, b: unknown): boolean {

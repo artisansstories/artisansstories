@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { listCommunications } from "@/lib/admin-services/communications";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 /**
  * Unified communications feed.
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest) {
 
     return toResponse(await listCommunications(db, { filter, page, limit }));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/communications error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -11,16 +11,13 @@
  * Previews run the same guards and are read-only.
  */
 import type { TenantPrisma } from "@/lib/tenant-prisma";
+import { sendAdminInvite, adminBaseUrlForTenant } from "@/lib/admin-invite";
 import { ok, fail, type ServiceResult, type ServiceFail, type AdminActor } from "./result";
 
 /** Actor plus the display name used as `inviterName` in the invite request. */
 export type TeamActor = AdminActor & { name?: string };
 
 const MEMBER_SELECT = { id: true, email: true, name: true, role: true, isActive: true, createdAt: true } as const;
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
-}
 
 // ── guards ──────────────────────────────────────────────────────────────────
 
@@ -110,19 +107,17 @@ export async function addTeamMember(
     select: MEMBER_SELECT,
   });
 
-  // Send invite magic link email
-  await fetch(`${siteUrl()}/api/auth/admin/magic-link`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email: normalizedEmail,
-      isInvite: true,
-      inviterName: actor.name,
-      role,
-    }),
+  // Email the invite for THIS store (its host and branding). The member exists
+  // either way; `invite.sent` says truthfully whether the email went out.
+  const invite = await sendAdminInvite({
+    tenantId: db.$tenantId,
+    adminId: newAdmin.id,
+    email: normalizedEmail,
+    role,
+    inviterName: actor.name,
   });
 
-  return ok({ admin: newAdmin }, 201);
+  return ok({ admin: newAdmin, invite }, 201);
 }
 
 export async function previewAddTeamMember(
@@ -132,6 +127,7 @@ export async function previewAddTeamMember(
 ): Promise<ServiceResult<unknown>> {
   const checked = await checkAdd(db, actor, body);
   if ("ok" in checked) return checked;
+  const base = await adminBaseUrlForTenant(db.$tenantId);
   return ok({
     action: "add_admin",
     member: { name: body.name, email: checked.normalizedEmail, role: body.role, isActive: true },
@@ -139,10 +135,10 @@ export async function previewAddTeamMember(
       ? "ADMIN: full store admin access, including managing other ADMIN/EDITOR members."
       : "EDITOR: store admin access without team management.",
     inviteEmail: {
-      sent: true,
       to: checked.normalizedEmail,
-      kind: "Admin sign-in magic link",
-      via: `${siteUrl()}/api/auth/admin/magic-link`,
+      kind: "Admin sign-in link (valid 7 days), branded for this store",
+      signInHost: base ? new URL(base).host : null,
+      note: "The member is created even if the email fails; the result reports invite.sent.",
     },
   });
 }

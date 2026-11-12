@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${siteUrl}/api/admin/instagram/callback`;
 
   try {
+    await requireHouseAdminTenantId();
     const db = await getTenantPrismaForAdmin();
     // Exchange code for short-lived token
     const tokenRes = await fetch("https://api.instagram.com/oauth/access_token", {
@@ -62,6 +64,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(`${siteUrl}/admin/artisans/${artisanId}/edit?ig_connected=1`);
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("[IG callback]", err);
     return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=token_failed`);
   }

@@ -1,9 +1,9 @@
 /**
  * admin-services/returns.ts — return logic shared by /api/admin/returns/* and MCP.
  *
- * Extracted verbatim from the route handlers (behavior unchanged). The only
- * additions are optional `opts.idempotencyKey` (forwarded to Stripe; routes never
- * pass it) and read-only `preview*` functions used by MCP write tools.
+ * Extracted from the route handlers, plus read-only `preview*` functions used by
+ * MCP write tools. The refund path is idempotent on its own (see refundReturn),
+ * so route and MCP share one Stripe idempotency key per return.
  */
 import Stripe from "stripe";
 import { Resend } from "resend";
@@ -23,14 +23,6 @@ function getStripe() {
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: "2025-01-27.acacia",
   });
-}
-
-export interface StripeOpts {
-  idempotencyKey?: string;
-}
-
-function reqOpts(opts: StripeOpts | undefined, suffix: string): Stripe.RequestOptions | undefined {
-  return opts?.idempotencyKey ? { idempotencyKey: `${opts.idempotencyKey}_${suffix}` } : undefined;
 }
 
 // ── list / get ──────────────────────────────────────────────────────────────
@@ -416,7 +408,7 @@ export interface ReturnRefundBody {
 }
 
 async function refundGuard(db: TenantPrisma, id: string, body: ReturnRefundBody) {
-  if (body.amount === undefined || body.amount === null || body.amount < 0) {
+  if (typeof body.amount !== "number" || !Number.isInteger(body.amount) || body.amount < 0) {
     return fail(400, "Invalid refund amount");
   }
   const ret = await db.return.findUnique({
@@ -447,10 +439,70 @@ async function refundGuard(db: TenantPrisma, id: string, body: ReturnRefundBody)
     },
   });
   if (!ret) return fail(404, "Return not found");
+  // Status check before any money moves: a return is refunded at most once.
+  if (ret.status === "REFUNDED" || ret.stripeRefundId) {
+    return fail(409, "This return has already been refunded", {
+      refundAmount: ret.refundAmount,
+      stripeRefundId: ret.stripeRefundId,
+    });
+  }
   if (body.amount > ret.order.total) {
     return fail(400, "Refund amount cannot exceed order total");
   }
   return ok(ret);
+}
+
+type RefundGuarded = Extract<Awaited<ReturnType<typeof refundGuard>>, { ok: true }>["data"];
+
+interface RestockLine {
+  title: string;
+  variantTitle: string | null;
+  variantId: string | null;
+  increment: number;
+  /** null when the variant has no inventory row yet (one is created). */
+  currentQuantity: number | null;
+  newQuantity: number | null;
+  action: "increment" | "create_inventory" | "skip";
+  warning?: string;
+}
+
+/**
+ * Read-only restock plan. A variant with no inventory row gets one created with
+ * the returned quantity; a variant that no longer exists is skipped with a
+ * warning. Planning up front means the write transaction can't fail on it.
+ */
+async function planRestock(db: TenantPrisma, ret: RefundGuarded): Promise<RestockLine[]> {
+  const variantIds = ret.items.map((i) => i.orderItem.variantId).filter((v): v is string => !!v);
+  const [inv, variants] = await Promise.all([
+    db.inventory.findMany({ where: { variantId: { in: variantIds } }, select: { variantId: true, quantity: true } }),
+    db.productVariant.findMany({ where: { id: { in: variantIds } }, select: { id: true } }),
+  ]);
+  const qty = new Map(inv.map((r) => [r.variantId, r.quantity]));
+  const exists = new Set(variants.map((v) => v.id));
+  return ret.items.map((item) => {
+    const vId = item.orderItem.variantId;
+    const base = { title: item.orderItem.title, variantTitle: item.orderItem.variantTitle, variantId: vId };
+    if (!vId || !exists.has(vId)) {
+      return {
+        ...base,
+        increment: 0,
+        currentQuantity: null,
+        newQuantity: null,
+        action: "skip" as const,
+        warning: `Not restocked: "${item.orderItem.title}" has no product variant${vId ? ` (variant ${vId} was deleted)` : ""}.`,
+      };
+    }
+    const current = qty.get(vId);
+    if (current === undefined) {
+      return { ...base, increment: item.quantity, currentQuantity: null, newQuantity: item.quantity, action: "create_inventory" as const };
+    }
+    return { ...base, increment: item.quantity, currentQuantity: current, newQuantity: current + item.quantity, action: "increment" as const };
+  });
+}
+
+/** Stable Stripe idempotency key: one return is refunded at most once. */
+export function returnRefundIdempotencyKey(returnId: string): string {
+  return `return_refund_${returnId}`;
 }
 
 /**
@@ -464,13 +516,6 @@ export async function previewRefundReturn(db: TenantPrisma, id: string, body: Re
   if (!g.ok) return g;
   const ret = g.data;
   const order = ret.order;
-
-  if (ret.status === "REFUNDED" || ret.stripeRefundId) {
-    return fail(409, "This return has already been refunded", {
-      refundAmount: ret.refundAmount,
-      stripeRefundId: ret.stripeRefundId,
-    });
-  }
 
   let payment: Record<string, unknown>;
   if (!order.stripePaymentIntentId) {
@@ -505,30 +550,7 @@ export async function previewRefundReturn(db: TenantPrisma, id: string, body: Re
   const isPartial = body.amount < order.total;
   const newFinancialStatus = isPartial ? "PARTIALLY_REFUNDED" : "REFUNDED";
 
-  const restock: { title: string; variantTitle: string | null; variantId: string | null; increment: number; currentQuantity: number | null; newQuantity: number | null }[] = [];
-  if (body.restock) {
-    const variantIds = ret.items.map((i) => i.orderItem.variantId).filter((v): v is string => !!v);
-    const inv = await db.inventory.findMany({
-      where: { variantId: { in: variantIds } },
-      select: { variantId: true, quantity: true },
-    });
-    const byVariant = new Map(inv.map((r) => [r.variantId, r.quantity]));
-    for (const item of ret.items) {
-      const vId = item.orderItem.variantId;
-      const current = vId ? byVariant.get(vId) ?? null : null;
-      if (vId && current === null) {
-        return fail(409, `No inventory record for variant ${vId} ("${item.orderItem.title}"); restocking would fail after the refund is issued. Retry with restock false, or fix inventory first.`);
-      }
-      restock.push({
-        title: item.orderItem.title,
-        variantTitle: item.orderItem.variantTitle,
-        variantId: vId,
-        increment: vId ? item.quantity : 0,
-        currentQuantity: current,
-        newQuantity: current === null ? null : current + item.quantity,
-      });
-    }
-  }
+  const restock = body.restock ? await planRestock(db, ret) : null;
 
   const branding = await getEmailBranding(db.$tenantId);
   return ok({
@@ -545,7 +567,8 @@ export async function previewRefundReturn(db: TenantPrisma, id: string, body: Re
       statusChange: isPartial ? "none (partial refund keeps order status)" : "order status -> REFUNDED",
       derivation: `amount ${body.amount} ${isPartial ? "<" : ">="} order total ${order.total}`,
     },
-    restock: body.restock ? restock : "Not restocking",
+    restock: restock ?? "Not restocking",
+    ...(restock?.some((r) => r.warning) ? { warnings: restock.flatMap((r) => (r.warning ? [r.warning] : [])) } : {}),
     email: {
       to: order.email,
       subject: `Your refund has been issued — ${branding.storeName}`,
@@ -554,73 +577,131 @@ export async function previewRefundReturn(db: TenantPrisma, id: string, body: Re
   });
 }
 
-export async function refundReturn(db: TenantPrisma, id: string, body: ReturnRefundBody, opts?: StripeOpts) {
+/**
+ * Refund a return. Order of operations, so money and records can't disagree:
+ *   1. Guards (status check: never refund a REFUNDED return) and the restock plan.
+ *   2. Stripe refund with a key derived from the return id, so a retry or a
+ *      double submit replays the same refund instead of creating a second one.
+ *   3. One DB transaction: return, order, inventory rows + logs. If it fails
+ *      after Stripe succeeded, the response says so (moneyMoved) and a retry is
+ *      safe: step 2 replays and step 3 runs again.
+ *   4. Customer email. A send failure is reported, never turned into a 500.
+ */
+export async function refundReturn(db: TenantPrisma, id: string, body: ReturnRefundBody) {
   const g = await refundGuard(db, id, body);
   if (!g.ok) return g;
   const ret = g.data;
   const order = ret.order;
-  let stripeRefundId: string | undefined;
-  if (order.stripePaymentIntentId) {
-    const stripe = getStripe();
-    if (body.amount > 0) {
-      const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
-      const chargeId = pi.latest_charge as string;
-      const refund = await stripe.refunds.create({ charge: chargeId, amount: body.amount }, reqOpts(opts, "return_refund"));
+  const restock = body.restock ? await planRestock(db, ret) : [];
+  const warnings = restock.flatMap((r) => (r.warning ? [r.warning] : []));
+  for (const w of warnings) console.warn(`[returns] ${ret.id}: ${w}`);
+
+  let stripeRefundId: string | null = null;
+  if (order.stripePaymentIntentId && body.amount > 0) {
+    try {
+      const refund = await getStripe().refunds.create(
+        { payment_intent: order.stripePaymentIntentId, amount: body.amount, metadata: { returnId: ret.id, orderId: order.id } },
+        { idempotencyKey: returnRefundIdempotencyKey(ret.id) },
+      );
       stripeRefundId = refund.id;
+    } catch (err) {
+      console.error(`[returns] Stripe refund failed for return ${ret.id}:`, err);
+      const msg = err instanceof Error ? err.message : String(err);
+      return fail(502, `Stripe refund failed, nothing was changed: ${msg}`, { moneyMoved: false });
     }
   }
+
   const isPartial = body.amount < order.total;
   const newFinancialStatus = isPartial ? "PARTIALLY_REFUNDED" : "REFUNDED";
-  const [updated] = await Promise.all([
-    db.return.update({
-      where: { id },
-      data: {
-        status: "REFUNDED",
-        refundAmount: body.amount,
-        stripeRefundId: stripeRefundId ?? null,
-        resolvedAt: new Date(),
-        restockItems: body.restock,
-      },
-    }),
-    db.order.update({
-      where: { id: order.id },
-      data: {
-        financialStatus: newFinancialStatus,
-        // Full refund = order is refunded; partial = keep order status as-is
-        ...(isPartial ? {} : { status: "REFUNDED" }),
-      },
-    }),
-  ]);
-  // Restock inventory if requested
-  if (body.restock) {
-    for (const returnItem of ret.items) {
-      const orderItem = returnItem.orderItem;
-      if (orderItem.variantId) {
-        await db.inventory.update({
-          where: { variantId: orderItem.variantId },
-          data: { quantity: { increment: returnItem.quantity } },
+  const tenantId = db.$tenantId;
+  let updated;
+  try {
+    updated = await db.$transaction(async (tx) => {
+      // Conditional on status, so two concurrent requests record one refund.
+      const claimed = await tx.return.updateMany({
+        where: { id, status: { not: "REFUNDED" } },
+        data: {
+          status: "REFUNDED",
+          refundAmount: body.amount,
+          stripeRefundId,
+          resolvedAt: new Date(),
+          restockItems: body.restock,
+        },
+      });
+      if (claimed.count === 0) return null;
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          financialStatus: newFinancialStatus,
+          // Full refund = order is refunded; partial = keep order status as-is
+          ...(isPartial ? {} : { status: "REFUNDED" }),
+        },
+      });
+      for (const line of restock) {
+        if (line.action === "skip" || !line.variantId) continue;
+        const inv = await tx.inventory.upsert({
+          where: { variantId: line.variantId },
+          update: { quantity: { increment: line.increment } },
+          create: { tenantId, variantId: line.variantId, quantity: line.increment },
+        });
+        await tx.inventoryLog.create({
+          data: {
+            tenantId,
+            inventoryId: inv.id,
+            delta: line.increment,
+            reason: "Return restock",
+            note: `Return ${ret.id} (order ${order.orderNumber})${line.action === "create_inventory" ? "; inventory record created" : ""}`,
+          },
         });
       }
+      return tx.return.findUnique({ where: { id } });
+    });
+  } catch (err) {
+    console.error(`[returns] DB update failed after refund for return ${ret.id}:`, err);
+    if (stripeRefundId) {
+      return fail(500, `The Stripe refund ${stripeRefundId} was issued, but the store records could not be updated. Retrying is safe: it will not refund the customer again.`, {
+        moneyMoved: true,
+        stripeRefundId,
+      });
     }
+    throw err;
   }
-  const branding = await getEmailBranding(db.$tenantId);
-  const subject = `Your refund has been issued — ${branding.storeName}`;
-  const refundResult = await resend.emails.send({
-    from: branding.from,
-    to: order.email,
-    replyTo: branding.replyTo ?? branding.fromAddress,
-    subject,
-    html: refundIssuedHtml({
-      orderNumber: order.orderNumber,
-      email: order.email,
-      refundAmount: body.amount,
-      items: ret.items.map((item) => ({
-        title: item.orderItem.title,
-        variantTitle: item.orderItem.variantTitle ?? undefined,
-        quantity: item.quantity,
-      })),
-    }, branding),
+  if (!updated) {
+    return fail(409, "This return has already been refunded", { stripeRefundId });
+  }
+
+  let emailSent = true;
+  try {
+    const branding = await getEmailBranding(db.$tenantId);
+    const subject = `Your refund has been issued — ${branding.storeName}`;
+    const refundResult = await resend.emails.send({
+      from: branding.from,
+      to: order.email,
+      replyTo: branding.replyTo ?? branding.fromAddress,
+      subject,
+      html: refundIssuedHtml({
+        orderNumber: order.orderNumber,
+        email: order.email,
+        refundAmount: body.amount,
+        items: ret.items.map((item) => ({
+          title: item.orderItem.title,
+          variantTitle: item.orderItem.variantTitle ?? undefined,
+          quantity: item.quantity,
+        })),
+      }, branding),
+    });
+    if (refundResult.error) throw new Error(refundResult.error.message);
+    await logEmail({ tenantId: db.$tenantId, type: "REFUND_ISSUED", toEmail: order.email, fromEmail: branding.fromAddress, subject, resendId: refundResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+  } catch (err) {
+    emailSent = false;
+    console.error(`[returns] refund email failed for return ${ret.id}:`, err);
+  }
+  return ok({
+    return: updated,
+    stripeRefundId,
+    moneyMoved: !!stripeRefundId,
+    restocked: restock.filter((r) => r.action !== "skip"),
+    warnings,
+    emailSent,
   });
-  await logEmail({ tenantId: db.$tenantId, type: "REFUND_ISSUED", toEmail: order.email, fromEmail: branding.fromAddress, subject, resendId: refundResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
-  return ok({ return: updated });
 }

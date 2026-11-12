@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { deleteRate, updateRate, type RateUpdateBody } from "@/lib/admin-services/shipping";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; rateId: string }> }
@@ -13,6 +14,8 @@ export async function PUT(
     const body = await request.json() as RateUpdateBody;
     return toResponse(await updateRate(db, rateId, body));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PUT /api/admin/shipping/[id]/rates/[rateId] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -27,6 +30,8 @@ export async function DELETE(
     const { rateId } = await params;
     return toResponse(await deleteRate(db, rateId));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("DELETE /api/admin/shipping/[id]/rates/[rateId] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

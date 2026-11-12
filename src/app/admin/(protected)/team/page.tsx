@@ -63,7 +63,7 @@ function Modal({ onClose, children }: { onClose: () => void; children: React.Rea
 
 // ─── Invite Modal ─────────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
+function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (notice?: string) => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("EDITOR");
@@ -86,7 +86,10 @@ function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
         setLoading(false);
         return;
       }
-      onSuccess();
+      const invite = data.invite as { sent: boolean; error?: string } | undefined;
+      onSuccess(invite && !invite.sent
+        ? `${email.trim()} was added, but the invite email was not sent (${invite.error ?? "unknown error"}). They can sign in from the admin login page with this email.`
+        : undefined);
       onClose();
     } catch {
       setError("Network error. Please try again.");
@@ -316,6 +319,7 @@ export default function TeamPage() {
     | null
   >(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [notice, setNotice] = useState("");
 
   const loadTeam = useCallback(async () => {
     try {
@@ -365,6 +369,11 @@ export default function TeamPage() {
       `}</style>
 
       <div style={{ maxWidth: 760 }}>
+        {notice && (
+          <div role="alert" style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "#fdf3e7", border: "1px solid #e8c9a0", color: "#7a4a12", fontSize: 13, fontFamily: "'Inter',sans-serif" }}>
+            {notice}
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>
@@ -536,7 +545,10 @@ export default function TeamPage() {
       {/* Modals */}
       {modal?.type === "invite" && (
         <Modal onClose={() => setModal(null)}>
-          <InviteModal onClose={() => setModal(null)} onSuccess={loadTeam} />
+          <InviteModal
+            onClose={() => setModal(null)}
+            onSuccess={(msg) => { setNotice(msg ?? ""); void loadTeam(); }}
+          />
         </Modal>
       )}
       {modal?.type === "edit" && (

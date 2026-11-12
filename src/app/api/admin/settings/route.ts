@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { getSettings, updateSettings, updateEmailBranding } from "@/lib/admin-services/settings";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET() {
   try {
     const db = await getTenantPrismaForAdmin();
     return toResponse(await getSettings(db));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/settings error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -18,6 +21,8 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     return toResponse(await updateSettings(db, body));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("PUT /api/admin/settings error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -33,6 +38,8 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     return toResponse(await updateEmailBranding(db, body));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("PATCH /api/admin/settings error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

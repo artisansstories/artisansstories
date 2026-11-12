@@ -4,12 +4,13 @@
  * Extracted verbatim from the route handlers (behavior unchanged), plus
  * read-only `preview*` helpers and a merge helper used by MCP write tools.
  *
- * NOTE: the PUT route is a FULL replacement — any field missing from the body is
- * reset (to null / its default). MCP partial updates therefore go through
- * `mergeArtisanPatch`, which overlays the patch on the current record first.
+ * PUT semantics: a field absent from the body keeps its current value; a field
+ * sent as null is cleared (see FIELD_WRITERS). It used to be a full replacement,
+ * so every admin-form save nulled the fields the form doesn't send. MCP updates
+ * still go through `mergeArtisanPatch` for their before/after preview.
  */
 import { revalidatePath } from "next/cache";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { ok, fail } from "./result";
 
@@ -114,62 +115,84 @@ export async function previewCreateArtisan(db: TenantPrisma, body: ArtisanBody) 
 
 // ── update ──────────────────────────────────────────────────────────────────
 
+/**
+ * How each PUT field is written when it is present in the body. A field that is
+ * ABSENT keeps its current value; one sent as null (or "" for text) is cleared
+ * to null / its default. This is what lets the admin form, which never sends
+ * region, practicingSince, featuredPosts or socialEmbedCode, save without
+ * wiping them, while an explicit clear still works.
+ */
+const FIELD_WRITERS: Record<string, (v: unknown) => unknown> = {
+  name: (v) => v,
+  status: (v) => v ?? undefined,
+  tagline: (v) => v ?? null,
+  quote: (v) => v ?? null,
+  story: (v) => v ?? null,
+  heroImageUrl: (v) => v ?? null,
+  avatarUrl: (v) => v ?? null,
+  originCountry: (v) => v ?? "El Salvador",
+  city: (v) => v ?? null,
+  region: (v) => v ?? null,
+  craft: (v) => v ?? null,
+  practicingSince: (v) => {
+    if (v === null || v === undefined || v === "") return null;
+    const n = typeof v === "number" ? v : parseInt(String(v), 10);
+    return Number.isFinite(n) ? n : null;
+  },
+  letterToBuyer: (v) => v ?? null,
+  socialLinks: (v) => v ?? Prisma.DbNull,
+  featuredPosts: (v) => v ?? Prisma.DbNull,
+  showGallery: (v) => v ?? true,
+  socialEmbedCode: (v) => v ?? null,
+  socialLinksVisible: (v) => v ?? Prisma.DbNull,
+  storyLabel: (v) => v ?? null,
+  metaTitle: (v) => v ?? null,
+  metaDescription: (v) => v ?? null,
+  isFeatured: (v) => v ?? false,
+};
+
 export async function updateArtisan(db: TenantPrisma, id: string, body: ArtisanBody) {
   // Lock slug after first active publish
   const existing = await db.artisan.findUnique({ where: { id }, select: { slug: true, status: true } });
   if (!existing) return fail(404, "Not found");
   const slug = existing.status === "ACTIVE" ? existing.slug : (body.slug || existing.slug);
 
-  const updateData: Record<string, unknown> = {
-    slug,
-    name: body.name,
-    status: body.status,
-    tagline: body.tagline ?? null,
-    quote: body.quote ?? null,
-    story: body.story ?? null,
-    heroImageUrl: body.heroImageUrl ?? null,
-    avatarUrl: body.avatarUrl ?? null,
-    originCountry: body.originCountry ?? "El Salvador",
-    city: body.city ?? null,
-    region: body.region ?? null,
-    craft: body.craft ?? null,
-    practicingSince: body.practicingSince ? parseInt(body.practicingSince) : null,
-    letterToBuyer: body.letterToBuyer ?? null,
-    socialLinks: body.socialLinks ?? null,
-    featuredPosts: body.featuredPosts ?? null,
-    showGallery: body.showGallery ?? true,
-    socialEmbedCode: body.socialEmbedCode ?? null,
-    socialLinksVisible: body.socialLinksVisible ?? null,
-    storyLabel: body.storyLabel ?? null,
-    metaTitle: body.metaTitle ?? null,
-    metaDescription: body.metaDescription ?? null,
-    isFeatured: body.isFeatured ?? false,
-  };
-
-  await db.artisan.update({ where: { id }, data: updateData });
-
-  // Rebuild images
-  if (Array.isArray(body.images)) {
-    await db.artisanImage.deleteMany({ where: { artisanId: id } });
-    if (body.images.length > 0) {
-      await db.artisanImage.createMany({
-        data: body.images.map((img: Record<string, unknown>, i: number) => ({
-          artisanId: id,
-          url: img.url as string,
-          urlMedium: (img.urlMedium ?? null) as string | null,
-          urlThumb: (img.urlThumb ?? null) as string | null,
-          altText: (img.altText ?? null) as string | null,
-          caption: (img.caption ?? null) as string | null,
-          category: (img.category ?? "GALLERY") as string,
-          position: (img.position ?? i) as number,
-        })) as Prisma.ArtisanImageCreateManyInput[], // tenantId is stamped by the scoped client
-      });
-    }
+  const updateData: Record<string, unknown> = { slug };
+  for (const [field, write] of Object.entries(FIELD_WRITERS)) {
+    if (!Object.prototype.hasOwnProperty.call(body, field)) continue;
+    const value = write(body[field]);
+    if (value !== undefined) updateData[field] = value;
   }
 
-  const updated = await db.artisan.findUnique({
-    where: { id },
-    include: { images: { orderBy: { position: "asc" } }, products: true },
+  // Profile and gallery are saved together or not at all.
+  const tenantId = db.$tenantId;
+  const updated = await db.$transaction(async (tx) => {
+    await tx.artisan.update({ where: { id }, data: updateData });
+
+    // Rebuild images
+    if (Array.isArray(body.images)) {
+      await tx.artisanImage.deleteMany({ where: { artisanId: id } });
+      if (body.images.length > 0) {
+        await tx.artisanImage.createMany({
+          data: body.images.map((img: Record<string, unknown>, i: number) => ({
+            tenantId,
+            artisanId: id,
+            url: img.url as string,
+            urlMedium: (img.urlMedium ?? null) as string | null,
+            urlThumb: (img.urlThumb ?? null) as string | null,
+            altText: (img.altText ?? null) as string | null,
+            caption: (img.caption ?? null) as string | null,
+            category: (img.category ?? "GALLERY") as string,
+            position: (img.position ?? i) as number,
+          })) as Prisma.ArtisanImageCreateManyInput[],
+        });
+      }
+    }
+
+    return tx.artisan.findUnique({
+      where: { id },
+      include: { images: { orderBy: { position: "asc" } }, products: true },
+    });
   });
 
   // Bust Next.js cache so changes show immediately on the live site
@@ -180,7 +203,7 @@ export async function updateArtisan(db: TenantPrisma, id: string, body: ArtisanB
   return ok({ artisan: updated });
 }
 
-/** Fields the PUT route rewrites (everything except Instagram OAuth fields). */
+/** Fields the PUT route can write (everything except Instagram OAuth fields). */
 const UPDATABLE_FIELDS = [
   "slug", "name", "status", "tagline", "quote", "story", "heroImageUrl", "avatarUrl",
   "originCountry", "city", "region", "craft", "practicingSince", "letterToBuyer",

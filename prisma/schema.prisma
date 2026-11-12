@@ -162,6 +162,8 @@ model StoreSettings {
   adminLogoSize          Int      @default(280)
   productDisclaimer      String?  @default("Each piece is handcrafted by skilled artisans, making every item one-of-a-kind. Natural materials, hand-dyeing, weaving, and hand-finishing mean slight variations in color, texture, size, and pattern from piece to piece — and from the photos shown. These natural differences are not defects; they are the hallmark of authentic handmade craftsmanship and make your piece uniquely yours. We stand behind the quality of every item we sell.")
   mcpEnabled             Boolean  @default(false)
+  /// { stripeTaxEnabled, defaultTaxRate, nexusStates }. Null = defaults. See prisma/migrations/add_store_tax_settings.sql.
+  taxSettings            Json?
 
   @@unique([tenantId])
   @@index([tenantId])

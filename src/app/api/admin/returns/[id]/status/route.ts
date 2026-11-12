@@ -3,6 +3,7 @@ import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { ReturnStatus } from "@prisma/client";
 import { setReturnStatus } from "@/lib/admin-services/returns";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,6 +14,8 @@ export async function PATCH(
     const body = await request.json() as { status: ReturnStatus };
     return toResponse(await setReturnStatus(db, id, body.status));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PATCH /api/admin/returns/[id]/status error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

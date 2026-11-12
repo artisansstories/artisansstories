@@ -84,7 +84,7 @@ export const tools: McpTool[] = [
         .describe("Line items in this shipment (ids from orders_get)"),
     },
     preview: (ctx, a) => svc.previewFulfill(ctx.db, a.orderId, a),
-    execute: (ctx, { orderId, ...body }, x) => svc.fulfillOrder(ctx.db, orderId, body, { idempotencyKey: x.idempotencyKey }),
+    execute: (ctx, { orderId, ...body }) => svc.fulfillOrder(ctx.db, orderId, body),
   }),
 
   writeTool({
@@ -97,7 +97,7 @@ export const tools: McpTool[] = [
       "Cancel an order. If the payment was captured, the FULL amount is refunded via Stripe; if only authorized, the hold is released. Emails the customer a cancellation notice. The preview shows the exact payment action and email.",
     input: { orderId: zId("Order"), reason: z.string().describe("Cancellation reason (included in the customer email)") },
     preview: (ctx, a) => svc.previewCancel(ctx.db, a.orderId, a.reason),
-    execute: (ctx, a, x) => svc.cancelOrder(ctx.db, a.orderId, a.reason, { idempotencyKey: x.idempotencyKey }),
+    execute: (ctx, a) => svc.cancelOrder(ctx.db, a.orderId, a.reason),
   }),
 
   writeTool({
@@ -114,7 +114,7 @@ export const tools: McpTool[] = [
       reason: z.string().nullish().describe("Reason (recorded in the admin note)"),
     },
     preview: (ctx, a) => svc.previewRefund(ctx.db, a.orderId, a),
-    execute: (ctx, { orderId, ...body }, x) => svc.refundOrder(ctx.db, orderId, body, { idempotencyKey: x.idempotencyKey }),
+    execute: (ctx, { orderId, ...body }) => svc.refundOrder(ctx.db, orderId, body),
   }),
 
   writeTool({

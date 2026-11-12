@@ -8,6 +8,7 @@ import {
   type DiscountUpdateBody,
 } from "@/lib/admin-services/discounts";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 interface RouteContext {
   params: Promise<{ id: string }>;
 }
@@ -18,6 +19,8 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     return toResponse(await getDiscount(db, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -43,6 +46,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const body = await request.json() as { isActive: boolean };
     return toResponse(await setDiscountActive(db, id, body.isActive));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PATCH /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -54,6 +59,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     return toResponse(await deleteDiscount(db, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("DELETE /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

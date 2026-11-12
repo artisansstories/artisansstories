@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminSession } from "@/lib/admin-auth";
 import { checkProductImage, processProductImage } from "@/lib/admin-services/uploads";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse, requireAdminApiSession } from "@/lib/admin-api";
 
 export async function POST(request: NextRequest) {
   let session;
   try {
-    session = await requireAdminSession();
+    session = await requireAdminApiSession();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
       variantHint,
     }));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/upload error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

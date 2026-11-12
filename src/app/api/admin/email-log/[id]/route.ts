@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { getEmailLog } from "@/lib/admin-services/communications";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET(
   _request: NextRequest,
@@ -12,6 +13,8 @@ export async function GET(
     const { id } = await params;
     return toResponse(await getEmailLog(db, id));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/email-log/[id] error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

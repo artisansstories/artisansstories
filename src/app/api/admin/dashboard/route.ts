@@ -3,6 +3,7 @@ import { resolveTenantFromAdminSession } from "@/lib/tenant-context";
 import { getTenantPrisma } from "@/lib/tenant-prisma";
 import { getDashboard } from "@/lib/admin-services/dashboard";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET() {
   try {
@@ -13,6 +14,8 @@ export async function GET() {
     const db = getTenantPrisma(tenantId);
     return toResponse(await getDashboard(db));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/dashboard error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

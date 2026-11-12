@@ -3,6 +3,7 @@ import { getAdminSession } from "@/lib/admin-auth";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { refundOrder, type RefundBody } from "@/lib/admin-services/orders";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function POST(
   request: NextRequest,
@@ -17,6 +18,8 @@ export async function POST(
     const body = await request.json() as RefundBody;
     return toResponse(await refundOrder(db, id, body));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/orders/[id]/refund error:", err);
     const msg = err instanceof Error ? err.message : "Server error";
     return NextResponse.json({ error: msg }, { status: 500 });

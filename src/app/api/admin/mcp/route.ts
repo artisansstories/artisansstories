@@ -4,6 +4,7 @@ import { mcpGloballyEnabled } from "@/lib/mcp/config";
 import { getMcpAdmin } from "@/lib/mcp/admin-access";
 import { listMcpKeys } from "@/lib/mcp/keys";
 import { getTenantMcpFlag, setTenantMcpFlag } from "@/lib/mcp/tenant-flag";
+import { authErrorResponse } from "@/lib/admin-api";
 
 /**
  * /api/admin/mcp — AI Assistants settings for the signed-in admin's store.
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest) {
       keys,
     });
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/mcp error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -47,6 +50,8 @@ export async function PATCH(request: NextRequest) {
     }
     return NextResponse.json({ enabled: res.enabled });
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PATCH /api/admin/mcp error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { toResponse } from "@/lib/admin-services/http";
 import { getLandingPageSettings, saveLandingPageSettings } from "@/lib/admin-services/landing-page";
 import { resolveTenantFromAdminSession } from "@/lib/tenant-context";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET() {
   try {
     return toResponse(await getLandingPageSettings());
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("Failed to fetch landing page settings:", error);
     return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
   }
@@ -21,6 +24,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     return toResponse(await saveLandingPageSettings(tenantId, body));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("[Landing Page Settings] Failed to save:", error);
     return NextResponse.json({ error: "Failed to save settings" }, { status: 500 });
   }

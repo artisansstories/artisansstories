@@ -3,6 +3,7 @@ import { originFromRequest } from "@/lib/tenant-host";
 import { getMcpAdmin } from "@/lib/mcp/admin-access";
 import { mintMcpKey, type Assistant } from "@/lib/mcp/keys";
 import { setupMessage } from "@/lib/mcp/setup-messages";
+import { authErrorResponse } from "@/lib/admin-api";
 
 /**
  * POST /api/admin/mcp/keys — mint an MCP key for the admin's OWN store.
@@ -38,6 +39,8 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/mcp/keys error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

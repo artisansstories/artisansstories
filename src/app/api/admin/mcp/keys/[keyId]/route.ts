@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMcpAdmin } from "@/lib/mcp/admin-access";
 import { revokeMcpKey } from "@/lib/mcp/keys";
+import { authErrorResponse } from "@/lib/admin-api";
 
 /** DELETE /api/admin/mcp/keys/[keyId] — revoke one of this store's MCP keys. */
 export async function DELETE(
@@ -16,6 +17,8 @@ export async function DELETE(
     if (!revoked) return NextResponse.json({ error: "Key not found" }, { status: 404 });
     return NextResponse.json({ id: keyId, revoked: true });
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("DELETE /api/admin/mcp/keys/[keyId] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

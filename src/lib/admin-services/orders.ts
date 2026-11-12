@@ -1,9 +1,9 @@
 /**
  * admin-services/orders.ts — order logic shared by /api/admin/orders/* and MCP.
  *
- * Extracted verbatim from the route handlers (behavior unchanged). The only
- * additions are optional `opts.idempotencyKey` (forwarded to Stripe; routes never
- * pass it) and read-only `preview*` functions used by MCP write tools.
+ * Extracted from the route handlers, plus read-only `preview*` functions used by
+ * MCP write tools. Refund and cancel derive their Stripe idempotency keys from
+ * stable ids, so the route and MCP can't move money twice for one action.
  */
 import crypto from "crypto";
 import Stripe from "stripe";
@@ -23,14 +23,6 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
   apiVersion: "2025-01-27.acacia",
 });
-
-export interface StripeOpts {
-  idempotencyKey?: string;
-}
-
-function reqOpts(opts: StripeOpts | undefined, suffix: string): Stripe.RequestOptions | undefined {
-  return opts?.idempotencyKey ? { idempotencyKey: `${opts.idempotencyKey}_${suffix}` } : undefined;
-}
 
 // ── list / get ──────────────────────────────────────────────────────────────
 
@@ -229,11 +221,25 @@ export async function previewCancel(db: TenantPrisma, id: string, reason: string
       subject: `Your order ${order.orderNumber} has been cancelled`,
       type: refunded ? "ORDER_REFUNDED" : "ORDER_CANCELLED",
     },
-    note: "If the Stripe call fails, the order is still cancelled and the payment must be handled manually (same as the admin UI).",
+    note: "If the Stripe call fails, the order is still cancelled, the result reports paymentError, and the payment must be handled manually (same as the admin UI).",
   });
 }
 
-export async function cancelOrder(db: TenantPrisma, id: string, reason: string, opts?: StripeOpts) {
+/** Stable Stripe idempotency keys: an order is cancelled at most once. */
+export function orderCancelIdempotencyKey(orderId: string, action: "refund" | "void"): string {
+  return `order_cancel_${orderId}_${action}`;
+}
+
+/**
+ * Cancel an order. Status check first, then the Stripe action with a key derived
+ * from the order id (a retry or double submit replays, never refunds twice),
+ * then a status-conditional update so concurrent cancels record once.
+ *
+ * Unchanged product behavior: if the Stripe call fails the order is still
+ * cancelled and the payment needs manual handling. The response now says so
+ * (`paymentError`), instead of looking like a clean cancel.
+ */
+export async function cancelOrder(db: TenantPrisma, id: string, reason: string) {
   const order = await db.order.findUnique({ where: { id } });
   if (!order) return fail(404, "Order not found");
   if (order.status === "CANCELLED" || order.status === "REFUNDED") {
@@ -241,39 +247,35 @@ export async function cancelOrder(db: TenantPrisma, id: string, reason: string, 
   }
 
   let newFinancialStatus = order.financialStatus;
+  let paymentError: string | null = null;
 
   if (order.stripePaymentIntentId && order.financialStatus === "PAID") {
     // Payment already captured — issue a full refund
     try {
-      const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
-      const chargeId = pi.latest_charge as string;
-      if (chargeId) {
-        await stripe.refunds.create({ charge: chargeId, reason: "requested_by_customer" }, reqOpts(opts, "refund"));
-        newFinancialStatus = "REFUNDED";
-      }
+      await stripe.refunds.create(
+        { payment_intent: order.stripePaymentIntentId, reason: "requested_by_customer", metadata: { orderId: order.id } },
+        { idempotencyKey: orderCancelIdempotencyKey(order.id, "refund") },
+      );
+      newFinancialStatus = "REFUNDED";
     } catch (stripeErr) {
       console.error("Stripe refund error on cancel:", stripeErr);
+      paymentError = `Stripe refund failed: ${stripeErr instanceof Error ? stripeErr.message : String(stripeErr)}. Refund the customer manually.`;
     }
-  } else if (order.stripePaymentIntentId && order.financialStatus === "AUTHORIZED") {
-    // Authorized but not yet captured — cancel the hold (zero fee, no money moved)
+  } else if (order.stripePaymentIntentId && (order.financialStatus === "AUTHORIZED" || order.financialStatus === "PENDING")) {
+    // Authorized but not captured (or not yet paid): release the hold. No money moves.
     try {
-      await stripe.paymentIntents.cancel(order.stripePaymentIntentId, undefined, reqOpts(opts, "cancel"));
+      await stripe.paymentIntents.cancel(order.stripePaymentIntentId, undefined, {
+        idempotencyKey: orderCancelIdempotencyKey(order.id, "void"),
+      });
       newFinancialStatus = "VOIDED";
     } catch (stripeErr) {
       console.error("Stripe cancel error on cancel:", stripeErr);
-    }
-  } else if (order.stripePaymentIntentId && order.financialStatus === "PENDING") {
-    // Pre-payment void
-    try {
-      await stripe.paymentIntents.cancel(order.stripePaymentIntentId, undefined, reqOpts(opts, "void"));
-      newFinancialStatus = "VOIDED";
-    } catch (stripeErr) {
-      console.error("Stripe void error on cancel:", stripeErr);
+      paymentError = `Releasing the card authorization failed: ${stripeErr instanceof Error ? stripeErr.message : String(stripeErr)}. Release it manually in Stripe.`;
     }
   }
 
-  const updatedOrder = await db.order.update({
-    where: { id },
+  const claimed = await db.order.updateMany({
+    where: { id, status: { notIn: ["CANCELLED", "REFUNDED"] } },
     data: {
       status: "CANCELLED",
       financialStatus: newFinancialStatus,
@@ -281,13 +283,16 @@ export async function cancelOrder(db: TenantPrisma, id: string, reason: string, 
       cancelReason: reason,
     },
   });
+  if (claimed.count === 0) return fail(409, "Order was cancelled by another request");
+  const updatedOrder = await db.order.findUniqueOrThrow({ where: { id } });
+  const refunded = newFinancialStatus === "REFUNDED";
 
   // Send cancellation email
+  let emailSent = true;
   try {
     const customer = updatedOrder.customerId
       ? await db.customer.findUnique({ where: { id: updatedOrder.customerId }, select: { firstName: true } })
       : null;
-    const refunded = newFinancialStatus === "REFUNDED";
     const branding = await getEmailBranding(db.$tenantId);
     const html = orderCancelledHtml({
       orderNumber: updatedOrder.orderNumber,
@@ -304,13 +309,15 @@ export async function cancelOrder(db: TenantPrisma, id: string, reason: string, 
       subject: `Your order ${updatedOrder.orderNumber} has been cancelled`,
       html,
     });
+    if (result.error) throw new Error(result.error.message);
     const type = refunded ? "ORDER_REFUNDED" as const : "ORDER_CANCELLED" as const;
     await logEmail({ tenantId: db.$tenantId, type, toEmail: updatedOrder.email, fromEmail: branding.fromAddress, subject: `Your order ${updatedOrder.orderNumber} has been cancelled`, bodyHtml: html, resendId: result.data?.id, relatedId: updatedOrder.id, relatedType: "ORDER" });
   } catch (emailErr) {
+    emailSent = false;
     console.error("Failed to send cancellation email:", emailErr);
   }
 
-  return ok({ order: updatedOrder, refunded: newFinancialStatus === "REFUNDED" });
+  return ok({ order: updatedOrder, refunded, paymentError, emailSent });
 }
 
 // ── refund ──────────────────────────────────────────────────────────────────
@@ -353,7 +360,7 @@ export async function previewRefund(db: TenantPrisma, id: string, body: RefundBo
   }
   if (refundable <= 0) return fail(409, "This charge has already been fully refunded");
   const refundAmount = requested ?? refundable;
-  const isFullRefund = !requested || requested >= order.total;
+  const isFullRefund = refundAmount >= refundable;
   return ok({
     orderNumber: order.orderNumber,
     orderTotal: order.total,
@@ -369,45 +376,79 @@ export async function previewRefund(db: TenantPrisma, id: string, body: RefundBo
   });
 }
 
-export async function refundOrder(db: TenantPrisma, id: string, body: RefundBody, opts?: StripeOpts) {
+/**
+ * Stable Stripe idempotency key for an order refund. It is tied to the order row
+ * version (updatedAt) the admin acted on: a double submit or a retry after a
+ * failed DB write sees the same version and replays the same refund, while a
+ * later, deliberate refund (after the first was recorded) gets a new key.
+ */
+export function orderRefundIdempotencyKey(orderId: string, version: Date, amount: number | undefined): string {
+  return `order_refund_${orderId}_${version.getTime()}_${amount ?? "full"}`;
+}
+
+export async function refundOrder(db: TenantPrisma, id: string, body: RefundBody) {
   const g = await refundGuard(db, id);
   if (!g.ok) return g;
   const order = g.data;
+  const piId = order.stripePaymentIntentId as string;
 
-  // Get the charge from the PaymentIntent
-  const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId as string);
-  const chargeId = pi.latest_charge as string;
-  if (!chargeId) {
-    return fail(400, "No charge found on this payment");
-  }
-
-  // Refund amount: partial if specified, full if not
+  // Refund amount: partial if specified, full (remaining balance) if not
   const refundAmount = body.amount && body.amount > 0 ? body.amount : undefined;
 
-  const refund = await stripe.refunds.create({
-    charge: chargeId,
-    ...(refundAmount ? { amount: refundAmount } : {}),
-    reason: "requested_by_customer",
-  }, reqOpts(opts, "refund"));
+  let refund: Stripe.Refund;
+  try {
+    refund = await stripe.refunds.create({
+      payment_intent: piId,
+      ...(refundAmount ? { amount: refundAmount } : {}),
+      reason: "requested_by_customer",
+      metadata: { orderId: order.id },
+    }, { idempotencyKey: orderRefundIdempotencyKey(order.id, order.updatedAt, refundAmount) });
+  } catch (err) {
+    console.error(`Stripe refund failed for order ${order.orderNumber}:`, err);
+    return fail(502, `Stripe refund failed, nothing was changed: ${err instanceof Error ? err.message : String(err)}`, { moneyMoved: false });
+  }
 
-  // Determine new financial status
-  const isFullRefund = !refundAmount || refundAmount >= order.total;
+  // Full vs partial comes from the charge AFTER the refund, so the refund that
+  // empties the balance marks the order REFUNDED even if it was "partial".
+  let isFullRefund = !refundAmount || refundAmount >= order.total;
+  try {
+    const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+    const charge = pi.latest_charge as Stripe.Charge | string | null;
+    if (charge && typeof charge !== "string") {
+      isFullRefund = charge.refunded || charge.amount_refunded >= charge.amount;
+    }
+  } catch (err) {
+    console.error("Could not read the charge after refund; falling back to the order total:", err);
+  }
   const newFinancialStatus = isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED";
   const newStatus = isFullRefund ? "REFUNDED" : order.status;
+  const noteLine = `Refund issued: ${body.reason ?? "Admin initiated"} (${new Date().toLocaleDateString()})`;
 
-  await db.order.update({
-    where: { id },
-    data: {
-      financialStatus: newFinancialStatus,
-      status: newStatus,
-      updatedAt: new Date(),
-      adminNote: order.adminNote
-        ? `${order.adminNote}\n\nRefund issued: ${body.reason ?? "Admin initiated"} (${new Date().toLocaleDateString()})`
-        : `Refund issued: ${body.reason ?? "Admin initiated"} (${new Date().toLocaleDateString()})`,
-    },
-  });
+  try {
+    // Conditional on the version we acted on: a concurrent duplicate that
+    // replayed the same Stripe refund records nothing a second time.
+    const claimed = await db.order.updateMany({
+      where: { id, updatedAt: order.updatedAt },
+      data: {
+        financialStatus: newFinancialStatus,
+        status: newStatus,
+        adminNote: order.adminNote ? `${order.adminNote}\n\n${noteLine}` : noteLine,
+      },
+    });
+    if (claimed.count === 0) {
+      // Another request recorded this refund; don't email the customer twice.
+      return ok({ success: true, refundId: refund.id, amount: refund.amount, status: refund.status, financialStatus: newFinancialStatus, emailSent: false, alreadyRecorded: true });
+    }
+  } catch (err) {
+    console.error(`DB update failed after refund ${refund.id} for order ${order.orderNumber}:`, err);
+    return fail(500, `The Stripe refund ${refund.id} was issued, but the order could not be updated. Retrying is safe: it will not refund the customer again.`, {
+      moneyMoved: true,
+      refundId: refund.id,
+    });
+  }
 
   // Send refund notification email
+  let emailSent = true;
   try {
     const refundAmt = refund.amount;
     const branding = await getEmailBranding(db.$tenantId);
@@ -430,8 +471,10 @@ ${emailLogoHtml(branding)}</td></tr>
       subject: `Refund issued for order ${order.orderNumber}`,
       html,
     });
+    if (emailResult.error) throw new Error(emailResult.error.message);
     await logEmail({ tenantId: db.$tenantId, type: "ORDER_REFUNDED", toEmail: order.email, fromEmail: branding.fromAddress, subject: `Refund issued for order ${order.orderNumber}`, bodyHtml: html, resendId: emailResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
   } catch (emailErr) {
+    emailSent = false;
     console.error("Failed to send refund email:", emailErr);
   }
 
@@ -440,6 +483,9 @@ ${emailLogoHtml(branding)}</td></tr>
     refundId: refund.id,
     amount: refund.amount,
     status: refund.status,
+    financialStatus: newFinancialStatus,
+    emailSent,
+    alreadyRecorded: false,
   });
 }
 
@@ -484,50 +530,55 @@ export async function previewFulfill(db: TenantPrisma, id: string, body: Fulfill
   });
 }
 
-export async function fulfillOrder(db: TenantPrisma, id: string, body: FulfillBody, opts?: StripeOpts) {
+export async function fulfillOrder(db: TenantPrisma, id: string, body: FulfillBody) {
   const order = await db.order.findUnique({
     where: { id },
     include: { items: true },
   });
   if (!order) return fail(404, "Order not found");
-  // Create fulfillment record
-  const fulfillment = await db.fulfillment.create({
-    data: {
-      tenantId: db.$tenantId,
-      orderId: id,
-      status: "SUCCESS",
-      trackingCompany: body.trackingCompany,
-      trackingNumber: body.trackingNumber,
-      trackingUrl: body.trackingUrl ?? null,
-      shippedAt: new Date(),
-      estimatedDelivery: body.estimatedDelivery ? new Date(body.estimatedDelivery) : null,
-      notifyCustomer: body.notifyCustomer,
-      items: body.items,
-    },
-  });
-  // Update fulfillment status on order items
-  await Promise.all(
-    body.items.map((fi) =>
-      db.orderItem.update({
-        where: { id: fi.orderItemId },
-        data: { fulfillmentStatus: "fulfilled" },
-      })
-    )
-  );
-  // Check if all items are now fulfilled
-  const updatedItems = await db.orderItem.findMany({ where: { orderId: id } });
-  const allFulfilled = updatedItems.every((item) => item.fulfillmentStatus === "fulfilled");
+  const known = new Set(order.items.map((i) => i.id));
+  const unknownItems = (body.items ?? []).filter((i) => !known.has(i.orderItemId)).map((i) => i.orderItemId);
+  if (!body.items?.length) return fail(400, "Select at least one item to fulfill");
+  if (unknownItems.length) return fail(400, `Order item(s) not on this order: ${unknownItems.join(", ")}`);
 
-  // Capture payment if authorized (manual capture mode)
+  // Fulfillment record + item statuses land together or not at all.
+  const tenantId = db.$tenantId;
+  const { fulfillment, allFulfilled } = await db.$transaction(async (tx) => {
+    const fulfillment = await tx.fulfillment.create({
+      data: {
+        tenantId,
+        orderId: id,
+        status: "SUCCESS",
+        trackingCompany: body.trackingCompany,
+        trackingNumber: body.trackingNumber,
+        trackingUrl: body.trackingUrl ?? null,
+        shippedAt: new Date(),
+        estimatedDelivery: body.estimatedDelivery ? new Date(body.estimatedDelivery) : null,
+        notifyCustomer: body.notifyCustomer,
+        items: body.items,
+      },
+    });
+    await tx.orderItem.updateMany({
+      where: { orderId: id, id: { in: body.items.map((fi) => fi.orderItemId) } },
+      data: { fulfillmentStatus: "fulfilled" },
+    });
+    const updatedItems = await tx.orderItem.findMany({ where: { orderId: id } });
+    return { fulfillment, allFulfilled: updatedItems.every((item) => item.fulfillmentStatus === "fulfilled") };
+  });
+
+  // Capture payment if authorized (manual capture mode). The key is per order:
+  // a payment intent is captured once, so a retry replays instead of failing.
   let newFinancialStatus = order.financialStatus;
+  let paymentError: string | null = null;
   if (allFulfilled && order.financialStatus === "AUTHORIZED" && order.stripePaymentIntentId) {
     try {
-      await stripe.paymentIntents.capture(order.stripePaymentIntentId, undefined, reqOpts(opts, "capture"));
+      await stripe.paymentIntents.capture(order.stripePaymentIntentId, undefined, { idempotencyKey: `order_capture_${order.id}` });
       newFinancialStatus = "PAID";
       console.log(`Captured payment for order ${order.orderNumber}`);
     } catch (captureErr) {
       // Log but don't block fulfillment — handle manually if needed
       console.error("Failed to capture Stripe payment on fulfill:", captureErr);
+      paymentError = `Capturing the card payment failed: ${captureErr instanceof Error ? captureErr.message : String(captureErr)}. Capture it manually in Stripe.`;
     }
   }
 
@@ -543,6 +594,7 @@ export async function fulfillOrder(db: TenantPrisma, id: string, body: FulfillBo
     });
   }
   // Send shipped email
+  let emailSent = true;
   if (body.notifyCustomer) {
     const emailItems = order.items.map((item) => {
       const snapshot = item.productSnapshot as Record<string, unknown>;
@@ -587,12 +639,14 @@ export async function fulfillOrder(db: TenantPrisma, id: string, body: FulfillBo
         subject: `Your order ${order.orderNumber} has shipped!`,
         html: shippedHtml,
       });
+      if (shipResult.error) throw new Error(shipResult.error.message);
       await logEmail({ tenantId: db.$tenantId, type: "ORDER_SHIPPED", toEmail: order.email, fromEmail: branding.fromAddress, subject: `Your order ${order.orderNumber} has shipped!`, bodyHtml: shippedHtml, resendId: shipResult.data?.id, relatedId: order.id, relatedType: "ORDER" });
     } catch (emailErr) {
+      emailSent = false;
       console.error("Failed to send shipped email:", emailErr);
     }
   }
-  return ok({ fulfillment });
+  return ok({ fulfillment, paymentError, ...(body.notifyCustomer ? { emailSent } : {}) });
 }
 
 // ── resend confirmation email ───────────────────────────────────────────────

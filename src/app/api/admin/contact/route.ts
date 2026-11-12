@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { listContactMessages } from "@/lib/admin-services/contact";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +14,8 @@ export async function GET(request: NextRequest) {
 
     return toResponse(await listContactMessages(db, { page, limit, status }));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/contact error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }

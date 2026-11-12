@@ -3,12 +3,15 @@ import { getAdminSession } from "@/lib/admin-auth";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { addTeamMember, listTeam, teamManageDenied } from "@/lib/admin-services/team";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET() {
   try {
     const db = await getTenantPrismaForAdmin();
     return toResponse(await listTeam(db));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/team error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -29,6 +32,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as { name: string; email: string; role: string };
     return toResponse(await addTeamMember(db, actor, body));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/team error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

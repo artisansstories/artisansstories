@@ -13,6 +13,12 @@
 import { prisma } from "@/lib/prisma";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { ok, fail, type ServiceResult } from "./result";
+import { isLegacyTaxValue } from "./tax";
+
+/** Hide legacy "TAX:{json}" data that older code stored in the Pixel ID field. */
+function withRealPixel<T extends { facebookPixelId: string | null }>(settings: T): T {
+  return isLegacyTaxValue(settings.facebookPixelId) ? { ...settings, facebookPixelId: null } : settings;
+}
 
 /**
  * Read the per-tenant email branding fields off TenantTheme (a platform/global
@@ -52,7 +58,7 @@ export async function getSettings(db: TenantPrisma): Promise<ServiceResult<unkno
     // Create default if missing
     settings = await db.storeSettings.create({ data: {} as never });
   }
-  return ok({ ...settings, ...emailBranding });
+  return ok({ ...withRealPixel(settings), ...emailBranding });
 }
 
 /** Read-only variant for MCP: never creates a row. */
@@ -68,7 +74,7 @@ export async function readSettings(db: TenantPrisma): Promise<ServiceResult<unkn
       ...emailBranding,
     });
   }
-  return ok({ ...settings, ...emailBranding });
+  return ok({ ...withRealPixel(settings), ...emailBranding });
 }
 
 // ── PUT (StoreSettings) ─────────────────────────────────────────────────────

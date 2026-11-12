@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { deleteZone, getZone, updateZone, type ZoneUpdateBody } from "@/lib/admin-services/shipping";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -12,6 +13,8 @@ export async function GET(
     const { id } = await params;
     return toResponse(await getZone(db, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("GET /api/admin/shipping/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -27,6 +30,8 @@ export async function PUT(
     const body = await request.json() as ZoneUpdateBody;
     return toResponse(await updateZone(db, id, body));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PUT /api/admin/shipping/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -41,6 +46,8 @@ export async function DELETE(
     const { id } = await params;
     return toResponse(await deleteZone(db, id));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("DELETE /api/admin/shipping/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

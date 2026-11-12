@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { createRate, type RateCreateBody } from "@/lib/admin-services/shipping";
 import { toResponse } from "@/lib/admin-services/http";
+import { authErrorResponse } from "@/lib/admin-api";
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,6 +14,8 @@ export async function POST(
     const body = await request.json() as RateCreateBody;
     return toResponse(await createRate(db, zoneId, body));
   } catch (err) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/shipping/[id]/rates error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

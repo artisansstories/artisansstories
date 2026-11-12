@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminSession } from "@/lib/admin-auth";
+import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 // Step 1: Redirect to Instagram OAuth
 export async function GET(request: NextRequest) {
   try {
-    await requireAdminSession();
-  } catch {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    await requireHouseAdminTenantId();
+  } catch (err) {
+    const denied = authErrorResponse(err);
+    if (denied) return denied;
+    throw err;
   }
 
   const artisanId = request.nextUrl.searchParams.get("artisanId");

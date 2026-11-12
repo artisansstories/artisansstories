@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireAdminSession } from "@/lib/admin-auth";
 import { toResponse } from "@/lib/admin-services/http";
 import { uploadLandingPageImage } from "@/lib/admin-services/landing-page";
 import { resolveTenantFromAdminSession } from "@/lib/tenant-context";
+import { authErrorResponse, requireAdminApiSession } from "@/lib/admin-api";
 
 export async function POST(req: Request) {
   try {
-    await requireAdminSession();
+    await requireAdminApiSession();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -27,6 +27,8 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     return toResponse(await uploadLandingPageImage(tenantId, field, { buffer, name: file.name, type: file.type }));
   } catch (error) {
+    const unauthorized = authErrorResponse(error);
+    if (unauthorized) return unauthorized;
     console.error("R2 upload failed:", error);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
