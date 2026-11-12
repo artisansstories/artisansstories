@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkProductImage, processProductImage } from "@/lib/admin-services/uploads";
 import { toResponse } from "@/lib/admin-services/http";
-import { authErrorResponse, requireAdminApiSession } from "@/lib/admin-api";
+import { authErrorResponse, requireAdminTenantId } from "@/lib/admin-api";
 
 export async function POST(request: NextRequest) {
-  let session;
+  let tenantId: string;
   try {
-    session = await requireAdminApiSession();
+    // Tenant prefix is derived ONLY from the authenticated admin session — the same
+    // resolution the scoped Prisma client uses (the session's tenantId claim, else
+    // the admin's own record), so an operator impersonating a tenant writes under
+    // that tenant's prefix too. The request body can never steer it. A session
+    // whose tenant can't be resolved (e.g. deleted admin, no claim) is a 401: it
+    // must never fall back to the house store's flat key prefix.
+    tenantId = await requireAdminTenantId();
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  // Tenant prefix is derived ONLY from the authenticated admin session — the same
-  // source the scoped Prisma client keys off (`session.tenantId`), so an
-  // operator impersonating a tenant writes under that tenant's prefix too. The
-  // request body can never steer it. If tenant is unknown (legacy session minted
-  // before P2), fall back to the historical flat key so the upload still works.
-  const tenantId = session.tenantId;
   try {
     const formData = await request.formData();
     const file = formData.get("file");
