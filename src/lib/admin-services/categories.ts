@@ -80,6 +80,10 @@ export async function createCategory(db: TenantPrisma, body: CategoryCreateBody)
   if (!body.name) {
     return fail(400, "Name is required");
   }
+  // Same check as the preview: the FK alone accepted another store's category
+  // as parent, and a missing parent surfaced as a 500.
+  const parent = await parentGuard(db, body.parentId);
+  if (!parent.ok) return parent;
   const baseSlug = generateSlug(body.name);
   const slug = await makeUniqueSlug(db, baseSlug);
   const maxPosition = await db.category.aggregate({ _max: { position: true } });
@@ -163,6 +167,9 @@ export async function updateCategory(db: TenantPrisma, id: string, body: Categor
   if (!existing) {
     return fail(404, "Category not found");
   }
+  if (body.parentId === id) return fail(400, "A category cannot be its own parent");
+  const parent = await parentGuard(db, body.parentId);
+  if (!parent.ok) return parent;
   const updateData = await buildCategoryUpdate(db, id, body);
   const category = await db.category.update({
     where: { id },

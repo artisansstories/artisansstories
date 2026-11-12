@@ -189,14 +189,15 @@ function createGuard(body: ProductCreateBody): ServiceResult<null> {
 export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
   const g = createGuard(body);
   if (!g.ok) return g;
+  // Categories and artisan must exist in THIS store (the FK alone would accept
+  // another tenant's id, and a missing id surfaced as a 500).
+  const refs = await referenceGuard(db, body);
+  if (!refs.ok) return refs;
   const baseSlug = generateSlug(body.name);
   const slug = await makeUniqueSlug(db, baseSlug);
   // The artisan link (join row + denormalized name) is part of the same create,
   // so a bad artisanId leaves no half-created product behind.
-  const artisan = body.artisanId
-    ? await db.artisan.findUnique({ where: { id: body.artisanId }, select: { id: true, name: true } })
-    : null;
-  if (body.artisanId && !artisan) return fail(400, `Artisan not found: ${body.artisanId}`);
+  const artisan = body.artisanId ? { id: body.artisanId, name: refs.data.artisanName } : null;
   const product = await db.product.create({
     data: {
       tenantId: db.$tenantId,
@@ -273,8 +274,16 @@ export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
       variants: { include: { inventory: true } },
       options: true,
     },
+  }).catch((err: unknown) => {
+    if (isUniqueViolation(err)) return null;
+    throw err;
   });
+  if (!product) return fail(409, "SKU is already used by another product in this store");
   return ok({ product }, 201);
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return (err as { code?: string })?.code === "P2002";
 }
 
 /** Read-only checks for references the route would otherwise hit as a mid-write FK error. */
@@ -439,6 +448,10 @@ export async function updateProduct(db: TenantPrisma, id: string, body: ProductU
   if (!existing) {
     return fail(404, "Product not found");
   }
+  // Same reference checks as the preview: categories/artisan must exist in THIS
+  // store. The FK alone accepted another tenant's category or artisan id.
+  const refs = await referenceGuard(db, body);
+  if (!refs.ok) return refs;
   const slug = await resolveSlug(db, id, existing, body);
   const updateData = scalarUpdateData(body, existing.slug, slug);
   const tenantId = db.$tenantId;
@@ -453,8 +466,7 @@ export async function updateProduct(db: TenantPrisma, id: string, body: ProductU
       if (body.artisanId) {
         await tx.productArtisan.create({ data: { tenantId, productId: id, artisanId: body.artisanId } });
         // Backfill denormalized artisanName for backward compat
-        const artisan = await tx.artisan.findUnique({ where: { id: body.artisanId }, select: { name: true } });
-        if (artisan) updateData.artisanName = artisan.name;
+        updateData.artisanName = refs.data.artisanName;
       } else {
         updateData.artisanName = null;
       }
@@ -562,6 +574,8 @@ export async function updateProduct(db: TenantPrisma, id: string, body: ProductU
     if (err instanceof ProductUpdateError) return err;
     // Unknown category/artisan id → FK violation; nothing was written.
     if ((err as { code?: string })?.code === "P2003") return new ProductUpdateError(400, "A referenced category, artisan or variant does not exist");
+    // Duplicate product/variant SKU (unique per store); the transaction rolled back.
+    if (isUniqueViolation(err)) return new ProductUpdateError(409, "SKU is already used by another product or variant in this store");
     throw err;
   });
   if (product instanceof ProductUpdateError) return fail(product.status, product.message);
@@ -764,6 +778,9 @@ const DEFAULT_MONOGRAM_CONFIG = {
 };
 
 export async function getProductAddons(db: TenantPrisma, id: string) {
+  if (!(await db.product.findUnique({ where: { id }, select: { id: true } }))) {
+    return fail(404, "Product not found");
+  }
   const addons = await db.productAddon.findMany({
     where: { productId: id },
     orderBy: { sortOrder: "asc" },
@@ -846,8 +863,11 @@ export async function generateSku(db: TenantPrisma, body: GenerateSkuBody) {
 
   if (type === "variant") {
     if (!productSku) return fail(400, "productSku required");
+    // The option suffix is deterministic, so retrying it alone can never escape a
+    // collision; number the retries instead (…-BLU, …-BLU-2, …-BLU-3).
+    const base = generateVariantSKU(productSku, optionValues ?? []);
     for (let i = 0; i < 10; i++) {
-      const sku = generateVariantSKU(productSku, optionValues ?? []);
+      const sku = i === 0 ? base : `${base}-${i + 1}`;
       const existing = await db.productVariant.findFirst({ where: { sku } });
       if (!existing) return ok({ sku });
     }

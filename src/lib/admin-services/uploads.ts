@@ -118,14 +118,21 @@ export async function processProductImage(input: ProductImageUpload) {
       return fail(400, "Failed to convert HEIC image.");
     }
   }
-  // Process images with sharp
-  const sharpInstance = sharp(buffer);
-  const metadata = await sharpInstance.metadata();
-  const [fullBuffer, mediumBuffer, thumbBuffer] = await Promise.all([
-    sharp(buffer).resize({ width: 2000, withoutEnlargement: true }).webp({ quality: 85 }).toBuffer(),
-    sharp(buffer).resize({ width: 800, withoutEnlargement: true }).webp({ quality: 85 }).toBuffer(),
-    sharp(buffer).resize({ width: 300, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
-  ]);
+  // Process images with sharp. Bytes that aren't a decodable image (wrong or
+  // spoofed content type) are the caller's mistake, not a server error.
+  let metadata: sharp.Metadata;
+  let fullBuffer: Buffer, mediumBuffer: Buffer, thumbBuffer: Buffer;
+  try {
+    metadata = await sharp(buffer).metadata();
+    [fullBuffer, mediumBuffer, thumbBuffer] = await Promise.all([
+      sharp(buffer).resize({ width: 2000, withoutEnlargement: true }).webp({ quality: 85 }).toBuffer(),
+      sharp(buffer).resize({ width: 800, withoutEnlargement: true }).webp({ quality: 85 }).toBuffer(),
+      sharp(buffer).resize({ width: 300, withoutEnlargement: true }).webp({ quality: 80 }).toBuffer(),
+    ]);
+  } catch (imgErr) {
+    console.error("Image processing failed:", imgErr);
+    return fail(400, "Could not read the image. Upload a valid JPEG, PNG, WebP or HEIC file.");
+  }
   const timestamp = Date.now();
   const random = Math.random().toString(36).slice(2, 8);
   const baseName = tenantId
@@ -147,13 +154,19 @@ export async function processProductImage(input: ProductImageUpload) {
     });
   }
   // Run R2 upload and AI alt text generation in parallel
-  const [,,,altTextResult] = await Promise.allSettled([
+  const [fullPut, mediumPut, thumbPut, altTextResult] = await Promise.allSettled([
     putObject(fullKey, fullBuffer, "image/webp"),
     putObject(mediumKey, mediumBuffer, "image/webp"),
     putObject(thumbKey, thumbBuffer, "image/webp"),
     generateAltText(thumbBuffer, { productName, artisanName, variantHint }),
   ]);
-  // Throw if any R2 upload failed (alt text failure is fine)
+  // Any failed R2 write means the returned URLs would be dead: report it
+  // (alt text failure is fine).
+  const failedPut = [fullPut, mediumPut, thumbPut].find((r) => r.status === "rejected");
+  if (failedPut) {
+    console.error("R2 upload failed:", (failedPut as PromiseRejectedResult).reason);
+    return fail(502, "Image storage failed, so the image was not saved. Try again.");
+  }
   const altText = altTextResult.status === "fulfilled" ? altTextResult.value : null;
 
   return ok({
