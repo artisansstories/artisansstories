@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { generateProductSKU, generateVariantSKU } from "@/lib/sku";
 import { ok, fail, type ServiceResult } from "./result";
+import { fallbackAltText } from "./uploads";
 
 function generateSlug(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -240,7 +241,7 @@ export async function createProduct(db: TenantPrisma, body: ProductCreateBody) {
               url: img.url,
               urlMedium: img.urlMedium ?? null,
               urlThumb: img.urlThumb ?? null,
-              altText: img.altText ?? null,
+              altText: img.altText?.trim() || fallbackAltText(body.name, (img.position ?? i) + 1),
               position: img.position ?? i,
               isDefault: img.isDefault ?? i === 0,
               variantId: img.variantId ?? null,
@@ -455,6 +456,7 @@ export async function updateProduct(db: TenantPrisma, id: string, body: ProductU
   const slug = await resolveSlug(db, id, existing, body);
   const updateData = scalarUpdateData(body, existing.slug, slug);
   const tenantId = db.$tenantId;
+  const existingName = existing.name;
 
   // Every write below (artisan link, options, variants + inventory, images,
   // product row) commits together or not at all. A failure halfway used to
@@ -554,7 +556,7 @@ export async function updateProduct(db: TenantPrisma, id: string, body: ProductU
         url: img.url,
         urlMedium: img.urlMedium ?? null,
         urlThumb: img.urlThumb ?? null,
-        altText: img.altText ?? null,
+        altText: img.altText?.trim() || fallbackAltText(body.name ?? existingName, (img.position ?? i) + 1),
         position: img.position ?? i,
         isDefault: img.isDefault ?? i === 0,
         // If variantId is a valid existing variant ID, use it; otherwise null

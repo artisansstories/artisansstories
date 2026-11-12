@@ -410,14 +410,16 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
         showToast(err.error ?? "Upload failed", true);
         return;
       }
-      const data = await res.json() as { url: string; urlThumb: string; urlMedium: string; width: number; height: number; size: number; altText?: string | null };
+      const data = await res.json() as { url: string; urlThumb: string; urlMedium: string; width: number; height: number; size: number; altText?: string | null; altTextSource?: "ai" | "fallback" };
       setImages((prev) => {
         const isFirst = prev.length === 0;
         return [...prev, {
           url: data.url,
           urlThumb: data.urlThumb,
           urlMedium: data.urlMedium,
-          altText: data.altText ?? null, // AI-generated, overridable
+          // AI-generated, overridable. When the AI is unavailable the server
+          // sends a fallback; number it by where the image actually lands.
+          altText: data.altTextSource === "fallback" ? `${name.trim() || "Product"} — image ${prev.length + 1}` : data.altText ?? null,
           position: prev.length,
           isDefault: isFirst,
           width: data.width,
@@ -483,6 +485,25 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
       next[0].isDefault = true;
     }
     setImages(next);
+  }
+
+  const [regeneratingAlt, setRegeneratingAlt] = useState(false);
+  async function regenerateAltText() {
+    if (!product?.id) return;
+    setRegeneratingAlt(true);
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}/alt-text`, { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const data = await res.json() as { error?: string; images?: Array<{ url: string; altText: string }>; regenerated?: number; note?: string };
+      if (!res.ok) {
+        showToast(data.error ?? "Could not regenerate alt text", true);
+        return;
+      }
+      const byUrl = new Map((data.images ?? []).map((i) => [i.url, i.altText]));
+      setImages((prev) => prev.map((img) => (byUrl.has(img.url) ? { ...img, altText: byUrl.get(img.url) ?? img.altText } : img)));
+      showToast(data.regenerated ? `Updated alt text on ${data.regenerated} image${data.regenerated === 1 ? "" : "s"}` : data.note ?? "The AI isn't available right now; alt text unchanged.", !data.regenerated);
+    } finally {
+      setRegeneratingAlt(false);
+    }
   }
 
   function updateAltText(index: number, text: string) {
@@ -836,6 +857,21 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
               </div>
             )}
 
+            {/* Images saved with the automatic fallback alt text: ask the AI again */}
+            {isEdit && images.some((img) => !img.altText?.trim() || / — image \d+$/.test(img.altText)) && (
+              <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#7a6852", fontFamily: "'Inter', sans-serif" }}>
+                <span>Some images use the automatic alt text.</span>
+                <button
+                  type="button"
+                  disabled={regeneratingAlt}
+                  onClick={regenerateAltText}
+                  style={{ padding: "4px 10px", borderRadius: 6, border: "1px solid #e0d5c5", background: "#fff", color: "#8B6914", fontSize: 12, cursor: regeneratingAlt ? "not-allowed" : "pointer" }}
+                >
+                  {regeneratingAlt ? "Asking AI..." : "Retry AI alt text"}
+                </button>
+              </div>
+            )}
+
             {/* Image grid — drag to reorder */}
             {images.length > 0 && (
               <DragDropContext onDragEnd={onImageDragEnd}>
@@ -894,7 +930,7 @@ export default function ProductForm({ product, artisans = [] }: ProductFormProps
                                   type="text"
                                   value={img.altText ?? ""}
                                   onChange={(e) => updateAltText(idx, e.target.value)}
-                                  placeholder="AI-generating alt text..."
+                                  placeholder="Alt text (describe the image)"
                                   style={{ width: "100%", border: "1px solid #ede8df", borderRadius: 5, padding: "4px 7px", fontSize: 11, fontFamily: "'Inter', sans-serif", color: "#3a2e24", outline: "none", marginBottom: 6, boxSizing: "border-box" }}
                                 />
                                 {variants.length > 0 && (

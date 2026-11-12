@@ -6,18 +6,39 @@
  * HEIC→JPEG conversion, sharp webp variants (full/medium/thumb), R2 upload, AI
  * alt text, and mock URLs when R2 is not configured.
  *
+ * Alt text never blocks or fails an upload or a product save. If OpenRouter is
+ * unconfigured, slow (8s timeout) or fails, the image gets a fallback alt text
+ * ("<product name> — image <n>"), a warning is logged, and
+ * regenerateProductAltText can retry the AI later.
+ *
  * `tenantId` MUST come from the authenticated admin session (route) or the MCP
  * context — never from request input. It only selects the storage key prefix.
  */
 import sharp from "sharp";
 import heicConvert from "heic-convert";
 import { putObject, publicUrl, isR2Configured } from "@/lib/r2";
+import type { TenantPrisma } from "@/lib/tenant-prisma";
+import { fetchRemoteImage } from "@/lib/mcp/fetch-image";
 import { ok, fail } from "./result";
 
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
 export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // ─── AI Alt Text ─────────────────────────────────────────────────────────────
+
+export const ALT_TEXT_TIMEOUT_MS = 8000;
+
+/** Alt text used when the AI isn't available: product name plus position. */
+export function fallbackAltText(productName: string | undefined | null, position?: number): string {
+  const name = productName?.trim() || "Product";
+  return position && position > 0 ? `${name} — image ${position}` : `${name} image`;
+}
+
+/** True for alt text that came from fallbackAltText (or is missing). */
+export function isFallbackAltText(alt: string | null | undefined): boolean {
+  return !alt?.trim() || / — image \d+$/.test(alt) || / image$/.test(alt);
+}
+
 // Calls Gemini Flash via OpenRouter with the thumb image + product context
 // Returns a concise, SEO-friendly alt text string, or null on failure
 async function generateAltText(
@@ -25,7 +46,10 @@ async function generateAltText(
   context: { productName?: string; artisanName?: string; variantHint?: string }
 ): Promise<string | null> {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    console.warn("[alt-text] OPENROUTER_API_KEY is not set; using fallback alt text.");
+    return null;
+  }
   try {
     const base64 = thumbBuffer.toString("base64");
     const contextParts: string[] = [];
@@ -41,6 +65,8 @@ async function generateAltText(
         "Content-Type": "application/json",
         "HTTP-Referer": "https://artisansstories.com",
       },
+      // A hung provider must not hold the upload open.
+      signal: AbortSignal.timeout(ALT_TEXT_TIMEOUT_MS),
       body: JSON.stringify({
         model: "google/gemini-2.0-flash-001",
         max_tokens: 80,
@@ -59,12 +85,18 @@ async function generateAltText(
         }],
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[alt-text] OpenRouter returned ${res.status}; using fallback alt text.`);
+      return null;
+    }
     const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
     const text = data.choices?.[0]?.message?.content?.trim();
-    return text ?? null;
-  } catch {
-    return null; // never block upload on alt text failure
+    if (!text) console.warn("[alt-text] OpenRouter returned no text; using fallback alt text.");
+    return text || null;
+  } catch (err) {
+    // never block upload on alt text failure
+    console.warn(`[alt-text] OpenRouter call failed (${err instanceof Error ? err.message : String(err)}); using fallback alt text.`);
+    return null;
   }
 }
 
@@ -79,6 +111,8 @@ export interface ProductImageUpload {
   productName?: string;
   artisanName?: string;
   variantHint?: string;
+  /** 1-based position of the image on the product, for the fallback alt text. */
+  position?: number;
 }
 
 function isHeicByExt(fileName: string): boolean {
@@ -99,7 +133,7 @@ export function checkProductImage(input: Pick<ProductImageUpload, "contentType" 
 }
 
 export async function processProductImage(input: ProductImageUpload) {
-  const { tenantId, productName, artisanName, variantHint, contentType } = input;
+  const { tenantId, productName, artisanName, variantHint, contentType, position } = input;
   let buffer = input.buffer;
   const check = checkProductImage({ contentType, fileName: input.fileName, size: buffer.byteLength });
   if (!check.ok) return check;
@@ -151,6 +185,8 @@ export async function processProductImage(input: ProductImageUpload) {
       width: metadata.width ?? null,
       height: metadata.height ?? null,
       size: buffer.byteLength,
+      altText: fallbackAltText(productName, position),
+      altTextSource: "fallback" as const,
     });
   }
   // Run R2 upload and AI alt text generation in parallel
@@ -167,7 +203,7 @@ export async function processProductImage(input: ProductImageUpload) {
     console.error("R2 upload failed:", (failedPut as PromiseRejectedResult).reason);
     return fail(502, "Image storage failed, so the image was not saved. Try again.");
   }
-  const altText = altTextResult.status === "fulfilled" ? altTextResult.value : null;
+  const aiAlt = altTextResult.status === "fulfilled" ? altTextResult.value : null;
 
   return ok({
     url: publicUrl(fullKey),
@@ -176,6 +212,62 @@ export async function processProductImage(input: ProductImageUpload) {
     width: metadata.width ?? null,
     height: metadata.height ?? null,
     size: buffer.byteLength,
-    altText: altText ?? null,
+    altText: aiAlt ?? fallbackAltText(productName, position),
+    altTextSource: aiAlt ? ("ai" as const) : ("fallback" as const),
+  });
+}
+
+// ─── Regenerate alt text later ───────────────────────────────────────────────
+
+async function altTargets(db: TenantPrisma, productId: string, all: boolean) {
+  const product = await db.product.findUnique({
+    where: { id: productId },
+    select: { id: true, name: true, artisanName: true, images: { orderBy: { position: "asc" }, select: { id: true, url: true, urlThumb: true, altText: true, position: true } } },
+  });
+  if (!product) return fail(404, "Product not found");
+  const images = product.images.filter((img) => all || isFallbackAltText(img.altText));
+  return ok({ product, images });
+}
+
+export async function previewRegenerateAltText(db: TenantPrisma, productId: string, all = false) {
+  const t = await altTargets(db, productId, all);
+  if (!t.ok) return t;
+  return ok({
+    product: { id: t.data.product.id, name: t.data.product.name },
+    images: t.data.images.map((i) => ({ id: i.id, currentAltText: i.altText })),
+    aiConfigured: !!process.env.OPENROUTER_API_KEY,
+    effect: t.data.images.length
+      ? "Asks the AI for a new alt text for each image listed. Images where the AI fails keep their current text (or get the fallback). The product and its images are otherwise unchanged."
+      : "Nothing to do: every image already has a custom or AI alt text. Pass all=true to redo them anyway.",
+  });
+}
+
+/**
+ * Ask the AI again for images that only have fallback alt text (or every
+ * image with `all`). Never fails because of the AI: images it can't describe
+ * keep their text, or get the fallback if they had none.
+ */
+export async function regenerateProductAltText(db: TenantPrisma, productId: string, all = false) {
+  const t = await altTargets(db, productId, all);
+  if (!t.ok) return t;
+  const { product, images } = t.data;
+  const results: Array<{ id: string; url: string; altText: string; source: "ai" | "fallback" | "unchanged" }> = [];
+  for (const img of images) {
+    const position = img.position + 1;
+    let ai: string | null = null;
+    const fetched = await fetchRemoteImage(img.urlThumb ?? img.url);
+    if (fetched.ok) ai = await generateAltText(fetched.image.buffer, { productName: product.name, artisanName: product.artisanName ?? undefined });
+    else console.warn(`[alt-text] could not fetch image ${img.id} to describe it: ${fetched.error}`);
+    const next = ai ?? (img.altText?.trim() ? img.altText : fallbackAltText(product.name, position));
+    const source = ai ? "ai" : next === img.altText ? "unchanged" : "fallback";
+    if (next !== img.altText) await db.productImage.update({ where: { id: img.id }, data: { altText: next } });
+    results.push({ id: img.id, url: img.url, altText: next, source });
+  }
+  const aiCount = results.filter((r) => r.source === "ai").length;
+  return ok({
+    productId: product.id,
+    images: results,
+    regenerated: aiCount,
+    ...(aiCount < results.length ? { note: "Some images kept their fallback alt text because the AI wasn't available. Try again later, or type the alt text in the product form." } : {}),
   });
 }

@@ -23,6 +23,9 @@ export async function POST(request: NextRequest) {
     const productName = formData.get("productName")?.toString() ?? undefined;
     const artisanName = formData.get("artisanName")?.toString() ?? undefined;
     const variantHint = formData.get("variantHint")?.toString() ?? undefined;
+    // 1-based image position, for the fallback alt text when the AI is unavailable
+    const positionRaw = parseInt(formData.get("position")?.toString() ?? "", 10);
+    const position = Number.isInteger(positionRaw) && positionRaw > 0 ? positionRaw : undefined;
     if (!file || typeof file === "string") {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
@@ -41,6 +44,7 @@ export async function POST(request: NextRequest) {
       productName,
       artisanName,
       variantHint,
+      position,
     }));
   } catch (err) {
     const unauthorized = authErrorResponse(err);

@@ -8,7 +8,7 @@ import { fetchRemoteImage, assertPublicHttpsUrl } from "../fetch-image";
 import * as products from "@/lib/admin-services/products";
 import * as categories from "@/lib/admin-services/categories";
 import * as inventory from "@/lib/admin-services/inventory";
-import { processProductImage } from "@/lib/admin-services/uploads";
+import { processProductImage, previewRegenerateAltText, regenerateProductAltText } from "@/lib/admin-services/uploads";
 import { fail } from "@/lib/admin-services/result";
 
 const PRODUCT_STATUS = ["DRAFT", "ACTIVE", "ARCHIVED"] as const;
@@ -239,6 +239,7 @@ export const tools: McpTool[] = [
       productName: z.string().nullish().describe("Product name, used as alt-text context"),
       artisanName: z.string().nullish().describe("Artisan name, used as alt-text context"),
       variantHint: z.string().nullish().describe("Variant description, used as alt-text context"),
+      position: z.number().int().min(1).nullish().describe("1-based image position on the product, used in the fallback alt text when the AI is unavailable"),
     },
     preview: async (_ctx, a) => {
       try {
@@ -263,8 +264,24 @@ export const tools: McpTool[] = [
         productName: a.productName,
         artisanName: a.artisanName,
         variantHint: a.variantHint,
+        position: a.position,
       });
     },
+  }),
+
+  writeTool({
+    name: "products_regenerate_alt_text",
+    title: "Regenerate product image alt text",
+    kind: "write",
+    idempotent: true,
+    description:
+      "Ask the AI again for alt text on a product's images that only have the automatic fallback (\"<product name> — image <n>\"), or on every image with all=true. Images the AI can't describe keep their current text. Never fails because the AI is unavailable.",
+    input: {
+      productId: zId("Product"),
+      all: z.boolean().nullish().describe("Redo every image, not just fallback ones (default false)"),
+    },
+    preview: (ctx, a) => previewRegenerateAltText(ctx.db, a.productId, a.all ?? false),
+    execute: (ctx, a) => regenerateProductAltText(ctx.db, a.productId, a.all ?? false),
   }),
 
   // ── categories ────────────────────────────────────────────────────────────

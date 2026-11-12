@@ -162,6 +162,29 @@ async function buildCategoryUpdate(db: TenantPrisma, id: string, body: CategoryU
   return updateData;
 }
 
+/**
+ * Refuse a parent that would make a loop: the category itself, or any of its
+ * own sub-categories at any depth (A → B → A, A → B → C → A). Walks up from the
+ * new parent; the visited set also stops on loops already in old data.
+ */
+async function cycleGuard(db: Pick<TenantPrisma, "category">, id: string, parentId: string | null | undefined) {
+  if (!parentId) return ok(null);
+  const all = await db.category.findMany({ select: { id: true, name: true, parentId: true } });
+  const byId = new Map(all.map((c) => [c.id, c]));
+  const self = byId.get(id);
+  const chain: string[] = [];
+  const seen = new Set<string>();
+  for (let cur = byId.get(parentId); cur && !seen.has(cur.id); cur = cur.parentId ? byId.get(cur.parentId) : undefined) {
+    seen.add(cur.id);
+    chain.push(cur.name);
+    if (cur.id === id) {
+      const parentName = byId.get(parentId)?.name ?? parentId;
+      return fail(400, `Can't put "${self?.name ?? id}" inside "${parentName}": "${parentName}" is already inside "${self?.name ?? id}" (${chain.reverse().join(" → ")}), so it would make a loop. Pick a parent outside "${self?.name ?? id}", or clear the parent to make it top-level.`);
+    }
+  }
+  return ok(null);
+}
+
 export async function updateCategory(db: TenantPrisma, id: string, body: CategoryUpdateBody) {
   const existing = await db.category.findUnique({ where: { id } });
   if (!existing) {
@@ -171,16 +194,24 @@ export async function updateCategory(db: TenantPrisma, id: string, body: Categor
   const parent = await parentGuard(db, body.parentId);
   if (!parent.ok) return parent;
   const updateData = await buildCategoryUpdate(db, id, body);
-  const category = await db.category.update({
-    where: { id },
-    data: updateData,
-    include: {
-      parent: { select: { id: true, name: true, slug: true } },
-      children: { orderBy: { position: "asc" } },
-      _count: { select: { products: true } },
-    },
+  const tenantId = db.$tenantId;
+  // Lock the store's categories so two concurrent moves (A under B, B under A)
+  // can't both pass the loop check.
+  return db.$transaction(async (tx) => {
+    if (body.parentId) await tx.$queryRaw`SELECT id FROM "Category" WHERE "tenantId" = ${tenantId} ORDER BY id FOR UPDATE`;
+    const loop = await cycleGuard(tx, id, body.parentId);
+    if (!loop.ok) return loop;
+    const category = await tx.category.update({
+      where: { id },
+      data: updateData,
+      include: {
+        parent: { select: { id: true, name: true, slug: true } },
+        children: { orderBy: { position: "asc" } },
+        _count: { select: { products: true } },
+      },
+    });
+    return ok({ category });
   });
-  return ok({ category });
 }
 
 export async function previewUpdateCategory(db: TenantPrisma, id: string, body: CategoryUpdateBody) {
@@ -194,6 +225,8 @@ export async function previewUpdateCategory(db: TenantPrisma, id: string, body: 
   if (body.parentId === id) return fail(400, "A category cannot be its own parent");
   const parent = await parentGuard(db, body.parentId);
   if (!parent.ok) return parent;
+  const loop = await cycleGuard(db, id, body.parentId);
+  if (!loop.ok) return loop;
   const data = (await buildCategoryUpdate(db, id, body)) as Record<string, unknown>;
   const current = existing as unknown as Record<string, unknown>;
   const changes: Record<string, { from: unknown; to: unknown }> = {};
