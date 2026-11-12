@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tool and route results are arbitrary JSON; tests assert on their shape. */
 /**
  * Call an App Router route handler directly with a NextRequest, the way Next
  * would, and return status + parsed JSON.

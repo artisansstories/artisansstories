@@ -82,7 +82,10 @@ function getPi(id: string): FakePI {
 }
 
 export class FakeStripe {
-  constructor(_key?: string, _config?: unknown) {}
+  // Same constructor shape as the real SDK; arguments are ignored.
+  constructor(...args: unknown[]) {
+    void args;
+  }
 
   paymentIntents = {
     retrieve: async (id: string, params?: { expand?: string[] }) => {
@@ -167,7 +170,9 @@ export function resetResend(): void {
 }
 
 export class FakeResend {
-  constructor(_key?: string) {}
+  constructor(...args: unknown[]) {
+    void args;
+  }
   emails = {
     send: async (payload: SentEmail) => {
       if (resendState.failNext !== null) {
@@ -204,7 +209,9 @@ export class DeleteObjectsCommand extends Command {}
 export class GetObjectCommand extends Command {}
 export class DeleteObjectCommand extends Command {}
 export class FakeS3Client {
-  constructor(_config?: unknown) {}
+  constructor(...args: unknown[]) {
+    void args;
+  }
   async send(cmd: Command) {
     s3State.commands.push(cmd.constructor.name);
     if (cmd instanceof PutObjectCommand) {
@@ -252,7 +259,7 @@ export function resetFetch(): void {
 }
 
 /** Replaces global fetch: serves the fake image host, refuses everything else. */
-export async function guardedFetch(input: RequestInfo | URL, _init?: RequestInit): Promise<Response> {
+export async function guardedFetch(input: RequestInfo | URL): Promise<Response> {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   const host = new URL(url).hostname;
   if (host === "images.example.test") {

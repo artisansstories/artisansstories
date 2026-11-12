@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- tool and route results are arbitrary JSON; tests assert on their shape. */
 /**
  * Drive the real MCP server in-process: the SDK client speaks Streamable HTTP to
  * the actual /api/mcp route handler (same code path production serves), with a
