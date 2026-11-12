@@ -10,6 +10,7 @@ import { signClientId } from "@/lib/mcp/tokens";
  * registration table is needed. Any disallowed redirect URI rejects the WHOLE
  * registration.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {

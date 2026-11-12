@@ -111,6 +111,8 @@ export interface CodeClaims {
   clientHash: string; // sha256 of client_id (keeps the code short)
   redirectUri: string;
   codeChallenge: string;
+  /** Set by verifyAuthCode from `exp`; used to bound the single-use claim. */
+  expiresAt?: Date;
 }
 
 export function clientHash(clientId: string): string {
@@ -149,6 +151,7 @@ export async function verifyAuthCode(code: string): Promise<CodeClaims | null> {
       clientHash: String(payload.cid),
       redirectUri: String(payload.ruri),
       codeChallenge: String(payload.cc),
+      expiresAt: new Date((payload.exp ?? Math.floor(Date.now() / 1000) + AUTH_CODE_TTL_SECONDS) * 1000),
     };
   } catch {
     return null;

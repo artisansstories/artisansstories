@@ -1,10 +1,11 @@
-import { handleMcpPost, methodNotAllowed } from "@/lib/mcp/http";
+import { handleMcpPost, mcpPreflight, methodNotAllowed } from "@/lib/mcp/http";
 
 /**
  * /api/mcp/<token> — same server, credential in the URL path for clients that
  * can only take a URL. Prefer the Authorization header (Muse's credential
  * substitution only covers headers). A header, when present, wins.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
@@ -19,4 +20,8 @@ export async function GET() {
 
 export async function DELETE() {
   return methodNotAllowed();
+}
+
+export async function OPTIONS() {
+  return mcpPreflight();
 }

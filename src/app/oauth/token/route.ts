@@ -3,12 +3,19 @@ import { ACCESS_TOKEN_TTL_SECONDS, mcpGloballyEnabled } from "@/lib/mcp/config";
 import { CORS_HEADERS, failureDelay, jsonCors, notFound } from "@/lib/mcp/oauth";
 import { isTenantMcpEnabled } from "@/lib/mcp/tenant-flag";
 import { clientHash, pkceS256Matches, signAccessToken, verifyAuthCode } from "@/lib/mcp/tokens";
+import { claimNonce } from "@/lib/mcp/nonce";
+import { OAUTH_TOKEN_PER_IP, clientIp, hit } from "@/lib/mcp/rate-limit";
 
 /**
  * POST /oauth/token — authorization_code grant with PKCE (S256).
  * Accepts application/x-www-form-urlencoded (standard) or JSON.
  * Re-checks the admin user and the store's MCP switch before issuing.
+ * Codes are single-use: after the code, client, redirect_uri and PKCE all
+ * check out, the code is claimed in McpNonce. A replay gets invalid_grant.
+ * Claiming only after PKCE stops someone who holds a stolen code without the
+ * verifier from burning the real client's code.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 async function readParams(request: Request): Promise<URLSearchParams> {
@@ -29,6 +36,15 @@ async function invalidGrant(description: string) {
 
 export async function POST(request: Request) {
   if (!mcpGloballyEnabled()) return notFound();
+  // Best-effort, per-instance brute-force guard (see rate-limit.ts).
+  const rl = hit(`oauth-token:ip:${clientIp(request)}`, OAUTH_TOKEN_PER_IP);
+  if (!rl.ok) {
+    return jsonCors(
+      { error: "slow_down", error_description: "Too many token requests. Retry later." },
+      429,
+      { "Retry-After": String(rl.retryAfterSec) },
+    );
+  }
   const p = await readParams(request);
 
   if (p.get("grant_type") !== "authorization_code") {
@@ -44,6 +60,16 @@ export async function POST(request: Request) {
   if (!clientId || claims.clientHash !== clientHash(clientId)) return invalidGrant("Code was not issued to this client");
   if (claims.redirectUri !== redirectUri) return invalidGrant("redirect_uri does not match");
   if (!pkceS256Matches(verifier, claims.codeChallenge)) return invalidGrant("PKCE verification failed");
+
+  let claim: Awaited<ReturnType<typeof claimNonce>>;
+  try {
+    const expiresAt = claims.expiresAt ?? new Date(Date.now() + 5 * 60_000);
+    claim = await claimNonce("oauth_code", code, claims.tenantId, expiresAt);
+  } catch (err) {
+    console.error("[mcp] oauth code claim failed:", err);
+    return jsonCors({ error: "temporarily_unavailable", error_description: "Try again shortly" }, 503);
+  }
+  if (claim === "already_used") return invalidGrant("Code was already used");
 
   const user = await prisma.adminUser.findUnique({
     where: { id: claims.sub },

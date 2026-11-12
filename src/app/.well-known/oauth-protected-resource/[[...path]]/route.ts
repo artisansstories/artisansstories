@@ -6,6 +6,7 @@ import { CORS_HEADERS, jsonCors, notFound, protectedResourceMetadata } from "@/l
  * /.well-known/oauth-protected-resource and
  * /.well-known/oauth-protected-resource/api/mcp (path-suffixed form).
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {

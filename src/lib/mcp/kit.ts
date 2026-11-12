@@ -10,6 +10,8 @@
  *   - Writes are two-call preview → confirm with an HMAC confirm token (spec §5).
  *     The preview is recomputed on the confirm call too, so a state change in
  *     between (e.g. order already refunded) blocks instead of executing.
+ *   - Confirm tokens are single-use: the token is claimed in McpNonce BEFORE
+ *     the side effect and never released, so a replay is blocked.
  *   - Expected failures come back as structured `{done:false, blocked:true, reason}`
  *     results with retry guidance (spec §6), never `isError`.
  */
@@ -18,7 +20,8 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import type { ServiceResult } from "@/lib/admin-services/result";
 import type { McpContext } from "./auth";
-import { signConfirmToken, verifyConfirmToken, idempotencyKeyFor } from "./confirm-token";
+import { signConfirmToken, verifyConfirmToken, idempotencyKeyFor, confirmTokenExpiry } from "./confirm-token";
+import { claimNonce } from "./nonce";
 import { auditMcpWrite } from "./audit";
 
 export type ToolKind = "read" | "write" | "sensitive";
@@ -74,6 +77,8 @@ export interface WriteDef<S extends Shape> extends BaseDef<S> {
   /** Read-only. Compute the REAL effect (amounts, recipients, rows affected). */
   preview: (ctx: ToolCtx, args: Args<S>) => Promise<Outcome>;
   execute: (ctx: ToolCtx, args: Args<S>, extra: ExecuteExtra) => Promise<Outcome>;
+  /** Read tool to check the outcome if execute fails midway. Defaults by name prefix (statusToolFor). */
+  checkWith?: string;
 }
 
 export interface McpTool {
@@ -152,6 +157,35 @@ function unexpected(err: unknown) {
   console.error("[mcp] tool error:", err);
   return failureToResult(500, "Unexpected server error");
 }
+
+/** Read tool that shows the current state a write tool changes, by name prefix. */
+const STATUS_TOOLS: Array<[prefix: string, tool: string]> = [
+  ["orders_check_tracking", "orders_list"],
+  ["orders_", "orders_get"],
+  ["returns_", "returns_get"],
+  ["products_", "products_get"],
+  ["categories_", "categories_get"],
+  ["inventory_", "inventory_list"],
+  ["customers_", "customers_get"],
+  ["discounts_", "discounts_get"],
+  ["shipping_", "shipping_zones_list"],
+  ["tax_", "tax_get"],
+  ["settings_", "settings_get"],
+  ["team_", "team_list"],
+  ["artisans_", "artisans_get"],
+  ["kb_", "kb_articles_get"],
+  ["contact_", "contact_message_get"],
+  ["email_template_", "email_template_get"],
+  ["landing_page_", "landing_page_get"],
+  ["linktree_settings_", "linktree_settings_get"],
+  ["linktree_", "linktree_links_list"],
+];
+
+export function statusToolFor(toolName: string): string | undefined {
+  return STATUS_TOOLS.find(([prefix]) => toolName.startsWith(prefix))?.[1];
+}
+
+export const ALREADY_USED_REASON = "This confirmation was already used. Request a new preview.";
 
 const TAG: Record<ToolKind, string> = {
   read: "[Read]",
@@ -247,15 +281,40 @@ export function writeTool<S extends Shape>(def: WriteDef<S>): McpTool {
           );
         }
 
+        // Claim the token BEFORE any side effect. Only one caller can win the
+        // insert; a DB error here means nothing ran, so refuse (fail closed).
+        let claim: Awaited<ReturnType<typeof claimNonce>>;
+        try {
+          claim = await claimNonce("confirm", confirmToken, ctx.tenantId, confirmTokenExpiry(confirmToken));
+        } catch (err) {
+          console.error("[mcp] confirm-token claim failed:", err);
+          return jsonResult(
+            failureToResult(503, "Could not record this confirmation, so nothing was changed. Try confirming again shortly.", {
+              status: "failed",
+            }),
+          );
+        }
+        if (claim === "already_used") {
+          return jsonResult(blocked(ALREADY_USED_REASON, { status: "failed" }));
+        }
+
         let outcome: Outcome;
         try {
           outcome = await def.execute(ctx, args, { idempotencyKey: idempotencyKeyFor(def.name, confirmToken) });
         } catch (err) {
+          // The token stays claimed: the side effect may have partly happened.
           await auditMcpWrite(ctx, def.name, args, "failed", { error: err instanceof Error ? err.message : String(err) });
+          const check = def.checkWith ?? statusToolFor(def.name);
+          console.error("[mcp] tool error:", err);
           return jsonResult({
-            ...unexpected(err),
-            status: "failed",
-            note: "The write may or may not have completed. Check the record's current status with a read tool before retrying.",
+            done: false,
+            blocked: true,
+            status: "unknown",
+            reason: "The write failed partway, so its status is unknown. It may or may not have taken effect.",
+            retry: check
+              ? `Check the current state with ${check} before retrying. If a retry is needed, request a new preview; this confirmation is used up.`
+              : "Check the current state with a read tool before retrying. If a retry is needed, request a new preview; this confirmation is used up.",
+            ...(check ? { checkWith: check } : {}),
           });
         }
         const r = unwrap(outcome);

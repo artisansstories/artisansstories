@@ -69,6 +69,12 @@ export function verifyConfirmToken(
   return "ok";
 }
 
+/** Expiry encoded in a confirm token (only meaningful after verifyConfirmToken said "ok"). */
+export function confirmTokenExpiry(token: string): Date {
+  const clean = token.replace(/\s+/g, "");
+  return new Date(Number(clean.slice(0, clean.indexOf("."))));
+}
+
 /**
  * Deterministic idempotency key for a confirmed write, derived from its confirm
  * token. Passed to Stripe so a retried confirm with the same token can't create

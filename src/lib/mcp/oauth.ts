@@ -1,15 +1,17 @@
 /**
  * mcp/oauth.ts — OAuth 2.1 (authorization code + PKCE S256) helpers.
  *
- * Stateless by design (no DB tables): client ids, codes and access tokens are
- * signed JWTs (see tokens.ts). Known gap: without a store, an authorization code
- * can't be atomically marked used. It is bound to the client, the redirect_uri
- * and the PKCE challenge, and expires in 5 minutes, so a replay also needs the
- * client's code_verifier. Documented in docs/MCP.md.
+ * Client ids, codes and access tokens are signed JWTs (see tokens.ts). Codes
+ * are also single-use: /oauth/token claims each one in McpNonce (kind
+ * "oauth_code") before issuing a token. On top of that, a code is bound to the
+ * client, the redirect_uri and the PKCE challenge, and expires in 5 minutes.
  */
 import { originFromRequest } from "@/lib/tenant-host";
 import { isAllowedRedirectUri } from "./redirect-allowlist";
 import { verifyClientId, isMcpScope, type McpScope } from "./tokens";
+import { CORS_HEADERS } from "./cors";
+
+export { CORS_HEADERS };
 
 export function oauthMetadata(req: Request) {
   const origin = originFromRequest(req);
@@ -37,12 +39,6 @@ export function protectedResourceMetadata(req: Request) {
   };
 }
 
-export const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, mcp-protocol-version",
-  "Access-Control-Max-Age": "86400",
-};
 
 export function jsonCors(body: unknown, status = 200, extra?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {

@@ -14,6 +14,7 @@ import { clientHash, signAuthCode } from "@/lib/mcp/tokens";
  * authorization code bound to client, redirect_uri, PKCE challenge, user,
  * tenant and the scope the user chose.
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {

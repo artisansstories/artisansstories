@@ -1,13 +1,14 @@
 import type { NextRequest } from "next/server";
 import { originFromRequest } from "@/lib/tenant-host";
 import { mcpGloballyEnabled } from "@/lib/mcp/config";
-import { notFound, redirectWithParams, validateAuthorizeParams } from "@/lib/mcp/oauth";
+import { CORS_HEADERS, notFound, redirectWithParams, validateAuthorizeParams } from "@/lib/mcp/oauth";
 
 /**
  * GET /oauth/authorize — validates the request, then hands off to the consent
  * page under /admin. Living under /admin means the existing proxy sends anyone
  * without an admin session through magic-link login and back (callbackUrl).
  */
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function errorPage(message: string): Response {
@@ -29,4 +30,10 @@ export async function GET(request: NextRequest) {
   const consent = new URL("/admin/oauth/consent", originFromRequest(request));
   params.forEach((value, key) => consent.searchParams.set(key, value));
   return Response.redirect(consent.toString(), 302);
+}
+
+/** CORS preflight. Browsers normally navigate here, but some clients probe it first. */
+export async function OPTIONS() {
+  if (!mcpGloballyEnabled()) return notFound();
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
