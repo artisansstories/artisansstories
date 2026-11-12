@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { toResponse } from "@/lib/admin-services/http";
 import { getLandingPageSettings, saveLandingPageSettings } from "@/lib/admin-services/landing-page";
 import { resolveTenantFromAdminSession } from "@/lib/tenant-context";
-import { authErrorResponse } from "@/lib/admin-api";
+import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 export async function GET() {
   try {
+    // Admin editor read: house admins only (401 without a session, 403 otherwise).
+    // The public page reads the row directly (LandingPageWrapper), not this route.
+    await requireHouseAdminTenantId();
     return toResponse(await getLandingPageSettings());
   } catch (error) {
     const unauthorized = authErrorResponse(error);

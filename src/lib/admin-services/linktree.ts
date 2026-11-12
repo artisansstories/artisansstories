@@ -74,12 +74,14 @@ export async function saveLinkTreeSettings(
   body: LinkTreeSettingsBody,
 ): Promise<ServiceResult<{ settings: Row }>> {
   return withPg(async (client) => {
-    // Upsert on tenantId (one settings row per tenant). `id` is omitted so the
-    // column default (cuid) fills it for a brand-new tenant; tenant zero's
-    // existing "singleton" row is matched by the tenantId conflict target.
+    // Upsert on tenantId (one settings row per tenant). `id` is supplied: the
+    // schema's cuid() default is Prisma-side only (no DB default under
+    // `prisma db push`; prod's raw-SQL default is the constant 'singleton'),
+    // and Postgres checks NOT NULL before ON CONFLICT, so omitting it fails
+    // even an update. An existing row keeps its id (matched on tenantId).
     const result = await client.query(
-      `INSERT INTO "LinkTreeSettings" ("tenantId", "isEnabled", "profileName", "profileBio", "profileImageUrl", "customSlug", "backgroundColor", "buttonColor", "textColor", "updatedAt")
-       VALUES ($9, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      `INSERT INTO "LinkTreeSettings" (id, "tenantId", "isEnabled", "profileName", "profileBio", "profileImageUrl", "customSlug", "backgroundColor", "buttonColor", "textColor", "updatedAt")
+       VALUES ($10, $9, $1, $2, $3, $4, $5, $6, $7, $8, NOW())
        ON CONFLICT ("tenantId") DO UPDATE SET
          "isEnabled" = $1,
          "profileName" = $2,
@@ -101,6 +103,7 @@ export async function saveLinkTreeSettings(
         body.buttonColor,
         body.textColor,
         tenantId,
+        randomUUID(),
       ]
     );
 
@@ -152,6 +155,9 @@ export async function createLinkTreeLink(
   tenantId: string,
   body: LinkCreateBody,
 ): Promise<ServiceResult<{ link: Row }>> {
+  if (typeof body.title !== "string" || !body.title.trim() || typeof body.url !== "string" || !body.url.trim()) {
+    return fail(400, "title and url are required");
+  }
   return withPg(async (client) => {
     const maxOrder = await client.query(
       `SELECT MAX("sortOrder") as max FROM "LinkTreeLink" WHERE "tenantId" = $1`,
@@ -199,7 +205,8 @@ export interface LinkUpdateBody {
 export async function updateLinkTreeLink(
   tenantId: string,
   body: LinkUpdateBody,
-): Promise<ServiceResult<{ link: Row | undefined }>> {
+): Promise<ServiceResult<{ link: Row }>> {
+  if (typeof body.id !== "string" || !body.id) return fail(400, "id is required");
   return withPg(async (client) => {
     const result = await client.query(
       `UPDATE "LinkTreeLink"
@@ -212,7 +219,8 @@ export async function updateLinkTreeLink(
        RETURNING *`,
       [body.id, body.title, body.url, body.description || null, body.isEnabled, tenantId]
     );
-
+    // Unknown id, or another store's link (tenant filter matched nothing).
+    if (!result.rows[0]) return fail(404, "Link not found");
     return ok({ link: result.rows[0] });
   });
 }
@@ -230,8 +238,10 @@ export async function previewUpdateLinkTreeLink(tenantId: string, body: LinkUpda
 }
 
 export async function deleteLinkTreeLink(tenantId: string, id: string | null): Promise<ServiceResult<{ success: true }>> {
+  if (!id) return fail(400, "id is required");
   return withPg(async (client) => {
-    await client.query(`DELETE FROM "LinkTreeLink" WHERE id = $1 AND "tenantId" = $2`, [id, tenantId]);
+    const result = await client.query(`DELETE FROM "LinkTreeLink" WHERE id = $1 AND "tenantId" = $2 RETURNING id`, [id, tenantId]);
+    if (!result.rows[0]) return fail(404, "Link not found");
     return ok({ success: true as const });
   });
 }
@@ -258,7 +268,10 @@ export async function previewDeleteLinkTreeLink(tenantId: string, id: string) {
 
 // ── reorder ─────────────────────────────────────────────────────────────────
 
-export async function reorderLinkTreeLinks(tenantId: string, linkIds: string[]): Promise<ServiceResult<{ success: true }>> {
+export async function reorderLinkTreeLinks(tenantId: string, linkIds: unknown): Promise<ServiceResult<{ success: true }>> {
+  if (!Array.isArray(linkIds) || !linkIds.every((id) => typeof id === "string")) {
+    return fail(400, "linkIds must be an array of link ids");
+  }
   return withPg(async (client) => {
     for (let i = 0; i < linkIds.length; i++) {
       await client.query(`UPDATE "LinkTreeLink" SET "sortOrder" = $1, "updatedAt" = NOW() WHERE id = $2 AND "tenantId" = $3`, [i, linkIds[i], tenantId]);

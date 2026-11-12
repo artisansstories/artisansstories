@@ -5,7 +5,7 @@ import { authErrorResponse, requireHouseAdminTenantId } from "@/lib/admin-api";
 
 export async function POST(req: Request) {
   try {
-    await requireHouseAdminTenantId();
+    const tenantId = await requireHouseAdminTenantId();
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     if (!file) {
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    return toResponse(await uploadEmailTemplateImage("logo", { buffer, name: file.name, type: file.type }));
+    return toResponse(await uploadEmailTemplateImage(tenantId, "logo", { buffer, name: file.name, type: file.type }));
   } catch (error) {
     const unauthorized = authErrorResponse(error);
     if (unauthorized) return unauthorized;

@@ -102,18 +102,21 @@ describe("linktree links", () => {
     expect(ins.params.slice(1)).toEqual([HOUSE, "T", "https://u", null, null, true, 5]);
   });
 
-  it("PUT scopes by id AND tenant; missing row -> {} (link undefined), 200", async () => {
+  it("PUT scopes by id AND tenant; missing row (unknown or other store's id) -> 404", async () => {
     pg.rows.push([]);
     const res = await links.PUT(json("PUT", { id: "l1", title: "X" }));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({});
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Link not found" });
     expect(pg.queries[0].params).toEqual(["l1", "X", undefined, null, undefined, HOUSE]);
   });
 
-  it("DELETE scopes by id AND tenant", async () => {
-    const res = await links.DELETE(new Request("http://localhost/x?id=l9", { method: "DELETE" }));
+  it("DELETE scopes by id AND tenant; nothing deleted -> 404", async () => {
+    pg.rows.push([{ id: "l9" }]);
+    let res = await links.DELETE(new Request("http://localhost/x?id=l9", { method: "DELETE" }));
     expect(await res.json()).toEqual({ success: true });
     expect(pg.queries[0].params).toEqual(["l9", HOUSE]);
+    res = await links.DELETE(new Request("http://localhost/x?id=nope", { method: "DELETE" }));
+    expect(res.status).toBe(404);
   });
 
   it("DB failure -> 500 with main's message", async () => {
@@ -139,7 +142,7 @@ describe("linktree reorder / settings / analytics", () => {
     pg.rows.push([{ id: "s" }]);
     res = await ltSettings.POST(json("POST", { isEnabled: true, profileName: "P", backgroundColor: "#1", buttonColor: "#2", textColor: "#3" }));
     expect(await res.json()).toEqual({ settings: { id: "s" } });
-    expect(pg.queries[1].params).toEqual([true, "P", null, null, null, "#1", "#2", "#3", HOUSE]);
+    expect(pg.queries[1].params).toEqual([true, "P", null, null, null, "#1", "#2", "#3", HOUSE, expect.any(String)]);
   });
 
   it("analytics: 401 before any DB work when unauthenticated", async () => {
@@ -194,7 +197,7 @@ describe("email template", () => {
     expect(pg.connect).not.toHaveBeenCalled();
   });
 
-  it("upload-logo: 401 first, 403 for another store, 400 without file, then email/logo-<ts>.<ext>", async () => {
+  it("upload-logo: 401 first, 403 for another store, 400 without file, then tenants/<id>/email/logo-<ts>.<ext>", async () => {
     tc.resolve.mockResolvedValueOnce(null).mockResolvedValueOnce("tenant_b");
     let res = await uploadLogo.POST(new Request("http://localhost/x", { method: "POST", body: new FormData() }));
     expect(res.status).toBe(401);
@@ -214,7 +217,7 @@ describe("email template", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.filename).toBe("logo.png");
-    expect(body.url).toMatch(/^https:\/\/cdn\.test\/email\/logo-\d+\.png$/);
-    expect(r2.putObject).toHaveBeenCalledWith(expect.stringMatching(/^email\/logo-\d+\.png$/), expect.any(Buffer), "image/png");
+    expect(body.url).toMatch(new RegExp(`^https://cdn\\.test/tenants/${HOUSE}/email/logo-\\d+\\.png$`));
+    expect(r2.putObject).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^tenants/${HOUSE}/email/logo-\\d+\\.png$`)), expect.any(Buffer), "image/png");
   });
 });

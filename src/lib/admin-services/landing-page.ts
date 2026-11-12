@@ -191,6 +191,9 @@ export async function previewLandingPageUpdate(body: LandingPageBody) {
 
 // ── upload ──────────────────────────────────────────────────────────────────
 
+/** The landing page's image slots (the editor's upload fields). */
+export const LANDING_IMAGE_FIELDS = ["heroImageUrl", "backgroundImageUrl", "aboutImageUrl"] as const;
+
 export interface UploadFile {
   buffer: Buffer;
   name: string;
@@ -208,6 +211,13 @@ export async function uploadLandingPageImage(
 ): Promise<ServiceResult<{ url: string }>> {
   const denied = houseGate(tenantId);
   if (denied) return denied;
+  // `field` is interpolated into the object key: only the editor's image slots.
+  if (!(LANDING_IMAGE_FIELDS as readonly string[]).includes(field)) {
+    return fail(400, `field must be one of ${LANDING_IMAGE_FIELDS.join(", ")}`);
+  }
+  if (!file.type.startsWith("image/")) {
+    return fail(400, `Only image files can be uploaded (got ${file.type || "unknown type"}).`);
+  }
   const buffer = file.buffer;
   const ext = (file.name.split(".").pop() ?? "").toLowerCase();
   // Bring landing-page assets onto the WebP standard (specs row 4): rasters →

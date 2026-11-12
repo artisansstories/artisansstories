@@ -20,8 +20,10 @@ export async function POST(request: NextRequest) {
 
     await client.connect();
 
-    // Increment click count + log entry atomically
-    await client.query(`UPDATE "LinkTreeLink" SET clicks = clicks + 1 WHERE id = $1 AND "tenantId" = $2`, [linkId, tenantId]);
+    // Increment click count + log entry. Only log a click on this store's own
+    // link: an id from another store must not add a row to this store's analytics.
+    const updated = await client.query(`UPDATE "LinkTreeLink" SET clicks = clicks + 1 WHERE id = $1 AND "tenantId" = $2`, [linkId, tenantId]);
+    if (!updated.rowCount) return NextResponse.json({ error: "Link not found" }, { status: 404 });
     await client.query(
       `INSERT INTO "LinkTreeClickLog" (id, "tenantId", "linkId", "userAgent", referrer, ip) VALUES ($1, $2, $3, $4, $5, $6)`,
       [randomUUID(), tenantId, linkId, userAgent, referrer, ip]

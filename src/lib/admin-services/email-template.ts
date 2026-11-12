@@ -201,17 +201,26 @@ export interface UploadFile {
 
 export type EmailImageKind = "logo" | "avatar";
 
-/** Key the route would use (ext from the file name, default jpg). */
-export function emailImageKey(kind: EmailImageKind, name: string, now = Date.now()): string {
+/**
+ * Key the route would use (ext from the file name, default jpg). Stored under
+ * the tenant's prefix like every other upload, so the tenant hard-delete sweep
+ * of `tenants/{id}/` covers it and stores can never collide on a shared prefix.
+ */
+export function emailImageKey(tenantId: string, kind: EmailImageKind, name: string, now = Date.now()): string {
   const ext = name.split(".").pop() || "jpg";
-  return `email/${kind}-${now}.${ext}`;
+  return `tenants/${tenantId}/email/${kind}-${now}.${ext}`;
 }
 
+/** `tenantId` must come from the admin session / verified MCP credential. */
 export async function uploadEmailTemplateImage(
+  tenantId: string,
   kind: EmailImageKind,
   file: UploadFile,
 ): Promise<ServiceResult<{ url: string; filename: string }>> {
-  const key = emailImageKey(kind, file.name);
+  if (!file.type.startsWith("image/")) {
+    return fail(400, `Only image files can be uploaded (got ${file.type || "unknown type"}).`);
+  }
+  const key = emailImageKey(tenantId, kind, file.name);
   await putObject(key, file.buffer, file.type);
   return ok({ url: publicUrl(key), filename: file.name });
 }

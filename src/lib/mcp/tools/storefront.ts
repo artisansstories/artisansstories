@@ -136,7 +136,7 @@ async function emailBody(tenantId: string, a: EmailArgs): Promise<ServiceResult<
 
 // ── landing page ────────────────────────────────────────────────────────────
 
-const LANDING_IMAGE_FIELDS = ["heroImageUrl", "backgroundImageUrl", "aboutImageUrl"] as const;
+const { LANDING_IMAGE_FIELDS } = landing;
 
 const landingUpdateInput = {
   heroTitle: z.string().min(1).nullish().describe("Hero headline"),
@@ -269,12 +269,12 @@ export const tools: McpTool[] = [
     description:
       "Download an image from an https URL and store it as an email logo. Returns the hosted url; nothing in the email changes until you pass that url as logoUrl to email_template_update.",
     input: { imageUrl: zImageUrl },
-    preview: house((_ctx, a) =>
-      previewDownload(a.imageUrl, "email/logo-<timestamp>.<ext>", "After confirming, pass result.url as logoUrl to email_template_update."),
+    preview: house((ctx, a) =>
+      previewDownload(a.imageUrl, `tenants/${ctx.tenantId}/email/logo-<timestamp>.<ext>`, "After confirming, pass result.url as logoUrl to email_template_update."),
     ),
-    execute: house(async (_ctx, a) => {
+    execute: house(async (ctx, a) => {
       const f = await downloadImage(a.imageUrl);
-      return f.ok ? email.uploadEmailTemplateImage("logo", f.data) : f;
+      return f.ok ? email.uploadEmailTemplateImage(ctx.tenantId, "logo", f.data) : f;
     }),
   }),
 
@@ -287,12 +287,12 @@ export const tools: McpTool[] = [
     description:
       "Download an image from an https URL and store it as the email signature avatar. Returns the hosted url; nothing in the email changes until you pass it as signatureData.avatarUrl to email_template_update.",
     input: { imageUrl: zImageUrl },
-    preview: house((_ctx, a) =>
-      previewDownload(a.imageUrl, "email/avatar-<timestamp>.<ext>", "After confirming, pass result.url as signatureData.avatarUrl to email_template_update."),
+    preview: house((ctx, a) =>
+      previewDownload(a.imageUrl, `tenants/${ctx.tenantId}/email/avatar-<timestamp>.<ext>`, "After confirming, pass result.url as signatureData.avatarUrl to email_template_update."),
     ),
-    execute: house(async (_ctx, a) => {
+    execute: house(async (ctx, a) => {
       const f = await downloadImage(a.imageUrl);
-      return f.ok ? email.uploadEmailTemplateImage("avatar", f.data) : f;
+      return f.ok ? email.uploadEmailTemplateImage(ctx.tenantId, "avatar", f.data) : f;
     }),
   }),
 
