@@ -109,7 +109,15 @@ Claude and ChatGPT connectors: give them `https://<host>/api/mcp` and they run t
 - **Preview → confirm** (every write). The first call, without `confirmToken`, writes nothing and returns `status:"pending_confirmation"`, a `preview` with real values (refund amount and refundable balance, email recipient and subject, rows affected, before/after diffs), and a `confirmToken`. The second call with identical arguments plus the token executes. The token is an HMAC over (tenant, tool, canonical args, expiry): keys sorted, nulls dropped, 10-minute TTL, compared with `timingSafeEqual`. The preview is **re-run** on confirm, so a state change in between (e.g. the order was already refunded) blocks instead of executing.
 - **Single-use confirm tokens:** after the token verifies and the preview re-runs, the kit claims the token by inserting `sha256(token)` into `McpNonce` (kind `confirm`), **before** the side effect. The primary key is the only arbiter, so of any number of sequential or concurrent confirms with one token, exactly one executes. The rest get `{done:false, blocked:true, reason:"This confirmation was already used. Request a new preview."}`. If the claim itself fails (DB error), nothing runs and the result says so (fail closed).
 - **Outcomes:** `pending_confirmation` → `confirmed` (`done:true`), or `done:false, blocked:true, reason, retry` with retry guidance by status (401 reconnect, 403 don't retry, 404 recheck ids, 409 conflict, 5xx retry once). Expected failures are never `isError`. If the side effect **throws** midway, the token stays claimed and the result is `status:"unknown"` with `checkWith` naming the read tool to check first (e.g. `orders_get` for `orders_refund`, `returns_get` for returns, `contact_message_get` for replies). Any retry needs a new preview.
-- **Idempotency:** Stripe refund, cancel and capture calls also get an idempotency key derived from the confirm token, as a second line of defence against moving money twice.
+- **Idempotency (same for the admin UI and MCP):** money paths no longer depend on the confirm token. Each Stripe call gets a key derived from stable ids:
+  - return refund: `return_refund_<returnId>`;
+  - order refund: `order_refund_<orderId>_<order updatedAt ms>_<amount|full>`;
+  - cancel: `order_cancel_<orderId>_refund|void`;
+  - capture: `order_capture_<orderId>`.
+
+  Two more guards sit around that:
+  - Before creating a refund, the service looks for an earlier refund on the payment intent with matching metadata. A retry after a failed DB write then records the existing refund instead of refunding again, even after Stripe's 24h key window.
+  - DB writes are conditional on status or version, so concurrent requests record a refund once.
 - **Optional fields** are `.nullish()`, and null is normalized to undefined before handlers run (enforced by a unit test over every tool).
 - **Registries:** `mcp:read` credentials get only the read tools registered. House-only areas (artisans, KB, Link Hub, landing page, email template, Instagram) are registered only for the house store, matching the admin nav.
 - **Audit:** every executed write (confirmed or failed) is written to `PlatformAuditLog` with `action:"mcp.<tool>"`, `operatorId` set to the key or user id, `operatorEmail` set to the admin email or `mcp-key:<name>`, `tenantId`, and `detail` JSON `{via:"mcp", principal, args, outcome}`. These rows show up on Platform → Activity.
@@ -137,6 +145,8 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 **Nonce cleanup:** rows matter only until `expiresAt` (10 minutes for confirm tokens, 5 for codes). Once every 50 claims per instance, a fire-and-forget `deleteMany` removes rows that expired more than a day ago. No cron is needed. Expect a few hundred rows at most.
 
 ## Testing
+
+- `npm run test:e2e`: integration tests for every admin route and every MCP tool, run against a throwaway local Postgres. See [FEATURE-VERIFICATION.md](FEATURE-VERIFICATION.md).
 
 - `npm test`: vitest unit tests, mocks only, no DB. Covers:
   - **MCP core:** confirm-token canonicalization, expiry and forgery; the redirect allowlist; whitespace stripping; tenant isolation (a tenant-A credential can't produce a tenant-B context; smuggled `tenantId` args are ignored; no tool schema has a tenant field); registry conventions.
@@ -298,7 +308,7 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 4. **Image fetch DNS rebinding:** the hostname is resolved and checked, then fetched, so there is a small TOCTOU window.
 5. **Activity filter:** Platform → Activity's action dropdown has no `mcp.*` entry, so MCP rows show under "All actions".
 6. **Not run end-to-end against a live key.** `initialize`/`tools/list`, nonces and OAuth are covered in-process with mocks. A real-key smoke run (launch checklist step 5) needs the migration and a key minted in the database.
-7. **Pre-existing admin issues** found during the refactor audit (also on `main`, not fixed) are listed in [MCP-REFACTOR-AUDIT.md](MCP-REFACTOR-AUDIT.md). These include tax settings stored in `facebookPixelId`, team invites for non-house stores never arriving, and the artisan form nulling fields.
+7. **Pre-existing admin issues** found during the refactor audit are listed in [MCP-REFACTOR-AUDIT.md](MCP-REFACTOR-AUDIT.md) with their status. Most were fixed on `fix/admin-mcp-full-verify`; the ones that need a product decision are listed there.
 
 ## Security fixes shipped with this branch (live on prod before it)
 

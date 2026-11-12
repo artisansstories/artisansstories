@@ -112,37 +112,64 @@ Paths are relative to `src/app/api/admin/`. "Identical?" means identical to `mai
 | `mcp/keys` | POST | n/a (new) | - | reviewed: only mcp:admin/mcp:read, minted for admin.tenantId, 201 |
 | `mcp/keys/[keyId]` | DELETE | n/a (new) | - | reviewed: updateMany scoped by id + tenantId + mcp scope; another store's key → 404 |
 
-## Pre-existing issues found during the audit (also on `main`, NOT fixed)
+## Pre-existing issues found during the audit: status after `fix/admin-mcp-full-verify`
 
-These were already on `main` and are out of scope for a behavior-parity refactor, so they're listed here rather than changed.
+These were on `main`. Each is now either fixed (with e2e coverage, see [FEATURE-VERIFICATION.md](FEATURE-VERIFICATION.md)) or listed as needing a product decision.
 
-- Order cancel: if Stripe fails, the order is still marked CANCELLED and the payment needs manual cleanup (intentional on main).
-- Fulfill does not check that orderItemIds belong to the order (stays inside the tenant via the scoped client).
-- Order refund route: `refundAmount >= order.total` treats the final partial refund as partial (the MCP preview checks the refundable balance).
-- Return refund with restock: if a variant has no inventory row, Stripe refunds and the DB is updated, then restock throws and the route returns 500 after the money has moved.
-- The route doesn't block refunding an already REFUNDED return (the MCP preview does).
-- latest_charge missing → passes undefined charge to stripe.refunds.create.
-- returns/[id]/receive logs its email with type RETURN_APPROVED.
-- Admin routes with no session: the route returns 500; src/proxy.ts returns 401 before the route is reached.
-- upload: Promise.allSettled hides failed R2 writes ("throw if any failed" comment, but nothing throws).
-- upload: alt text still goes through OpenRouter (OPENROUTER_API_KEY/Gemini).
-- products/[id] PUT: artisan, options, variants, and image writes are not in a transaction, so a failure halfway leaves a partial update.
-- generate-sku: getTenantPrismaForAdmin/req.json are outside try/catch.
-- Tax settings stored as "TAX:" JSON in StoreSettings.facebookPixelId; saving tax overwrites a real Pixel ID (MCP preview warns; route doesn't).
-- shipping/[id]/rates/[rateId] PUT/DELETE never check that the rate belongs to zone [id] (same tenant only).
-- Rate PUT: price only forced to 0 when the same request sends condition FREE.
-- Most admin routes return 500 (not 401) with no session, because getTenantPrismaForAdmin throws first. Dashboard returns 401.
-- Non-numeric page/limit becomes NaN in customer/discount lists.
-- Missing ids give 500 instead of 404 on customer PATCH, discount PATCH/DELETE, zone/rate PUT/DELETE.
-- Team invite emails for non-house stores: addTeamMember posts to NEXT_PUBLIC_SITE_URL (house host), so the magic-link route resolves the house tenant, finds no admin, silently sends nothing, and still reports success. isInvite/inviterName/role are ignored.
-- Artisan form wiping fields: PUT is a full replacement, and ArtisanForm.tsx never sends region, practicingSince, featuredPosts, or socialEmbedCode, so every UI save nulls them. MCP merges with the current record first.
-- Unescaped HTML elsewhere: the public contact form notification email (src/app/api/contact/route.ts) puts visitor name/email/subject/message unescaped (anyone can submit). emailLogoHtml and the magic-link email put storeName unescaped.
-- Contact-reply HTML logged before this fix is still unescaped in EmailLog.
-- email-template and linktree API routes have no house gate (only the admin pages do). Every statement is tenant-scoped, so a non-house admin can only touch their own rows. The MCP tools are houseOnly.
-- Email-template logo/avatar uploads go to a shared "email/" R2 prefix with no tenant in the path (timestamped keys, so nothing is overwritten).
+| Issue | Status |
+|---|---|
+| Order cancel: Stripe failure still marks the order CANCELLED | **Decision needed** (kept as is). The response now reports `paymentError` and the refund route can finish the job. |
+| Fulfill doesn't check that orderItemIds belong to the order | Fixed (400). CANCELLED/REFUNDED orders are refused too. |
+| Order refund: final partial refund treated as partial | Fixed: full vs partial is read from the charge after the refund. |
+| Return refund with restock 500s after money moved (no inventory row) | Fixed: the row is created with a log entry (a deleted variant is skipped with a warning), all DB writes are in one transaction, and the response says honestly what happened. |
+| Route allowed refunding an already REFUNDED return | Fixed (409 before Stripe). |
+| `latest_charge` missing → undefined charge | Fixed: refunds are created by `payment_intent`. |
+| `returns/[id]/receive` logs its email as RETURN_APPROVED | **Not fixed:** needs a new `EmailLogType` enum value (schema change). |
+| Admin routes return 500 with no session | Fixed in `src/lib/admin-api.ts` (`authErrorResponse`), plus a sweep test over all 100 handlers. |
+| upload: `Promise.allSettled` hides failed R2 writes | Fixed (502). |
+| upload: alt text goes through OpenRouter | **Decision needed:** keep it, or switch providers. |
+| products/[id] PUT not transactional | Fixed (`$transaction`); create and artisan update are transactional too. |
+| generate-sku outside try/catch | Fixed. |
+| Tax settings stored in `facebookPixelId` (and on the `singleton` row) | Fixed: `StoreSettings.taxSettings` on each store's own row; `prisma/migrations/add_store_tax_settings.sql` moves the data. |
+| Rate PUT/DELETE don't check the rate belongs to zone `[id]` | Fixed (404). |
+| Rate PUT price forced to 0 only when the request sends FREE | Fixed: a rate that is FREE after the update is 0. |
+| Non-numeric page/limit → NaN | Fixed (defaults). |
+| Missing ids → 500 | Fixed (404) across customers, discounts, shipping, returns, orders, Link Hub, artisans and contact. |
+| Team invites for non-house stores silently not sent | Fixed (`src/lib/admin-invite.ts`): store host and branding; `invite.sent` is reported truthfully. |
+| Artisan form nulls four fields | Fixed: PUT keeps fields the body leaves out; an explicit null clears them. |
+| Unescaped HTML in emails | Fixed: contact reply, `emailLogoHtml`, the magic-link email. The public contact form was already escaped. |
+| Contact-reply HTML logged before the escape fix | **Decision needed:** clean up historical `EmailLog` rows or leave them (data only, never re-sent). |
+| email-template / Link Hub / KB / artisans / Instagram APIs had no house gate | Fixed (403 for other stores, matching the nav and MCP). |
+| Email-template uploads in a shared `email/` prefix | Fixed: `tenants/<id>/email/`. |
 
-### Explicitly deferred (per the hardening brief)
+### Found during e2e verification (also fixed)
 
-- **Tax settings stored in `facebookPixelId`**: saving tax settings overwrites a real Facebook Pixel ID.
-- **Team invite emails for non-house stores**: they silently never arrive (see above).
-- **Artisan form wiping fields**: `region`, `practicingSince`, `featuredPosts`, and `socialEmbedCode` are nulled on every UI save.
+- Admin sessions (30 days) kept the role and tenant they were issued with. A deactivated or deleted admin could still use the API, and team routes trusted the session's role. Now checked live on every request.
+- `POST /api/admin/instagram/disconnect` with no `artisanId` cleared every artisan's Instagram tokens.
+- Instagram OAuth `state` was not bound to the browser (CSRF). It now uses a single-use nonce cookie.
+- Admin artisan responses included `igAccessToken`.
+- Product create/update and category parent accepted another store's ids.
+- Refund amount 0, negative or garbage meant a FULL refund, in the API and on the order page.
+- Fulfill re-shipped CANCELLED orders.
+- Contact reply was marked REPLIED even when the email failed.
+- `GET /api/admin/landing-page/settings` had no auth.
+- Link Hub update/delete reported success for unknown or other-store ids.
+- Public link clicks could be logged under the wrong store.
+- `POST /api/admin/upload` with a deleted admin's session wrote to the house prefix.
+
+### Needs a product decision (not changed)
+
+- Order cancel when Stripe fails (above).
+- OpenRouter alt text (above).
+- Historical unescaped `EmailLog` HTML (above).
+- RETURN_RECEIVED email type: needs a schema change.
+- An ADMIN, or an MCP key, can deactivate the store owner (SUPER_ADMIN); admins can change or deactivate themselves. The UI shows these actions too.
+- EDITORs can save settings, including publishing or unpublishing the store (the UI allows it).
+- Cancelling a DELIVERED or PARTIALLY_REFUNDED order: no payment action and no restock.
+- A deliberate second identical partial refund after the first was recorded creates a second refund. That is correct for intentional repeats, but there is no "are you sure".
+- Amount-0 return refunds mark the order PARTIALLY_REFUNDED.
+- Product revenue report counts items from all orders, including unpaid and refunded ones.
+- MCP can't clear `practicingSince` or `featuredPosts` (null means "unchanged" in MCP).
+- Category loops (A → B → A) aren't detected.
+- Discounts accept product and category ids from another store (they match nothing).
+- The Instagram connect flow has no entry point in the admin UI (route only).
