@@ -11,7 +11,7 @@ export LC_ALL="${LC_ALL:-en_US.UTF-8}" LANG="${LANG:-en_US.UTF-8}"
 PG_BIN="${PG_BIN:-/opt/homebrew/opt/postgresql@17/bin}"
 DATA_DIR="${TEST_DB_DIR:-/tmp/as-testdb}"
 PORT="${TEST_DB_PORT:-54329}"
-DB_NAME="artisans_test"
+DB_NAME="${TEST_DB_NAME:-artisans_test}"
 export DATABASE_URL="postgresql://postgres@127.0.0.1:${PORT}/${DB_NAME}"
 
 cd "$(dirname "$0")/.."
@@ -23,6 +23,8 @@ push_schema() {
   esac
   # prisma.config.ts loads .env; the exported DATABASE_URL wins over it.
   DATABASE_URL="$DATABASE_URL" npx prisma db push --accept-data-loss >/dev/null
+  # Production-only tables/columns that raw-SQL services use (not in schema.prisma).
+  "$PG_BIN/psql" -q -h 127.0.0.1 -p "$PORT" -U postgres -d "$DB_NAME" -v ON_ERROR_STOP=1 -f tests/e2e/sql/prod-drift.sql >/dev/null
 }
 
 running() { "$PG_BIN/pg_ctl" -D "$DATA_DIR" status >/dev/null 2>&1; }
