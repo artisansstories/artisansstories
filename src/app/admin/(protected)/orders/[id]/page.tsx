@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
+import Link from "next/link";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -523,7 +524,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     return (
       <div style={{ textAlign: "center", padding: "60px 20px" }}>
         <p style={{ fontSize: 15, color: "#b91c1c", fontFamily: "'Inter', sans-serif" }}>{error || "Order not found."}</p>
-        <a href="/admin/orders" style={{ fontSize: 14, color: "#8B6914", textDecoration: "none", fontFamily: "'Inter', sans-serif" }}>← Back to Orders</a>
+        <Link href="/admin/orders" style={{ fontSize: 14, color: "#8B6914", textDecoration: "none", fontFamily: "'Inter', sans-serif" }}>← Back to Orders</Link>
       </div>
     );
   }
@@ -547,10 +548,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Back link */}
       <div className="no-print" style={{ marginBottom: 20 }}>
-        <a href="/admin/orders" style={{ fontSize: 13, color: "#8B6914", textDecoration: "none", fontFamily: "'Inter', sans-serif", display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <Link href="/admin/orders" style={{ fontSize: 13, color: "#8B6914", textDecoration: "none", fontFamily: "'Inter', sans-serif", display: "inline-flex", alignItems: "center", gap: 4 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           Back to Orders
-        </a>
+        </Link>
       </div>
 
       {/* Page header */}
@@ -782,7 +783,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           {order.customerNote && (
             <Card title="Customer Note">
               <p style={{ margin: 0, fontSize: 14, color: "#3a2e24", fontFamily: "'Inter', sans-serif", lineHeight: 1.6, fontStyle: "italic" }}>
-                "{order.customerNote}"
+                &ldquo;{order.customerNote}&rdquo;
               </p>
             </Card>
           )}

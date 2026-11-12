@@ -3,7 +3,7 @@ import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { createCategory, listCategories, type CategoryCreateBody } from "@/lib/admin-services/categories";
 import { toResponse } from "@/lib/admin-services/http";
 import { authErrorResponse } from "@/lib/admin-api";
-export async function GET(_request: NextRequest) {
+export async function GET() {
   try {
     const db = await getTenantPrismaForAdmin();
 

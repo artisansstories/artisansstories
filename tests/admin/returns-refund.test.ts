@@ -36,7 +36,8 @@ vi.mock("@/lib/tenant-context", async () => {
 // ── stripe ───────────────────────────────────────────────────────────────────
 const piRetrieve = vi.fn();
 const refundCreate = vi.fn();
-const refundList = vi.fn(async (..._a: unknown[]) => ({ data: [] as Array<{ id: string; amount: number; status: string; metadata: Record<string, string> }> }));
+type ListedRefund = { id: string; amount: number; status: string; metadata: Record<string, string> };
+const refundList = vi.fn<(...args: unknown[]) => Promise<{ data: ListedRefund[] }>>(async () => ({ data: [] }));
 vi.mock("stripe", () => ({
   default: class {
     paymentIntents = { retrieve: (...a: unknown[]) => piRetrieve(...a) };
