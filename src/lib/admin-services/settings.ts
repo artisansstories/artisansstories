@@ -12,7 +12,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
-import { ok, fail, type ServiceResult } from "./result";
+import { ok, fail, type ServiceResult, type ServiceFail, type AdminActor } from "./result";
 import { isLegacyTaxValue } from "./tax";
 
 /** Hide legacy "TAX:{json}" data that older code stored in the Pixel ID field. */
@@ -123,14 +123,35 @@ export function pickWritableSettings(body: Record<string, unknown>): Record<stri
   return data;
 }
 
+/** Roles that may publish or unpublish the store (StoreSettings.storeEnabled). */
+export const PUBLISH_ROLES = ["SUPER_ADMIN", "ADMIN"] as const;
+
+export function canPublish(role: string | undefined): boolean {
+  return (PUBLISH_ROLES as readonly string[]).includes(role ?? "");
+}
+
+/**
+ * 403 when the update would flip storeEnabled and the actor is an EDITOR.
+ * Sending the current value (the settings form always does) is fine, so
+ * editors keep saving everything else.
+ */
+export function publishDenied(actor: Pick<AdminActor, "role">, current: boolean, data: Record<string, unknown>): ServiceFail | null {
+  if (data.storeEnabled === undefined || Boolean(data.storeEnabled) === current) return null;
+  if (canPublish(actor.role)) return null;
+  return fail(403, `Only an ADMIN or SUPER_ADMIN can ${data.storeEnabled ? "take the store live" : "switch the store back to Coming Soon"}. Nothing was saved. Ask an admin to flip "Store status" in Admin → Settings, or save again without changing it.`);
+}
+
 /** PUT /api/admin/settings — `body` is the raw request JSON; only whitelisted fields are written. */
 export async function updateSettings(
   db: TenantPrisma,
   body: Record<string, unknown>,
+  actor: Pick<AdminActor, "role">,
 ): Promise<ServiceResult<unknown>> {
   const data = pickWritableSettings(body);
   // Upsert on tenantId (unique constraint); scoped client injects tenantId automatically
   const existing = await db.storeSettings.findFirst({ where: {} });
+  const denied = publishDenied(actor, existing?.storeEnabled ?? false, data);
+  if (denied) return denied;
   const settings = existing
     ? await db.storeSettings.update({ where: { id: existing.id }, data })
     : await db.storeSettings.create({ data: data as never });
@@ -141,12 +162,15 @@ export async function updateSettings(
 export async function previewUpdateSettings(
   db: TenantPrisma,
   patch: Record<string, unknown>,
+  actor: Pick<AdminActor, "role">,
 ): Promise<ServiceResult<unknown>> {
   patch = pickWritableSettings(patch);
   const fields = Object.keys(patch);
   if (fields.length === 0) return fail(400, "No settings fields provided to change");
 
   const existing = (await db.storeSettings.findFirst({ where: {} })) as Record<string, unknown> | null;
+  const denied = publishDenied(actor, existing?.storeEnabled === true, patch);
+  if (denied) return denied;
   const changes: Array<{ field: string; before: unknown; after: unknown }> = [];
   const unchanged: string[] = [];
   for (const f of fields) {

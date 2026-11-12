@@ -63,7 +63,7 @@ function Modal({ onClose, children }: { onClose: () => void; children: React.Rea
 
 // ─── Invite Modal ─────────────────────────────────────────────────────────────
 
-function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (notice?: string) => void }) {
+function InviteModal({ onClose, onSuccess, canGrantOwner }: { onClose: () => void; onSuccess: (notice?: string) => void; canGrantOwner: boolean }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("EDITOR");
@@ -148,6 +148,7 @@ function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
           >
             <option value="EDITOR">Editor</option>
             <option value="ADMIN">Admin</option>
+            {canGrantOwner && <option value="SUPER_ADMIN">Super Admin (owner)</option>}
           </select>
         </div>
         <button
@@ -171,7 +172,7 @@ function InviteModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: (
 
 // ─── Edit Role Modal ──────────────────────────────────────────────────────────
 
-function EditRoleModal({ member, onClose, onSuccess }: { member: AdminMember; onClose: () => void; onSuccess: () => void }) {
+function EditRoleModal({ member, onClose, onSuccess, canGrantOwner }: { member: AdminMember; onClose: () => void; onSuccess: () => void; canGrantOwner: boolean }) {
   const [role, setRole] = useState(member.role);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -227,6 +228,7 @@ function EditRoleModal({ member, onClose, onSuccess }: { member: AdminMember; on
         }}>
           <option value="EDITOR">Editor</option>
           <option value="ADMIN">Admin</option>
+          {canGrantOwner && <option value="SUPER_ADMIN">Super Admin (owner)</option>}
         </select>
         <button type="submit" disabled={loading} style={{
           height: 48, borderRadius: 12, border: "none",
@@ -349,11 +351,15 @@ export default function TeamPage() {
 
   async function toggleActive(member: AdminMember) {
     try {
-      await fetch(`/api/admin/team/${member.id}`, {
+      const res = await fetch(`/api/admin/team/${member.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: !member.isActive }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setNotice(data.error ?? "That change was refused.");
+      }
       await loadTeam();
     } catch {
       // silent
@@ -361,6 +367,8 @@ export default function TeamPage() {
   }
 
   const canManage = currentUserRole === "SUPER_ADMIN" || currentUserRole === "ADMIN";
+  const isOwner = currentUserRole === "SUPER_ADMIN";
+  const activeOwners = members.filter((m) => m.role === "SUPER_ADMIN" && m.isActive).length;
 
   return (
     <>
@@ -412,6 +420,7 @@ export default function TeamPage() {
             {members.map(member => {
               const roleInfo = ROLE_COLORS[member.role] ?? ROLE_COLORS.EDITOR;
               const isCurrentUser = member.id === currentUserId;
+              const isLastOwner = member.role === "SUPER_ADMIN" && member.isActive && activeOwners <= 1;
 
               return (
                 <div
@@ -476,7 +485,9 @@ export default function TeamPage() {
                   </div>
 
                   {/* Actions */}
-                  {canManage && !isCurrentUser && (
+                  {/* Owner protection (enforced by the server too): never yourself,
+                      only owners touch owners, and the last active owner stays. */}
+                  {canManage && !isCurrentUser && (member.role !== "SUPER_ADMIN" || isOwner) && (
                     <div style={{ position: "relative", flexShrink: 0 }}>
                       <button
                         onClick={() => setOpenMenuId(openMenuId === member.id ? null : member.id)}
@@ -497,7 +508,12 @@ export default function TeamPage() {
                           boxShadow: "0 8px 32px rgba(0,0,0,0.12)",
                           minWidth: 160, overflow: "hidden",
                         }}>
-                          {member.role !== "SUPER_ADMIN" && (
+                          {isLastOwner && (
+                            <p style={{ margin: 0, padding: "11px 16px", fontSize: 12, color: "#9a876e", fontFamily: "'Inter',sans-serif" }}>
+                              The only active owner. Make someone else Super Admin first.
+                            </p>
+                          )}
+                          {!isLastOwner && (
                             <button
                               onClick={() => { setModal({ type: "edit", member }); setOpenMenuId(null); }}
                               style={{ display: "block", width: "100%", padding: "11px 16px", background: "none", border: "none", textAlign: "left", fontSize: 13, color: "#3a2e24", fontFamily: "'Inter',sans-serif", cursor: "pointer" }}
@@ -507,15 +523,15 @@ export default function TeamPage() {
                               Edit Role
                             </button>
                           )}
-                          <button
+                          {!(isLastOwner && member.isActive) && <button
                             onClick={() => { toggleActive(member); setOpenMenuId(null); }}
                             style={{ display: "block", width: "100%", padding: "11px 16px", background: "none", border: "none", textAlign: "left", fontSize: 13, color: "#3a2e24", fontFamily: "'Inter',sans-serif", cursor: "pointer" }}
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "#faf7f2"; }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "none"; }}
                           >
                             {member.isActive ? "Deactivate" : "Reactivate"}
-                          </button>
-                          {currentUserRole === "SUPER_ADMIN" && (
+                          </button>}
+                          {isOwner && !isLastOwner && (
                             <button
                               onClick={() => { setModal({ type: "remove", member }); setOpenMenuId(null); }}
                               style={{ display: "block", width: "100%", padding: "11px 16px", background: "none", border: "none", textAlign: "left", fontSize: 13, color: "#c0392b", fontFamily: "'Inter',sans-serif", cursor: "pointer" }}
@@ -547,13 +563,14 @@ export default function TeamPage() {
         <Modal onClose={() => setModal(null)}>
           <InviteModal
             onClose={() => setModal(null)}
+            canGrantOwner={isOwner}
             onSuccess={(msg) => { setNotice(msg ?? ""); void loadTeam(); }}
           />
         </Modal>
       )}
       {modal?.type === "edit" && (
         <Modal onClose={() => setModal(null)}>
-          <EditRoleModal member={modal.member} onClose={() => setModal(null)} onSuccess={loadTeam} />
+          <EditRoleModal member={modal.member} canGrantOwner={isOwner} onClose={() => setModal(null)} onSuccess={loadTeam} />
         </Modal>
       )}
       {modal?.type === "remove" && (

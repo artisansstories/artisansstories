@@ -130,6 +130,17 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingEmailLogo, setUploadingEmailLogo] = useState(false);
+  // Publishing needs ADMIN or SUPER_ADMIN (the server enforces it too).
+  const [canPublish, setCanPublish] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/auth/admin/session")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.session?.role) setCanPublish(data.session.role === "SUPER_ADMIN" || data.session.role === "ADMIN");
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -396,8 +407,12 @@ export default function SettingsPage() {
       <div style={SECTION_STYLE}>
         <h2 style={SECTION_TITLE}>Store Visibility</h2>
         <div
-          onClick={() => update("storeEnabled", !settings.storeEnabled)}
+          role="switch"
+          aria-checked={settings.storeEnabled}
+          aria-disabled={!canPublish}
+          onClick={() => { if (canPublish) update("storeEnabled", !settings.storeEnabled); }}
           style={{
+            opacity: canPublish ? 1 : 0.6,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -405,7 +420,7 @@ export default function SettingsPage() {
             borderRadius: 12,
             border: `2px solid ${settings.storeEnabled ? "#16a34a" : "#d97706"}`,
             background: settings.storeEnabled ? "#f0fdf4" : "#fffbeb",
-            cursor: "pointer",
+            cursor: canPublish ? "pointer" : "not-allowed",
             transition: "all 0.2s",
           }}
         >
@@ -447,6 +462,11 @@ export default function SettingsPage() {
             {settings.storeEnabled ? "Online" : "Coming Soon"}
           </span>
         </div>
+        {!canPublish && (
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: "#9a876e", margin: "8px 0 0" }}>
+            Only an Admin or Super Admin can take the store live or back to Coming Soon. You can still edit everything else.
+          </p>
+        )}
       </div>
 
       {/* 5. Returns Policy */}

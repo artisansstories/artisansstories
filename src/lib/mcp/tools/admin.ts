@@ -10,11 +10,11 @@ import * as settings from "@/lib/admin-services/settings";
 import * as team from "@/lib/admin-services/team";
 import { fail } from "@/lib/admin-services/result";
 
-const TEAM_ROLE = ["ADMIN", "EDITOR"] as const;
+const TEAM_ROLE = ["SUPER_ADMIN", "ADMIN", "EDITOR"] as const;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_SALES_RANGE_DAYS = 731;
 
-const actorOf = (ctx: ToolCtx): team.TeamActor => ({ id: ctx.actorId, role: ctx.role, name: ctx.actorLabel });
+const actorOf = (ctx: ToolCtx): team.TeamActor => ({ id: ctx.actorId, role: ctx.role, name: ctx.actorLabel, isApiKey: ctx.principal.kind === "key" });
 
 const zDay = (desc: string) => z.string().regex(DAY, "Use YYYY-MM-DD").nullish().describe(desc);
 const zText = (desc: string) => z.string().nullish().describe(desc);
@@ -149,10 +149,10 @@ export const tools: McpTool[] = [
     kind: "sensitive",
     idempotent: true,
     description:
-      "Change one or more store settings. Only fields you pass are changed; omitted fields stay as they are. Setting storeEnabled publishes the store (true, goes live) or unpublishes it (false, Coming Soon). The preview lists each field's before/after value. Email branding is changed with settings_update_email_branding.",
+      "Change one or more store settings. Only fields you pass are changed; omitted fields stay as they are. Setting storeEnabled publishes the store (true, goes live) or unpublishes it (false, Coming Soon); that needs ADMIN or SUPER_ADMIN (API keys act as ADMIN, so they can). The preview lists each field's before/after value. Email branding is changed with settings_update_email_branding.",
     input: SETTINGS_INPUT,
-    preview: (ctx, a) => settings.previewUpdateSettings(ctx.db, { ...a }),
-    execute: (ctx, a) => settings.updateSettings(ctx.db, { ...a }),
+    preview: (ctx, a) => settings.previewUpdateSettings(ctx.db, { ...a }, ctx),
+    execute: (ctx, a) => settings.updateSettings(ctx.db, { ...a }, ctx),
   }),
 
   writeTool({
@@ -188,11 +188,11 @@ export const tools: McpTool[] = [
     kind: "sensitive",
     openWorld: true,
     description:
-      "Grant a person admin access as ADMIN or EDITOR and email them an admin sign-in link. Requires the caller to be SUPER_ADMIN or ADMIN. Fails if the email already belongs to an admin of this store. The preview shows the new member, role, and invite recipient.",
+      "Grant a person admin access and email them an admin sign-in link. Requires the caller to be SUPER_ADMIN or ADMIN; only a SUPER_ADMIN can add a SUPER_ADMIN (API keys act as ADMIN, so they can add ADMIN or EDITOR). Fails if the email already belongs to an admin of this store. The preview shows the new member, role, and invite recipient.",
     input: {
       name: z.string().min(1).describe("Full name"),
       email: z.string().email().describe("Email address (used to sign in)"),
-      role: z.enum(TEAM_ROLE).describe("ADMIN or EDITOR"),
+      role: z.enum(TEAM_ROLE).describe("SUPER_ADMIN (owner; SUPER_ADMIN callers only), ADMIN or EDITOR"),
     },
     preview: (ctx, a) => team.previewAddTeamMember(ctx.db, actorOf(ctx), a),
     execute: (ctx, a) => team.addTeamMember(ctx.db, actorOf(ctx), a),
@@ -204,7 +204,7 @@ export const tools: McpTool[] = [
     kind: "sensitive",
     idempotent: true,
     description:
-      "Change an admin's role (ADMIN/EDITOR) and/or deactivate or reactivate them (inactive admins cannot sign in). Requires the caller to be SUPER_ADMIN or ADMIN. A SUPER_ADMIN's role cannot be changed. Get ids from team_list. Sends no email.",
+      "Change an admin's role and/or deactivate or reactivate them (inactive admins cannot sign in). Requires the caller to be SUPER_ADMIN or ADMIN. Owner protection: nobody can change their own role or deactivate themselves; only a SUPER_ADMIN can change or deactivate a SUPER_ADMIN or grant SUPER_ADMIN (API keys act as ADMIN, so they can manage ADMIN and EDITOR members only); the store always keeps at least one active SUPER_ADMIN. Get ids from team_list. Sends no email.",
     input: {
       adminId: zId("Admin user"),
       role: z.enum(TEAM_ROLE).nullish().describe("New role; omit to keep"),
@@ -220,7 +220,7 @@ export const tools: McpTool[] = [
     kind: "sensitive",
     destructive: true,
     description:
-      "Permanently delete an admin user from this store. Only a SUPER_ADMIN may do this (API keys act as ADMIN and are always refused), and never on their own account. Consider team_update with isActive=false to suspend instead. Sends no email.",
+      "Permanently delete an admin user from this store. Only a SUPER_ADMIN may do this (API keys act as ADMIN and are always refused), never on their own account, and never on the last active SUPER_ADMIN. Consider team_update with isActive=false to suspend instead. Sends no email.",
     input: { adminId: zId("Admin user") },
     preview: (ctx, a) => team.previewRemoveTeamMember(ctx.db, actorOf(ctx), a.adminId),
     execute: (ctx, a) => team.removeTeamMember(ctx.db, actorOf(ctx), a.adminId),

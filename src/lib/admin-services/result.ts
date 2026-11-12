@@ -26,4 +26,6 @@ export function fail(status: number, error: string, extra?: Record<string, unkno
 export interface AdminActor {
   id: string;
   role: string;
+  /** True for an MCP API key: it acts as ADMIN and has no AdminUser row. */
+  isApiKey?: boolean;
 }

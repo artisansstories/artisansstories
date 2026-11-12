@@ -84,6 +84,7 @@ describe("settings mass-assignment", () => {
     const r = await previewUpdateSettings(
       { $tenantId: "tenant_b", storeSettings: { findFirst: db.findFirst } } as never,
       { mcpEnabled: true, tenantId: "x" },
+      { role: "ADMIN" },
     );
     expect(r).toMatchObject({ ok: false, status: 400 });
   });

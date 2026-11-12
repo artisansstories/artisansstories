@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
 import { getSettings, updateSettings, updateEmailBranding } from "@/lib/admin-services/settings";
 import { toResponse } from "@/lib/admin-services/http";
+import { getAdminSession } from "@/lib/admin-auth";
+import { teamActorFromSession } from "@/lib/admin-services/team";
 import { authErrorResponse } from "@/lib/admin-api";
 
 export async function GET() {
@@ -18,8 +20,12 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const db = await getTenantPrismaForAdmin();
+    const session = await getAdminSession();
+    // Live role (publishing needs ADMIN/SUPER_ADMIN), not the session token's.
+    const actor = session ? await teamActorFromSession(db, session.id) : null;
+    if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = await request.json();
-    return toResponse(await updateSettings(db, body));
+    return toResponse(await updateSettings(db, body, actor));
   } catch (error) {
     const unauthorized = authErrorResponse(error);
     if (unauthorized) return unauthorized;
