@@ -323,7 +323,7 @@ export async function previewReceiveReturn(db: TenantPrisma, id: string) {
       ? {
           to: retWithOrder.order.email,
           subject: `We received your return for order ${retWithOrder.order.orderNumber}`,
-          type: "RETURN_APPROVED",
+          type: "RETURN_RECEIVED",
           note: "Email failures are logged and do not undo the status change.",
         }
       : null,
@@ -368,7 +368,7 @@ ${emailLogoHtml(branding)}</td></tr>
         html,
       });
       if (result.error) throw new Error(result.error.message);
-      await logEmail({ tenantId: db.$tenantId, type: "RETURN_APPROVED", toEmail: retWithOrder.order.email, fromEmail: branding.fromAddress, subject: `We received your return for order ${retWithOrder.order.orderNumber}`, bodyHtml: html, resendId: result.data?.id, relatedId: retWithOrder.order.id, relatedType: "ORDER" });
+      await logEmail({ tenantId: db.$tenantId, type: "RETURN_RECEIVED", toEmail: retWithOrder.order.email, fromEmail: branding.fromAddress, subject: `We received your return for order ${retWithOrder.order.orderNumber}`, bodyHtml: html, resendId: result.data?.id, relatedId: retWithOrder.order.id, relatedType: "ORDER" });
     } catch (e) { console.error("Failed to send return received email:", e); }
   }
   return ok({ return: updated });

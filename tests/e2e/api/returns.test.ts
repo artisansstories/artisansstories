@@ -5,6 +5,9 @@
  * would use. Refunds live in returns-refund.test.ts.
  */
 import { describe, it, expect } from "vitest";
+import fs from "fs";
+import path from "path";
+import { Client } from "pg";
 import { prisma } from "@/lib/prisma";
 import { F, KEYS, HOUSE, OTHER } from "../seed";
 import { call } from "../helpers/route";
@@ -17,6 +20,7 @@ import * as approve from "@/app/api/admin/returns/[id]/approve/route";
 import * as reject from "@/app/api/admin/returns/[id]/reject/route";
 import * as receive from "@/app/api/admin/returns/[id]/receive/route";
 import * as status from "@/app/api/admin/returns/[id]/status/route";
+import * as communicationsRoute from "@/app/api/admin/communications/route";
 
 const H = (fn: unknown) => fn as never;
 
@@ -280,8 +284,10 @@ describe("POST /api/admin/returns/[id]/receive", () => {
     expect(mails[0].subject).toBe("We received your return for order AS-1007");
     const logs = await prisma.emailLog.findMany({ where: { toEmail: "ben@example.test", subject: { contains: "We received your return" } } });
     expect(logs).toHaveLength(1);
-    // Known: there is no RECEIVED EmailLogType, so the receive notice is logged as RETURN_APPROVED (see report).
-    expect(logs[0].type).toBe("RETURN_APPROVED");
+    // Its own EmailLog type (add_email_log_return_received.sql), no longer RETURN_APPROVED.
+    expect(logs[0].type).toBe("RETURN_RECEIVED");
+    const comms = await call(H(communicationsRoute.GET), "GET", "/api/admin/communications");
+    expect(JSON.stringify(comms.body)).toContain("RETURN_RECEIVED");
     expect(await prisma.inventory.findMany({ orderBy: { id: "asc" } })).toEqual(invBefore);
     expect(stripeState.calls).toHaveLength(0);
   });
@@ -464,7 +470,7 @@ describe("MCP returns write tools: preview → confirm → replay", () => {
       const flow = await previewConfirmReplay(mcp, "returns_receive", { returnId: F.ret.approved }, async (pv) => {
         expect(pv.preview).toMatchObject({
           returnId: F.ret.approved, orderNumber: "AS-1007", currentStatus: "APPROVED", newStatus: "RECEIVED", moneyMoved: false,
-          email: { to: "ben@example.test", subject: "We received your return for order AS-1007" },
+          email: { to: "ben@example.test", subject: "We received your return for order AS-1007", type: "RETURN_RECEIVED" },
         });
         expect(await snapshot()).toEqual(before);
       });
@@ -505,5 +511,55 @@ describe("MCP returns write tools: preview → confirm → replay", () => {
       expect(own.return.order.orderNumber).toBe("OS-2001");
       expect((await prisma.return.findUnique({ where: { id: F.ret.other } }))!.tenantId).toBe(OTHER);
     });
+  });
+});
+
+// ── migration: prisma/migrations/add_email_log_return_received.sql ─────────
+
+describe("add_email_log_return_received.sql migration", () => {
+  const MIGRATION = fs.readFileSync(path.resolve(__dirname, "../../../prisma/migrations/add_email_log_return_received.sql"), "utf8");
+  /** The ROLLBACK block from the file header, uncommented. */
+  const indented = MIGRATION.split("\n").filter((l) => l.startsWith("--   ")).map((l) => l.slice(5)).join("\n");
+  const rollbackSql = indented.slice(indented.indexOf("BEGIN;"));
+  const OLD_VALUES = ["ORDER_CONFIRMATION", "ORDER_CANCELLED", "ORDER_REFUNDED", "ORDER_SHIPPED", "MAGIC_LINK_CUSTOMER", "MAGIC_LINK_ADMIN", "CONTACT_INBOUND", "CONTACT_REPLY", "RETURN_REQUEST", "RETURN_APPROVED", "RETURN_REJECTED", "REFUND_ISSUED", "SUBSCRIBE_WELCOME", "SYSTEM"];
+
+  it("adds RETURN_RECEIVED once (idempotent), keeps old rows, verify query finds it, rollback restores the old type", async () => {
+    const url = process.env.DATABASE_URL!;
+    expect(new URL(url).hostname).toBe("127.0.0.1");
+    const c = new Client({ connectionString: url });
+    await c.connect();
+    // A scratch schema in the pre-migration (production) state, so the shared
+    // test schema the app uses is never rebuilt under Prisma's feet.
+    try {
+      await c.query(`DROP SCHEMA IF EXISTS mig_rr CASCADE; CREATE SCHEMA mig_rr; SET search_path TO mig_rr`);
+      await c.query(`CREATE TYPE "EmailLogType" AS ENUM (${OLD_VALUES.map((v) => `'${v}'`).join(", ")})`);
+      await c.query(`CREATE TABLE "EmailLog" (id TEXT PRIMARY KEY, type "EmailLogType" NOT NULL, subject TEXT)`);
+      await c.query(`INSERT INTO "EmailLog" VALUES ('old_receive', 'RETURN_APPROVED', 'We received your return for order AS-1')`);
+      const verify = `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid JOIN pg_namespace n ON n.oid = t.typnamespace
+                      WHERE n.nspname = 'mig_rr' AND t.typname = 'EmailLogType' AND e.enumlabel = 'RETURN_RECEIVED'`;
+      expect((await c.query(verify)).rows).toEqual([]);
+
+      await c.query(MIGRATION);
+      await c.query(MIGRATION); // second run: no error
+      expect((await c.query(verify)).rows).toEqual([{ enumlabel: "RETURN_RECEIVED" }]);
+      const labels = (await c.query(`SELECT unnest(enum_range(NULL::"EmailLogType"))::text AS v`)).rows.map((r) => r.v);
+      expect(labels.filter((v) => v === "RETURN_RECEIVED")).toHaveLength(1);
+      expect(labels.indexOf("RETURN_RECEIVED")).toBe(labels.indexOf("RETURN_APPROVED") + 1);
+      // Old rows untouched; the new value is usable.
+      expect((await c.query(`SELECT type FROM "EmailLog" WHERE id = 'old_receive'`)).rows).toEqual([{ type: "RETURN_APPROVED" }]);
+      await c.query(`INSERT INTO "EmailLog" VALUES ('new_receive', 'RETURN_RECEIVED', 'We received your return for order AS-2')`);
+
+      // The documented rollback rebuilds the old type and folds new rows back.
+      expect(rollbackSql).toContain("CREATE TYPE");
+      await c.query(rollbackSql);
+      expect((await c.query(verify)).rows).toEqual([]);
+      expect((await c.query(`SELECT id, type FROM "EmailLog" ORDER BY id`)).rows).toEqual([
+        { id: "new_receive", type: "RETURN_APPROVED" },
+        { id: "old_receive", type: "RETURN_APPROVED" },
+      ]);
+    } finally {
+      await c.query(`SET search_path TO public; DROP SCHEMA IF EXISTS mig_rr CASCADE`);
+      await c.end();
+    }
   });
 });

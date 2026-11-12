@@ -15,7 +15,7 @@ interface ContactMessage {
 
 type EmailLogType = "ORDER_CONFIRMATION" | "ORDER_CANCELLED" | "ORDER_REFUNDED" | "ORDER_SHIPPED" |
   "MAGIC_LINK_CUSTOMER" | "MAGIC_LINK_ADMIN" | "CONTACT_INBOUND" | "CONTACT_REPLY" |
-  "RETURN_REQUEST" | "RETURN_APPROVED" | "RETURN_REJECTED" | "REFUND_ISSUED" | "SUBSCRIBE_WELCOME" | "SYSTEM";
+  "RETURN_REQUEST" | "RETURN_APPROVED" | "RETURN_RECEIVED" | "RETURN_REJECTED" | "REFUND_ISSUED" | "SUBSCRIBE_WELCOME" | "SYSTEM";
 
 interface EmailLog {
   id: string; type: EmailLogType; direction: "OUTBOUND" | "INBOUND";
@@ -57,6 +57,7 @@ const EMAIL_TYPE: Record<string, { label: string; color: string; bg: string }> =
   CONTACT_REPLY:       { label: "Contact Reply",        color: "#8B6914", bg: "#fdf5e4" },
   RETURN_REQUEST:      { label: "Return Request",       color: "#b45309", bg: "#fffbeb" },
   RETURN_APPROVED:     { label: "Return Approved",      color: "#15803d", bg: "#dcfce7" },
+  RETURN_RECEIVED:     { label: "Return Received",      color: "#0284c7", bg: "#f0f9ff" },
   RETURN_REJECTED:     { label: "Return Rejected",      color: "#dc2626", bg: "#fef2f2" },
   REFUND_ISSUED:       { label: "Refund Issued",        color: "#6b21a8", bg: "#faf5ff" },
   SUBSCRIBE_WELCOME:   { label: "Welcome Email",        color: "#0891b2", bg: "#ecfeff" },

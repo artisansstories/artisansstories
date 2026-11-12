@@ -1,0 +1,34 @@
+-- add_email_log_return_received.sql: a proper EmailLog type for the
+-- "we received your return" customer email.
+--
+-- STATUS: NOT APPLIED. An operator runs this by hand against every database
+-- (production Neon included) BEFORE deploying feat/policy-autonomy. schema.prisma
+-- now declares EmailLogType.RETURN_RECEIVED; until this runs, the receive step's
+-- email log insert fails (the email itself still sends and the status change
+-- stands, because the log write is inside the email try/catch).
+--
+-- Idempotent: ADD VALUE IF NOT EXISTS is a no-op on a second run.
+-- Old rows are left exactly as they are: receive emails sent before this change
+-- stay logged as RETURN_APPROVED (subject "We received your return for order ...").
+--
+-- Note: on PostgreSQL < 12, ALTER TYPE ... ADD VALUE cannot run inside a
+-- transaction block. Run this file on its own (psql -f), not wrapped in BEGIN.
+--
+-- VERIFY (expects one row, 'RETURN_RECEIVED'):
+--   SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+--   WHERE t.typname = 'EmailLogType' AND e.enumlabel = 'RETURN_RECEIVED';
+--
+-- ROLLBACK (only after rolling the code back to a build without RETURN_RECEIVED).
+-- PostgreSQL can't drop one enum value, so the type is rebuilt:
+--   BEGIN;
+--   UPDATE "EmailLog" SET type = 'RETURN_APPROVED' WHERE type = 'RETURN_RECEIVED';
+--   ALTER TYPE "EmailLogType" RENAME TO "EmailLogType_old";
+--   CREATE TYPE "EmailLogType" AS ENUM ('ORDER_CONFIRMATION', 'ORDER_CANCELLED',
+--     'ORDER_REFUNDED', 'ORDER_SHIPPED', 'MAGIC_LINK_CUSTOMER', 'MAGIC_LINK_ADMIN',
+--     'CONTACT_INBOUND', 'CONTACT_REPLY', 'RETURN_REQUEST', 'RETURN_APPROVED',
+--     'RETURN_REJECTED', 'REFUND_ISSUED', 'SUBSCRIBE_WELCOME', 'SYSTEM');
+--   ALTER TABLE "EmailLog" ALTER COLUMN type TYPE "EmailLogType" USING type::text::"EmailLogType";
+--   DROP TYPE "EmailLogType_old";
+--   COMMIT;
+
+ALTER TYPE "EmailLogType" ADD VALUE IF NOT EXISTS 'RETURN_RECEIVED' AFTER 'RETURN_APPROVED';

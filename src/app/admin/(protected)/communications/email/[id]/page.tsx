@@ -33,6 +33,7 @@ const TYPE_LABELS: Record<string, string> = {
   CONTACT_REPLY: "Contact Reply",
   RETURN_REQUEST: "Return Request",
   RETURN_APPROVED: "Return Approved",
+  RETURN_RECEIVED: "Return Received",
   RETURN_REJECTED: "Return Rejected",
   REFUND_ISSUED: "Refund Issued",
   SUBSCRIBE_WELCOME: "Welcome Email",
