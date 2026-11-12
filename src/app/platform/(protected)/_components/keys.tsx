@@ -19,6 +19,8 @@ export const SCOPE_META: { value: string; label: string; desc: string }[] = [
   { value: "store:read", label: "store:read", desc: "Read products and catalog data for the store." },
   { value: "store:write", label: "store:write", desc: "Create and modify products and catalog data." },
   { value: "checkout:create", label: "checkout:create", desc: "Start a Stripe checkout / payment for the store." },
+  { value: "mcp:admin", label: "mcp:admin (MCP key)", desc: "AI assistant (MCP) full admin access: every admin read + write tool, writes need preview→confirm." },
+  { value: "mcp:read", label: "mcp:read (MCP key)", desc: "AI assistant (MCP) read-only access: only the read tools are registered." },
 ];
 
 /** Multi-line title text for a Scopes cell, e.g. for a hover tooltip. */

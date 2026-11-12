@@ -35,7 +35,19 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false, houseOnly: true },
   { href: "/admin/team", label: "Team", icon: IconTeam, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
+  { href: "/admin/settings/ai", label: "AI Assistants", icon: IconSparkle, mobileShow: false },
 ];
+
+/** The nav item whose href is the longest prefix of the current path. */
+function activeNavHref(pathname: string): string | undefined {
+  return NAV_ITEMS
+    .filter((i) => pathname === i.href || (i.href !== "/admin" && pathname.startsWith(i.href)))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+}
+
+function IconSparkle({ size = 20 }: { size?: number }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg>);
+}
 
 function IconDashboard({ size = 20 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>);
@@ -146,7 +158,7 @@ export function AdminLayoutClient({
   const navItems = NAV_ITEMS.filter(item => isHouse || !item.houseOnly);
 
   function NavLink({ item }: { item: NavItem }) {
-    const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+    const isActive = activeNavHref(pathname) === item.href;
     const Icon = item.icon;
     return (
       <a href={item.href} style={{
@@ -318,7 +330,7 @@ export function AdminLayoutClient({
 
         <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "#fff", borderTop: "1px solid #ede8df", display: "flex", paddingBottom: "env(safe-area-inset-bottom)" }} className="admin-bottom-nav">
           {navItems.filter(i => i.mobileShow).map(item => {
-            const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href));
+            const isActive = activeNavHref(pathname) === item.href;
             const Icon = item.icon;
             return (
               <a key={item.href} href={item.href} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 4px 8px", textDecoration: "none", color: isActive ? "#8B6914" : "#9a8070", gap: 3, minWidth: 0 }}>

@@ -233,6 +233,14 @@ export default function SettingsPage() {
         <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#9a876e", margin: 0 }}>Manage your store configuration</p>
       </div>
 
+      <a href="/admin/settings/ai" style={{ ...SECTION_STYLE, display: "flex", alignItems: "center", justifyContent: "space-between", textDecoration: "none" }}>
+        <span>
+          <span style={{ display: "block", fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#3a2e24" }}>AI Assistants</span>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: "#9a876e" }}>Connect Muse or Grokbot to help run your store</span>
+        </span>
+        <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#8B6914", fontWeight: 600 }}>Open →</span>
+      </a>
+
       {error && (
         <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, padding: "12px 16px", marginBottom: 20 }}>
           <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: "#dc2626", margin: 0 }}>{error}</p>

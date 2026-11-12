@@ -3,7 +3,7 @@
  */
 
 /** Scopes an API key may be granted. Anything else → 400 at mint time. */
-export const ALLOWED_SCOPES = ["store:read", "store:write", "checkout:create"] as const;
+export const ALLOWED_SCOPES = ["store:read", "store:write", "checkout:create", "mcp:admin", "mcp:read"] as const;
 export type ApiScope = (typeof ALLOWED_SCOPES)[number];
 
 /** Default scopes for a freshly minted key when the caller omits `scopes`. */

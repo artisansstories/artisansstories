@@ -144,7 +144,10 @@ export async function proxy(request: NextRequest) {
     if (
       pathname.startsWith("/admin") ||
       pathname.startsWith("/api") ||
-      pathname.startsWith("/_next")
+      pathname.startsWith("/_next") ||
+      // MCP OAuth endpoints (tenant comes from the admin session / token, not the host)
+      pathname.startsWith("/oauth/") ||
+      pathname.startsWith("/.well-known/oauth-")
     ) {
       return NextResponse.next();
     }
