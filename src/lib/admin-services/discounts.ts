@@ -16,9 +16,14 @@ function prismaCode(err: unknown): string | undefined {
 
 // ── list / get ──────────────────────────────────────────────────────────────
 
+/** A page/limit that parsed to NaN (e.g. ?page=abc) falls back to the default. */
+function intOr(n: number | undefined, fallback: number): number {
+  return Number.isFinite(n) ? Math.trunc(n as number) : fallback;
+}
+
 export async function listDiscounts(db: TenantPrisma, p: { page?: number; limit?: number }) {
-  const page = Math.max(1, p.page ?? 1);
-  const limit = Math.min(100, Math.max(1, p.limit ?? 20));
+  const page = Math.max(1, intOr(p.page, 1));
+  const limit = Math.min(100, Math.max(1, intOr(p.limit, 20)));
   const skip = (page - 1) * limit;
   const [discounts, total] = await Promise.all([
     db.discount.findMany({
@@ -120,6 +125,7 @@ export async function createDiscount(db: TenantPrisma, body: DiscountCreateBody)
   if (!body.code || !body.type || body.value === undefined) {
     return fail(400, "code, type and value are required");
   }
+  if (badDate(body.startsAt) || badDate(body.endsAt)) return fail(400, "startsAt/endsAt must be valid ISO dates");
   try {
     const discount = await db.discount.create({
       data: {
@@ -210,6 +216,7 @@ function updateData(body: DiscountUpdateBody) {
 }
 
 export async function updateDiscount(db: TenantPrisma, id: string, body: DiscountUpdateBody) {
+  if (badDate(body.startsAt) || badDate(body.endsAt)) return fail(400, "startsAt/endsAt must be valid ISO dates");
   try {
     const discount = await db.discount.update({
       where: { id },
@@ -266,18 +273,28 @@ export async function previewUpdateDiscount(db: TenantPrisma, id: string, body: 
 // ── toggle active (PATCH) ───────────────────────────────────────────────────
 
 export async function setDiscountActive(db: TenantPrisma, id: string, isActive: boolean) {
-  const discount = await db.discount.update({
-    where: { id },
-    data: { isActive },
-  });
-  return ok({ discount });
+  try {
+    const discount = await db.discount.update({
+      where: { id },
+      data: { isActive },
+    });
+    return ok({ discount });
+  } catch (err: unknown) {
+    if (prismaCode(err) === "P2025") return fail(404, "Not found");
+    throw err;
+  }
 }
 
 // ── delete ──────────────────────────────────────────────────────────────────
 
 export async function deleteDiscount(db: TenantPrisma, id: string) {
-  await db.discount.delete({ where: { id } });
-  return ok({ success: true });
+  try {
+    await db.discount.delete({ where: { id } });
+    return ok({ success: true });
+  } catch (err: unknown) {
+    if (prismaCode(err) === "P2025") return fail(404, "Not found");
+    throw err;
+  }
 }
 
 export async function previewDeleteDiscount(db: TenantPrisma, id: string) {

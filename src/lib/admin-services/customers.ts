@@ -8,6 +8,10 @@ import { Prisma } from "@prisma/client";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { ok, fail } from "./result";
 
+function prismaCode(err: unknown): string | undefined {
+  return err && typeof err === "object" && "code" in err ? (err as { code: string }).code : undefined;
+}
+
 // ── list / get ──────────────────────────────────────────────────────────────
 
 export interface CustomerListParams {
@@ -16,10 +20,15 @@ export interface CustomerListParams {
   limit?: number;
 }
 
+/** A page/limit that parsed to NaN (e.g. ?page=abc) falls back to the default. */
+function intOr(n: number | undefined, fallback: number): number {
+  return Number.isFinite(n) ? Math.trunc(n as number) : fallback;
+}
+
 export async function listCustomers(db: TenantPrisma, p: CustomerListParams) {
   const search = p.search ?? "";
-  const page = Math.max(1, p.page ?? 1);
-  const limit = Math.min(100, Math.max(1, p.limit ?? 20));
+  const page = Math.max(1, intOr(p.page, 1));
+  const limit = Math.min(100, Math.max(1, intOr(p.limit, 20)));
   const where: Prisma.CustomerWhereInput = {};
   if (search) {
     where.OR = [
@@ -152,15 +161,20 @@ export interface CustomerUpdateBody {
 }
 
 export async function updateCustomer(db: TenantPrisma, id: string, body: CustomerUpdateBody) {
-  const customer = await db.customer.update({
-    where: { id },
-    data: {
-      ...(body.notes !== undefined && { notes: body.notes }),
-      ...(body.tags !== undefined && { tags: body.tags }),
-    },
-  });
-
-  return ok({ customer });
+  try {
+    const customer = await db.customer.update({
+      where: { id },
+      data: {
+        ...(body.notes !== undefined && { notes: body.notes }),
+        ...(body.tags !== undefined && { tags: body.tags }),
+      },
+    });
+    return ok({ customer });
+  } catch (err: unknown) {
+    // Missing id (or another store's id) → 404, not 500.
+    if (prismaCode(err) === "P2025") return fail(404, "Customer not found");
+    throw err;
+  }
 }
 
 export async function previewCustomerUpdate(db: TenantPrisma, id: string, body: CustomerUpdateBody) {

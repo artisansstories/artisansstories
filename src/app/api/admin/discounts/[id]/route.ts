@@ -34,6 +34,8 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     // P2002 → 409 and P2025 → 404 are handled inside updateDiscount.
     return toResponse(await updateDiscount(db, id, body));
   } catch (err: unknown) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("PUT /api/admin/discounts/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

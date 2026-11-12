@@ -29,6 +29,8 @@ export async function POST(request: NextRequest) {
     // P2002 (duplicate code) → 409 is handled inside createDiscount.
     return toResponse(await createDiscount(db, body));
   } catch (err: unknown) {
+    const unauthorized = authErrorResponse(err);
+    if (unauthorized) return unauthorized;
     console.error("POST /api/admin/discounts error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }

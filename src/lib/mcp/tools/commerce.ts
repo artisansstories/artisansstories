@@ -295,7 +295,7 @@ export const tools: McpTool[] = [
     kind: "write",
     idempotent: true,
     description:
-      "Change fields on a shipping rate; omitted fields are unchanged. To remove a bound, list it in `clear`. When price is given together with condition FREE, price is stored as 0. Find rate ids with shipping_zones_list.",
+      "Change fields on a shipping rate; omitted fields are unchanged. To remove a bound, list it in `clear`. A rate that is FREE after the update (condition FREE given, or already FREE) always has price 0. Find rate ids with shipping_zones_list.",
     input: {
       rateId: zId("Shipping rate"),
       name: z.string().min(1).nullish().describe("Rate name shown at checkout"),

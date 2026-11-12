@@ -10,9 +10,9 @@ export async function PUT(
   try {
     const db = await getTenantPrismaForAdmin();
 
-    const { rateId } = await params;
+    const { id: zoneId, rateId } = await params;
     const body = await request.json() as RateUpdateBody;
-    return toResponse(await updateRate(db, rateId, body));
+    return toResponse(await updateRate(db, rateId, body, zoneId));
   } catch (err) {
     const unauthorized = authErrorResponse(err);
     if (unauthorized) return unauthorized;
@@ -27,8 +27,8 @@ export async function DELETE(
   try {
     const db = await getTenantPrismaForAdmin();
 
-    const { rateId } = await params;
-    return toResponse(await deleteRate(db, rateId));
+    const { id: zoneId, rateId } = await params;
+    return toResponse(await deleteRate(db, rateId, zoneId));
   } catch (err) {
     const unauthorized = authErrorResponse(err);
     if (unauthorized) return unauthorized;

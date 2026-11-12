@@ -13,6 +13,10 @@ import { RateCondition, type ShippingRate } from "@prisma/client";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { ok, fail } from "./result";
 
+function prismaCode(err: unknown): string | undefined {
+  return err && typeof err === "object" && "code" in err ? (err as { code: string }).code : undefined;
+}
+
 // ── zones: list / get ───────────────────────────────────────────────────────
 
 export async function listZones(db: TenantPrisma) {
@@ -141,15 +145,21 @@ function zoneUpdateData(body: ZoneUpdateBody) {
 }
 
 export async function updateZone(db: TenantPrisma, id: string, body: ZoneUpdateBody) {
-  const zone = await db.shippingZone.update({
-    where: { id },
-    data: zoneUpdateData(body),
-    include: {
-      rates: { orderBy: { createdAt: "asc" } },
-      _count: { select: { rates: true } },
-    },
-  });
-  return ok({ zone });
+  try {
+    const zone = await db.shippingZone.update({
+      where: { id },
+      data: zoneUpdateData(body),
+      include: {
+        rates: { orderBy: { createdAt: "asc" } },
+        _count: { select: { rates: true } },
+      },
+    });
+    return ok({ zone });
+  } catch (err: unknown) {
+    // Missing id (or another store's id) → 404, not 500.
+    if (prismaCode(err) === "P2025") return fail(404, "Not found");
+    throw err;
+  }
 }
 
 function diff(current: Record<string, unknown>, data: Record<string, unknown>) {
@@ -170,8 +180,13 @@ export async function previewUpdateZone(db: TenantPrisma, id: string, body: Zone
 // ── zones: delete ───────────────────────────────────────────────────────────
 
 export async function deleteZone(db: TenantPrisma, id: string) {
-  await db.shippingZone.delete({ where: { id } });
-  return ok({ success: true });
+  try {
+    await db.shippingZone.delete({ where: { id } });
+    return ok({ success: true });
+  } catch (err: unknown) {
+    if (prismaCode(err) === "P2025") return fail(404, "Not found");
+    throw err;
+  }
 }
 
 export async function previewDeleteZone(db: TenantPrisma, id: string) {
@@ -261,26 +276,38 @@ export interface RateUpdateBody {
   isActive?: boolean;
 }
 
-function rateUpdateData(body: RateUpdateBody) {
+/**
+ * A rate that is FREE after this update (condition sent as FREE, or already
+ * stored as FREE and not changed) always has price 0, whether or not the
+ * request sends a price.
+ */
+function rateUpdateData(body: RateUpdateBody, storedCondition?: RateCondition) {
   const { name, condition, minValue, maxValue, price, isActive } = body;
+  const isFree = (condition ?? storedCondition) === RateCondition.FREE;
   return {
     ...(name !== undefined && { name: name.trim() }),
     ...(condition !== undefined && { condition }),
     ...(minValue !== undefined && { minValue }),
     ...(maxValue !== undefined && { maxValue }),
-    ...(price !== undefined && {
-      price: condition === RateCondition.FREE ? 0 : price,
-    }),
+    ...(isFree ? { price: 0 } : price !== undefined && { price }),
     ...(isActive !== undefined && { isActive }),
   };
 }
 
-export async function updateRate(db: TenantPrisma, rateId: string, body: RateUpdateBody) {
-  const rate = await db.shippingRate.update({
-    where: { id: rateId },
-    data: rateUpdateData(body),
-  });
-  return ok({ rate });
+/** `zoneId` (the route's [id]) must own the rate, else 404. */
+export async function updateRate(db: TenantPrisma, rateId: string, body: RateUpdateBody, zoneId?: string) {
+  const current = await findRate(db, rateId, zoneId);
+  if (!current) return fail(404, "Rate not found");
+  try {
+    const rate = await db.shippingRate.update({
+      where: { id: rateId },
+      data: rateUpdateData(body, current.condition),
+    });
+    return ok({ rate });
+  } catch (err: unknown) {
+    if (prismaCode(err) === "P2025") return fail(404, "Rate not found");
+    throw err;
+  }
 }
 
 async function findRate(db: TenantPrisma, rateId: string, zoneId?: string) {
@@ -295,8 +322,9 @@ async function findRate(db: TenantPrisma, rateId: string, zoneId?: string) {
 export async function previewUpdateRate(db: TenantPrisma, rateId: string, body: RateUpdateBody, zoneId?: string) {
   const rate = await findRate(db, rateId, zoneId);
   if (!rate) return fail(404, "Rate not found");
-  const changes = diff(rate as unknown as Record<string, unknown>, rateUpdateData(body));
-  const after = { ...(rate as ShippingRate), ...rateUpdateData(body) };
+  const data = rateUpdateData(body, rate.condition);
+  const changes = diff(rate as unknown as Record<string, unknown>, data);
+  const after = { ...(rate as ShippingRate), ...data };
   return ok({
     action: "update rate",
     rateId,
@@ -317,9 +345,16 @@ export async function previewUpdateRate(db: TenantPrisma, rateId: string, body: 
 
 // ── rates: delete ───────────────────────────────────────────────────────────
 
-export async function deleteRate(db: TenantPrisma, rateId: string) {
-  await db.shippingRate.delete({ where: { id: rateId } });
-  return ok({ success: true });
+/** `zoneId` (the route's [id]) must own the rate, else 404. */
+export async function deleteRate(db: TenantPrisma, rateId: string, zoneId?: string) {
+  if (!(await findRate(db, rateId, zoneId))) return fail(404, "Rate not found");
+  try {
+    await db.shippingRate.delete({ where: { id: rateId } });
+    return ok({ success: true });
+  } catch (err: unknown) {
+    if (prismaCode(err) === "P2025") return fail(404, "Rate not found");
+    throw err;
+  }
 }
 
 export async function previewDeleteRate(db: TenantPrisma, rateId: string, zoneId?: string) {
