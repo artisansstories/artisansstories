@@ -5,9 +5,16 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 
-export default async function AdminArtisansPage() {
+const IG_ERRORS: Record<string, string> = {
+  invalid_state: "The Instagram sign-in expired or was started in another browser. Open the artisan and click Connect Instagram again.",
+  token_failed: "Instagram didn't hand over access. Open the artisan and click Connect Instagram again.",
+  access_denied: "The Instagram sign-in was cancelled.",
+};
+
+export default async function AdminArtisansPage({ searchParams }: { searchParams: Promise<{ ig_error?: string }> }) {
   const session = await requireAdminSession();
   if (!isHouseTenant(session.tenantId)) redirect("/admin");
+  const igError = (await searchParams).ig_error;
 
   const artisans = await prisma.artisan.findMany({
     include: {
@@ -19,6 +26,11 @@ export default async function AdminArtisansPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 20px" }}>
+      {igError && (
+        <div role="alert" style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", fontSize: 13, fontFamily: "'Inter', sans-serif" }}>
+          {IG_ERRORS[igError] ?? `Instagram connection failed (${igError}). Open the artisan and click Connect Instagram to try again.`}
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
         <div>
           <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 32, fontWeight: 600, color: "#2a1f14", margin: 0 }}>Artisans</h1>

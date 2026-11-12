@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), { ssr: false });
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import InstagramConnection from "./InstagramConnection";
 
 export interface ArtisanData {
   id?: string;
@@ -410,6 +411,14 @@ export default function ArtisanForm({ artisan }: Props) {
                 <input type="file" accept="image/*" multiple onChange={handleGalleryUpload} style={{ display: "none" }} />
               </label>
             </div>
+
+            {/* Instagram connection (edit only: the OAuth flow needs a saved artisan) */}
+            {isEdit && (
+              <div className="af-section-card" style={sectionCard}>
+                <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, color: "#2a1f14", margin: "0 0 16px" }}>Instagram Connection</h2>
+                <InstagramConnection artisanId={artisan!.id!} />
+              </div>
+            )}
 
             {/* Social Links */}
             <div className="af-section-card" style={sectionCard}>

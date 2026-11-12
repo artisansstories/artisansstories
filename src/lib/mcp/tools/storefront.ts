@@ -487,7 +487,7 @@ export const tools: McpTool[] = [
     title: "Instagram connection status",
     houseOnly: true,
     description:
-      "For each artisan, whether an Instagram account is connected, the Instagram user id, and when the access token expires (tokens last about 60 days). Connecting and disconnecting are done in the admin UI on the artisan's edit page.",
+      "For each artisan, whether an Instagram account is connected, the Instagram user id, and when the access token expires (tokens last about 60 days). Connecting needs a person signed in to Instagram in a browser, so it can't be done here: for each artisan that isn't connected (or whose token expired) the result includes connectAdminUrl, the admin page with the \"Connect Instagram\" button. Give that link to the user. Disconnect is on the same page.",
     input: {},
     run: house((ctx) => instagramStatus(ctx.db)),
   }),
