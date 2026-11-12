@@ -110,6 +110,8 @@ export async function getReturn(db: TenantPrisma, id: string) {
 // ── admin note ──────────────────────────────────────────────────────────────
 
 export async function setReturnNote(db: TenantPrisma, id: string, adminNote: string | undefined) {
+  const existing = await db.return.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return fail(404, "Return not found");
   const ret = await db.return.update({
     where: { id },
     data: { adminNote },
@@ -203,7 +205,9 @@ export async function approveReturn(db: TenantPrisma, id: string) {
       })),
     }, branding),
   });
-  await logEmail({ tenantId: db.$tenantId, type: "RETURN_APPROVED", toEmail: ret.order.email, fromEmail: branding.fromAddress, subject, resendId: approveResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+  // Resend reports failures as { error }; only log emails that were sent.
+  if (approveResult.error) console.error(`[returns] approval email failed for return ${ret.id}:`, approveResult.error);
+  else await logEmail({ tenantId: db.$tenantId, type: "RETURN_APPROVED", toEmail: ret.order.email, fromEmail: branding.fromAddress, subject, resendId: approveResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
   return ok({ return: updated });
 }
 
@@ -287,7 +291,8 @@ export async function rejectReturn(db: TenantPrisma, id: string, reason: string)
       })),
     }, branding),
   });
-  await logEmail({ tenantId: db.$tenantId, type: "RETURN_REJECTED", toEmail: ret.order.email, fromEmail: branding.fromAddress, subject, resendId: rejectResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
+  if (rejectResult.error) console.error(`[returns] rejection email failed for return ${ret.id}:`, rejectResult.error);
+  else await logEmail({ tenantId: db.$tenantId, type: "RETURN_REJECTED", toEmail: ret.order.email, fromEmail: branding.fromAddress, subject, resendId: rejectResult.data?.id, relatedId: ret.id, relatedType: "RETURN" });
   return ok({ return: updated });
 }
 
@@ -362,6 +367,7 @@ ${emailLogoHtml(branding)}</td></tr>
         subject: `We received your return for order ${retWithOrder.order.orderNumber}`,
         html,
       });
+      if (result.error) throw new Error(result.error.message);
       await logEmail({ tenantId: db.$tenantId, type: "RETURN_APPROVED", toEmail: retWithOrder.order.email, fromEmail: branding.fromAddress, subject: `We received your return for order ${retWithOrder.order.orderNumber}`, bodyHtml: html, resendId: result.data?.id, relatedId: retWithOrder.order.id, relatedType: "ORDER" });
     } catch (e) { console.error("Failed to send return received email:", e); }
   }
@@ -516,10 +522,10 @@ export function returnRefundIdempotencyKey(returnId: string): string {
 }
 
 /**
- * Read-only. Applies the route's guards, plus MCP-only safety blocks for cases
- * where the execute path would refund money and then fail or double-refund:
- * return already REFUNDED, Stripe charge balance too small, or a restock target
- * with no inventory row (the route would refund, then throw mid-way).
+ * Read-only. Applies the route's guards (return already REFUNDED → 409), plus
+ * an MCP-only block when the Stripe charge balance is too small. A refund an
+ * earlier attempt issued but failed to record is shown as recorded-not-repeated;
+ * the restock plan shows inventory rows that will be created and skipped lines.
  */
 export async function previewRefundReturn(db: TenantPrisma, id: string, body: ReturnRefundBody) {
   const g = await refundGuard(db, id, body);
@@ -534,27 +540,47 @@ export async function previewRefundReturn(db: TenantPrisma, id: string, body: Re
     payment = { action: "none", note: "Amount is 0; no Stripe refund is created." };
   } else {
     const stripe = getStripe();
-    const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
-    const latest = pi.latest_charge;
-    if (!latest) return fail(400, "No charge found on this payment");
-    const charge = typeof latest === "string" ? await stripe.charges.retrieve(latest) : latest;
-    const alreadyRefunded = charge.amount_refunded ?? 0;
-    const refundable = charge.amount - alreadyRefunded;
-    if (body.amount > refundable) {
-      return fail(400, `Refund amount ${body.amount} exceeds the refundable balance of ${refundable} cents on the Stripe charge`, {
-        chargedAmount: charge.amount,
-        alreadyRefunded,
+    // An earlier attempt may have refunded in Stripe and then failed to record
+    // it. That refund already used the charge balance, so the balance check
+    // would block the retry that records it; refundReturn reuses it instead.
+    const earlier = await findEarlierRefund(stripe, order.stripePaymentIntentId, (m) => m.returnId === ret.id);
+    if (earlier && earlier.amount !== body.amount) {
+      return fail(409, `A Stripe refund of ${earlier.amount} cents (${earlier.id}) was already issued for this return, but not recorded. Retry with amount ${earlier.amount} to record it.`, {
+        moneyMoved: true,
+        stripeRefundId: earlier.id,
+        refundedAmount: earlier.amount,
       });
     }
-    payment = {
-      action: "stripe_refund",
-      chargeId: charge.id,
-      chargedAmount: charge.amount,
-      alreadyRefundedOnCharge: alreadyRefunded,
-      refundableBalance: refundable,
-      refundAmount: body.amount,
-      refundAmountFormatted: `$${(body.amount / 100).toFixed(2)}`,
-    };
+    if (earlier) {
+      payment = {
+        action: "record_existing_refund",
+        stripeRefundId: earlier.id,
+        refundAmount: earlier.amount,
+        note: "Already refunded in Stripe by an earlier attempt that failed to record it. No new money moves; only the store records are updated.",
+      };
+    } else {
+      const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId);
+      const latest = pi.latest_charge;
+      if (!latest) return fail(400, "No charge found on this payment");
+      const charge = typeof latest === "string" ? await stripe.charges.retrieve(latest) : latest;
+      const alreadyRefunded = charge.amount_refunded ?? 0;
+      const refundable = charge.amount - alreadyRefunded;
+      if (body.amount > refundable) {
+        return fail(400, `Refund amount ${body.amount} exceeds the refundable balance of ${refundable} cents on the Stripe charge`, {
+          chargedAmount: charge.amount,
+          alreadyRefunded,
+        });
+      }
+      payment = {
+        action: "stripe_refund",
+        chargeId: charge.id,
+        chargedAmount: charge.amount,
+        alreadyRefundedOnCharge: alreadyRefunded,
+        refundableBalance: refundable,
+        refundAmount: body.amount,
+        refundAmountFormatted: `$${(body.amount / 100).toFixed(2)}`,
+      };
+    }
   }
 
   const isPartial = body.amount < order.total;
