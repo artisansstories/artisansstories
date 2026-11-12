@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantPrismaForAdmin } from "@/lib/tenant-context";
+import { getOrder } from "@/lib/admin-services/orders";
+import { toResponse } from "@/lib/admin-services/http";
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -7,17 +9,7 @@ export async function GET(
   try {
     const db = await getTenantPrismaForAdmin();
     const { id } = await params;
-    const order = await db.order.findUnique({
-      where: { id },
-      include: {
-        customer: true,
-        items: true,
-        fulfillments: { orderBy: { createdAt: "asc" } },
-        returns: true,
-      },
-    });
-    if (!order) return NextResponse.json({ error: "Order not found" }, { status: 404 });
-    return NextResponse.json({ order });
+    return toResponse(await getOrder(db, id));
   } catch (err) {
     console.error("GET /api/admin/orders/[id] error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
