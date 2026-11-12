@@ -201,3 +201,31 @@ describe("POST /api/admin/instagram/disconnect", () => {
     expect((await prisma.artisan.findUniqueOrThrow({ where: { id: F.artisan.jose } })).igAccessToken).toBe("JOSE_TOKEN");
   });
 });
+
+// ── status route behind the admin Connect panel (5b) ────────────────────────
+
+describe("GET /api/admin/instagram/status (artisan edit page)", () => {
+  it("house admin: per-artisan status with the connect URL for unconnected artisans, never a token", async () => {
+    const statusRoute = await import("@/app/api/admin/instagram/status/route");
+    await signInAs(F.admin.editor);
+    const r = await call(statusRoute.GET as never, "GET", "/api/admin/instagram/status");
+    expect(r.status).toBe(200);
+    expect(r.text).not.toContain(SECRET);
+    const byId = Object.fromEntries(r.body.artisans.map((a: { id: string }) => [a.id, a]));
+    expect(byId[F.artisan.maria]).toMatchObject({ connected: true, igUserId: "17841400000" });
+    expect(byId[F.artisan.jose]).toMatchObject({ connected: false, connectAdminUrl: `https://artisansstories.com/admin/artisans/${F.artisan.jose}/edit#instagram` });
+    // Disconnect from the panel, then the status flips.
+    expect((await disconnectRoute({ artisanId: F.artisan.maria })).status).toBe(200);
+    const after = await call(statusRoute.GET as never, "GET", "/api/admin/instagram/status");
+    expect(after.body.artisans.find((a: { id: string }) => a.id === F.artisan.maria)).toMatchObject({ connected: false, hasToken: false });
+  });
+
+  it("another store's admin is refused (house-only, like the nav and MCP); no session is 401", async () => {
+    const statusRoute = await import("@/app/api/admin/instagram/status/route");
+    await signInAs(F.admin.oSuper);
+    expect((await call(statusRoute.GET as never, "GET", "/api/admin/instagram/status")).status).toBe(403);
+    const { signOut } = await import("../helpers/session");
+    signOut();
+    expect((await call(statusRoute.GET as never, "GET", "/api/admin/instagram/status")).status).toBe(401);
+  });
+});

@@ -283,3 +283,48 @@ describe("inventory", () => {
     });
   });
 });
+
+// ── category loops (5c) ─────────────────────────────────────────────────────
+
+describe("category parent loops are refused (route + MCP)", () => {
+  const put = (id: string, body: unknown) => call(categoryRoute.PUT as never, "PUT", C(id), { params: { id }, body });
+  const parents = async () => Object.fromEntries((await prisma.category.findMany({ where: { tenantId: HOUSE } })).map((c) => [c.id, c.parentId]));
+
+  it("self-parent, A → B → A, and a longer chain are refused with the chain spelled out; nothing changes", async () => {
+    await signInAs(F.admin.super);
+    const before = await parents();
+    expect(await put(F.cat.textiles, { parentId: F.cat.textiles })).toMatchObject({ status: 400, body: { error: "A category cannot be its own parent" } });
+    // Pottery is already inside Textiles.
+    const ab = await put(F.cat.textiles, { parentId: F.cat.pottery });
+    expect(ab.status).toBe(400);
+    expect(ab.body.error).toBe('Can\'t put "Textiles" inside "Pottery": "Pottery" is already inside "Textiles" (Textiles → Pottery), so it would make a loop. Pick a parent outside "Textiles", or clear the parent to make it top-level.');
+    expect(await parents()).toEqual(before);
+    // Longer: Empty goes under Pottery (fine), then Textiles under Empty would loop through three.
+    expect((await put(F.cat.empty, { parentId: F.cat.pottery })).status).toBe(200);
+    const abc = await put(F.cat.textiles, { parentId: F.cat.empty });
+    expect(abc.status).toBe(400);
+    expect(abc.body.error).toContain("(Textiles → Pottery → Empty Category)");
+    expect((await parents())[F.cat.textiles]).toBeNull();
+    // Moving within the tree without a loop still works, and so does clearing the parent.
+    expect((await put(F.cat.empty, { parentId: F.cat.textiles })).status).toBe(200);
+    expect((await put(F.cat.pottery, { parentId: null })).status).toBe(200);
+  });
+
+  it("MCP categories_update: the loop is refused at preview with the same message", async () => {
+    await withMcp(KEYS.houseAdmin, async (mcp) => {
+      const r = await mcp.call("categories_update", { categoryId: F.cat.textiles, parentId: F.cat.pottery });
+      expect(r).toMatchObject({ done: false, blocked: true, status: 400 });
+      expect(r.reason).toContain("so it would make a loop");
+      expect(r.confirmToken).toBeUndefined();
+    });
+    expect((await prisma.category.findUniqueOrThrow({ where: { id: F.cat.textiles } })).parentId).toBeNull();
+  });
+
+  it("concurrent A-under-B and B-under-A: one wins, the other is refused, no loop is ever stored", async () => {
+    await signInAs(F.admin.super);
+    const [a, b] = await Promise.all([put(F.cat.textiles, { parentId: F.cat.empty }), put(F.cat.empty, { parentId: F.cat.textiles })]);
+    expect([a.status, b.status].sort()).toEqual([200, 400]);
+    const p = await parents();
+    expect(p[F.cat.textiles] === F.cat.empty && p[F.cat.empty] === F.cat.textiles).toBe(false);
+  });
+});

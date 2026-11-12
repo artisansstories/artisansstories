@@ -110,7 +110,7 @@ describe("read-only key (mcp:read)", () => {
     const before = await dbFingerprint();
     const mcp = await connectMcp(KEYS.houseRead);
     try {
-      expect(WRITE_TOOLS).toHaveLength(54);
+      expect(WRITE_TOOLS).toHaveLength(56);
       for (const t of WRITE_TOOLS) {
         const a = await attempt(mcp, t.name, {});
         expect(a.isError, `${t.name}: ${a.text}`).toBe(true);
@@ -135,7 +135,9 @@ describe("read-only key (mcp:read)", () => {
         const r = await attempt(mcp, tool, { ...args, confirmToken: token });
         expect(r.isError, `${tool}: ${r.text}`).toBe(true);
       }
-      // The connection is still healthy.
+      // The connection is still healthy. (Over 120 calls were made above, the
+      // per-credential limit per minute, so start a fresh rate-limit window.)
+      (await import("@/lib/mcp/rate-limit")).__resetRateLimits();
       const ok = await attempt(mcp, "orders_get", { orderId: F.order.paid });
       expect(ok.isError).toBe(false);
       expect(ok.json?.order?.id ?? ok.json?.id).toBe(F.order.paid);

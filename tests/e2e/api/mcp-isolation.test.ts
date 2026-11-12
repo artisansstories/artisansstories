@@ -220,6 +220,14 @@ const OTHER_TO_HOUSE: Case[] = [
   { tool: "returns_receive", args: { returnId: F.ret.approved }, secrets: ["AS-1007", "ben@example.test"] },
   { tool: "returns_set_status", args: { returnId: F.ret.requested, status: "REFUNDED" }, secrets: ["Too small", "AS-1009"] },
   { tool: "returns_refund", args: { returnId: F.ret.received, amount: 100, restock: true }, secrets: ["AS-1005", "Clay Mug", "ana@example.test"] },
+  { tool: "returns_create", args: { orderId: F.order.shipped, items: [{ orderItemId: F.orderItem.shippedHammock, quantity: 1 }] }, secrets: ["AS-1008", "ben@example.test", "Woven Hammock"] },
+  {
+    // The other store's OWN order, but a house line item smuggled into items[].
+    tool: "returns_create",
+    args: { orderId: F.order.other, items: [{ orderItemId: F.orderItem.shippedHammock, quantity: 1 }] },
+    secrets: ["Woven Hammock", "AS-1008"],
+    control: false,
+  },
   { tool: "products_create", args: { name: "Cross", price: 100, categoryIds: [F.cat.textiles] }, secrets: ["Textiles"] },
   { tool: "products_create", args: { name: "Cross", price: 100, artisanId: F.artisan.maria }, secrets: ["Maria Hernandez"] },
   { tool: "products_update", args: { productId: F.prod.hammock, name: "pwned" }, secrets: PRODUCT_SECRETS },
@@ -233,6 +241,7 @@ const OTHER_TO_HOUSE: Case[] = [
   },
   { tool: "products_delete", args: { productId: F.prod.hammock }, secrets: PRODUCT_SECRETS },
   { tool: "products_addons_set", args: { productId: F.prod.hammock, type: "LASER_MONOGRAM", isEnabled: false }, secrets: PRODUCT_SECRETS },
+  { tool: "products_regenerate_alt_text", args: { productId: F.prod.hammock, all: true }, secrets: PRODUCT_SECRETS },
   { tool: "categories_create", args: { name: "Sub", parentId: F.cat.textiles }, secrets: ["Textiles"] },
   { tool: "categories_update", args: { categoryId: F.cat.textiles, name: "pwned" }, secrets: ["Textiles", "Woven Hammock"] },
   { tool: "categories_update", args: { categoryId: F.cat.other, parentId: F.cat.textiles }, secrets: ["Textiles"], control: false },
@@ -611,25 +620,25 @@ describe("house-only tools", () => {
   const HOUSE_ONLY = ALL_TOOLS.filter((t) => t.houseOnly).map((t) => t.name).sort();
   const HOUSE_ONLY_PATTERN = /^(artisans_|kb_|linktree_|landing_page_|email_template_|instagram_status$)/;
 
-  it("registry totals match docs/MCP.md (39 read, 23 write, 31 sensitive; 24 house-only)", () => {
-    expect(ALL_TOOLS).toHaveLength(93);
+  it("registry totals match docs/MCP.md (39 read, 24 write, 32 sensitive; 24 house-only)", () => {
+    expect(ALL_TOOLS).toHaveLength(95);
     expect(ALL_TOOLS.filter((t) => t.kind === "read")).toHaveLength(39);
-    expect(ALL_TOOLS.filter((t) => t.kind === "write")).toHaveLength(23);
-    expect(ALL_TOOLS.filter((t) => t.kind === "sensitive")).toHaveLength(31);
+    expect(ALL_TOOLS.filter((t) => t.kind === "write")).toHaveLength(24);
+    expect(ALL_TOOLS.filter((t) => t.kind === "sensitive")).toHaveLength(32);
     expect(HOUSE_ONLY).toHaveLength(24);
-    expect(READ_TOOLS.length + WRITE_TOOLS.length).toBe(93);
+    expect(READ_TOOLS.length + WRITE_TOOLS.length).toBe(95);
     // houseOnly flag and name families agree both ways.
     expect(HOUSE_ONLY.every((n) => HOUSE_ONLY_PATTERN.test(n))).toBe(true);
     expect(ALL_TOOLS.filter((t) => HOUSE_ONLY_PATTERN.test(t.name)).map((t) => t.name).sort()).toEqual(HOUSE_ONLY);
-    expect(new Set(ALL_TOOLS.map((t) => t.name)).size).toBe(93);
+    expect(new Set(ALL_TOOLS.map((t) => t.name)).size).toBe(95);
   });
 
-  it("tools/list counts per key: house admin 93, house read 39, other admin 69, other read 29", async () => {
+  it("tools/list counts per key: house admin 95, house read 39, other admin 71, other read 29", async () => {
     const houseOnlyReads = READ_TOOLS.filter((t) => t.houseOnly).length; // 10
     const expected: [string, number][] = [
-      [KEYS.houseAdmin, 93],
+      [KEYS.houseAdmin, 95],
       [KEYS.houseRead, 39],
-      [KEYS.otherAdmin, 93 - 24],
+      [KEYS.otherAdmin, 95 - 24],
       [KEYS.otherRead, 39 - houseOnlyReads],
     ];
     expect(houseOnlyReads).toBe(10);

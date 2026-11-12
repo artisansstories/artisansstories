@@ -28,6 +28,13 @@ export const stripeState = {
   calls: [] as StripeCall[],
   /** Make the next call to `method` (e.g. "refunds.create") throw. */
   failNext: new Map<string, string>(),
+  /**
+   * Model real Stripe: a request that failed after Stripe started executing it
+   * is cached under its idempotency key, so replaying the SAME key returns the
+   * same error for 24h. Off by default (older tests predate it).
+   */
+  cacheFailures: false,
+  failedKeys: new Map<string, string>(),
 };
 
 export function resetStripe(): void {
@@ -37,6 +44,8 @@ export function resetStripe(): void {
   stripeState.idem.clear();
   stripeState.calls = [];
   stripeState.failNext.clear();
+  stripeState.cacheFailures = false;
+  stripeState.failedKeys.clear();
   for (const [id, pi] of Object.entries(PAYMENT_INTENTS)) {
     const chargeId = pi.status === "requires_payment_method" ? null : `ch_${id.slice(3)}`;
     stripeState.pis.set(id, { id, object: "payment_intent", amount: pi.amount, status: pi.status, latest_charge: chargeId });
@@ -54,9 +63,13 @@ export function stripeRefundsCreated(): FakeRefund[] {
 
 function record(method: string, args: unknown[], opts?: { idempotencyKey?: string }) {
   stripeState.calls.push({ method, args, idempotencyKey: opts?.idempotencyKey });
+  const key = opts?.idempotencyKey;
+  const cached = key ? stripeState.failedKeys.get(key) : undefined;
+  if (cached !== undefined) throw new FakeStripeError(cached, "test_failure", 500);
   const failure = stripeState.failNext.get(method);
   if (failure !== undefined) {
     stripeState.failNext.delete(method);
+    if (key && stripeState.cacheFailures) stripeState.failedKeys.set(key, failure);
     throw new FakeStripeError(failure, "test_failure", 500);
   }
 }
@@ -256,18 +269,33 @@ export const fetchState = {
   served: [] as string[],
   /** Opt in to fake Instagram OAuth token endpoints (refused by default). */
   instagram: false,
+  /** Opt in to a fake OpenRouter chat endpoint (refused by default). */
+  openrouter: null as null | "ok" | "error" | "hang",
 };
 
 export function resetFetch(): void {
   fetchState.blocked = [];
   fetchState.served = [];
   fetchState.instagram = false;
+  fetchState.openrouter = null;
 }
 
 /** Replaces global fetch: serves the fake image host, refuses everything else. */
-export async function guardedFetch(input: RequestInfo | URL): Promise<Response> {
+export async function guardedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   const host = new URL(url).hostname;
+  if (fetchState.openrouter && host === "openrouter.ai" && new URL(url).pathname === "/api/v1/chat/completions") {
+    fetchState.served.push(url);
+    if (fetchState.openrouter === "error") return new Response("upstream error", { status: 503 });
+    if (fetchState.openrouter === "hang") {
+      return new Promise((_, reject) => {
+        const signal = init?.signal;
+        if (!signal) return; // never settles: the caller must time out
+        signal.addEventListener("abort", () => reject(signal.reason ?? new Error("aborted")));
+      });
+    }
+    return Response.json({ choices: [{ message: { content: "Hand-woven blue cotton hammock with fringed edges" } }] });
+  }
   if (host === "images.example.test") {
     fetchState.served.push(url);
     if (url.endsWith("/missing.png")) return new Response("not found", { status: 404 });

@@ -440,6 +440,10 @@ describe("instagram_status MCP", () => {
     expect(maria).not.toHaveProperty("igAccessToken");
     const jose = r.artisans.find((a: { id: string }) => a.id === F.artisan.jose);
     expect(jose).toMatchObject({ connected: false, hasToken: false, igUserId: null, tokenExpiresAt: null, daysUntilExpiry: null });
+    // OAuth needs a browser: the tool hands back the admin page to click.
+    expect(jose.connectAdminUrl).toBe(`https://artisansstories.com/admin/artisans/${F.artisan.jose}/edit#instagram`);
+    expect(jose.nextStep).toContain('click "Connect Instagram"');
+    expect(maria).not.toHaveProperty("connectAdminUrl");
     await mcp.close();
   });
 
@@ -447,7 +451,8 @@ describe("instagram_status MCP", () => {
     await sql(`UPDATE "Artisan" SET "igTokenExpiry" = NOW() - INTERVAL '1 day' WHERE id = $1`, [F.artisan.maria]);
     const mcp = await connectMcp(KEYS.houseAdmin);
     const maria = (await mcp.call("instagram_status")).artisans.find((a: { id: string }) => a.id === F.artisan.maria);
-    expect(maria).toMatchObject({ connected: false, hasToken: true, tokenExpired: true });
+    expect(maria).toMatchObject({ connected: false, hasToken: true, tokenExpired: true, connectAdminUrl: `https://artisansstories.com/admin/artisans/${F.artisan.maria}/edit#instagram` });
+    expect(maria.nextStep).toMatch(/^The Instagram token expired\./);
     await mcp.close();
   });
 });

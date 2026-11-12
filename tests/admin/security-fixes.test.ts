@@ -21,6 +21,8 @@ vi.mock("@/lib/tenant-context", async () => ({
   getTenantPrismaForAdmin: async () => ({
     $tenantId: "tenant_b",
     storeSettings: { findFirst: db.findFirst, update: db.update, create: db.create },
+    // The PUT route reads the acting admin's role live (publishing needs ADMIN+).
+    adminUser: { findUnique: async () => ({ id: "u_admin", role: "ADMIN", name: "Admin", isActive: true }) },
   }),
   resolveTenantFromAdminSession: tc.resolve,
 }));
@@ -47,6 +49,7 @@ const put = (body: unknown) =>
 
 describe("settings mass-assignment", () => {
   beforeEach(() => {
+    auth.getAdminSession.mockReset().mockResolvedValue({ id: "u_admin", tenantId: "tenant_b" });
     db.findFirst.mockReset().mockResolvedValue({ id: "ss_b", tenantId: "tenant_b", storeName: "B", mcpEnabled: false });
     db.update.mockReset().mockImplementation(async ({ data }) => ({ id: "ss_b", tenantId: "tenant_b", ...data }));
     db.create.mockReset();

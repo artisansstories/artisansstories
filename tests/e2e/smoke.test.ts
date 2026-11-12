@@ -26,7 +26,7 @@ describe("e2e harness", () => {
   it("MCP in-process", async () => {
     const mcp = await connectMcp(KEYS.houseAdmin);
     const names = await mcp.toolNames();
-    expect(names.length).toBe(93);
+    expect(names.length).toBe(95);
     const d = await mcp.call("dashboard_summary");
     expect(d.totalOrders ?? d.orderCount ?? d).toBeTruthy();
     await mcp.close();

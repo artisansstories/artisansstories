@@ -124,11 +124,13 @@ describe("POST /api/admin/team", () => {
     expect(resendState.sent).toHaveLength(0);
   });
 
-  it("validation: missing fields 400, SUPER_ADMIN role 400, duplicate email 409 (case-insensitive)", async () => {
+  it("validation: missing fields 400, unknown role 400, SUPER_ADMIN only by a SUPER_ADMIN (403), duplicate email 409 (case-insensitive)", async () => {
+    await signInAs(F.admin.admin);
+    const sup = await addMember({ name: "X", email: "x@example.test", role: "SUPER_ADMIN" });
+    expect(sup).toMatchObject({ status: 403, body: { error: "Only a SUPER_ADMIN can make someone a SUPER_ADMIN." } });
     await signInAs(F.admin.super);
     expect((await addMember({ name: "X", email: "x@example.test" })).status).toBe(400);
-    const sup = await addMember({ name: "X", email: "x@example.test", role: "SUPER_ADMIN" });
-    expect(sup).toMatchObject({ status: 400, body: { error: "Invalid role" } });
+    expect(await addMember({ name: "X", email: "x@example.test", role: "OWNER" })).toMatchObject({ status: 400, body: { error: "Invalid role" } });
     const dup = await addMember({ name: "Dup", email: "  EDITOR@ArtisansStories.com ", role: "EDITOR" });
     expect(dup).toMatchObject({ status: 409, body: { error: "An admin with this email already exists" } });
     expect(await prisma.adminUser.count({ where: { tenantId: HOUSE } })).toBe(4);
@@ -210,12 +212,13 @@ describe("PUT /api/admin/team/[id]", () => {
     expect(list.body.admins.find((a: any) => a.id === F.admin.editor)).toMatchObject({ role: "ADMIN", isActive: false });
   });
 
-  it("SUPER_ADMIN's role can't be changed (403); invalid role 400; unknown id 404", async () => {
+  it("own role can't be changed; only a SUPER_ADMIN touches a SUPER_ADMIN or grants it (403); invalid role 400; unknown id 404", async () => {
     await signInAs(F.admin.super);
-    expect(await updateMember(F.admin.super, { role: "EDITOR" })).toMatchObject({ status: 403, body: { error: "Cannot change SUPER_ADMIN role" } });
+    expect(await updateMember(F.admin.super, { role: "EDITOR" })).toMatchObject({ status: 403, body: { error: "You can't change your own role. Another SUPER_ADMIN has to do it on the Team page." } });
     await signInAs(F.admin.admin);
-    expect(await updateMember(F.admin.super, { role: "ADMIN" })).toMatchObject({ status: 403 });
-    expect(await updateMember(F.admin.editor, { role: "SUPER_ADMIN" })).toMatchObject({ status: 400, body: { error: "Invalid role" } });
+    expect(await updateMember(F.admin.super, { role: "ADMIN" })).toMatchObject({ status: 403, body: { error: "Only a SUPER_ADMIN (store owner) can change, deactivate or remove a SUPER_ADMIN." } });
+    expect(await updateMember(F.admin.editor, { role: "SUPER_ADMIN" })).toMatchObject({ status: 403, body: { error: "Only a SUPER_ADMIN can make someone a SUPER_ADMIN." } });
+    expect(await updateMember(F.admin.editor, { role: "OWNER" })).toMatchObject({ status: 400, body: { error: "Invalid role" } });
     expect((await updateMember("nope", { role: "ADMIN" })).status).toBe(404);
     expect((await prisma.adminUser.findUniqueOrThrow({ where: { id: F.admin.super } })).role).toBe("SUPER_ADMIN");
     expect((await prisma.adminUser.findUniqueOrThrow({ where: { id: F.admin.editor } })).role).toBe("EDITOR");
@@ -247,7 +250,7 @@ describe("DELETE /api/admin/team/[id]", () => {
 
   it("nobody can remove themselves", async () => {
     await signInAs(F.admin.super);
-    expect(await removeMember(F.admin.super)).toMatchObject({ status: 400, body: { error: "Cannot remove yourself" } });
+    expect(await removeMember(F.admin.super)).toMatchObject({ status: 400, body: { error: "Cannot remove yourself. Another SUPER_ADMIN has to do it." } });
     expect(await prisma.adminUser.count({ where: { id: F.admin.super } })).toBe(1);
   });
 
@@ -352,9 +355,11 @@ describe("team_update (MCP)", () => {
     await mcp.close();
   });
 
-  it("SUPER_ADMIN role change refused; other store's admin 404; empty change 400", async () => {
+  it("SUPER_ADMIN role change refused for a key (acts as ADMIN); other store's admin 404; empty change 400", async () => {
     const mcp = await connectMcp(KEYS.houseAdmin);
-    expect(await mcp.call("team_update", { adminId: F.admin.super, role: "EDITOR" })).toMatchObject({ blocked: true, status: 403, reason: "Cannot change SUPER_ADMIN role" });
+    const r = await mcp.call("team_update", { adminId: F.admin.super, role: "EDITOR" });
+    expect(r).toMatchObject({ blocked: true, status: 403 });
+    expect(r.reason).toBe("Only a SUPER_ADMIN (store owner) can change, deactivate or remove a SUPER_ADMIN. AI assistant API keys act as ADMIN, so ask a SUPER_ADMIN to do this on the Team page (Admin → Team).");
     expect(await mcp.call("team_update", { adminId: F.admin.oEditor, isActive: false })).toMatchObject({ blocked: true, status: 404 });
     expect(await mcp.call("team_update", { adminId: F.admin.editor })).toMatchObject({ blocked: true, status: 400 });
     expect((await prisma.adminUser.findUniqueOrThrow({ where: { id: F.admin.super } })).role).toBe("SUPER_ADMIN");
@@ -380,7 +385,7 @@ describe("team_remove (MCP)", () => {
 
   it("a SUPER_ADMIN over OAuth: preview → confirm → replay blocked → gone; never themselves", async () => {
     const mcp = await connectAsUser(F.admin.super);
-    expect(await mcp.call("team_remove", { adminId: F.admin.super })).toMatchObject({ blocked: true, status: 400, reason: "Cannot remove yourself" });
+    expect(await mcp.call("team_remove", { adminId: F.admin.super })).toMatchObject({ blocked: true, status: 400, reason: "Cannot remove yourself. Another SUPER_ADMIN has to do it." });
     expect(await mcp.call("team_remove", { adminId: F.admin.oEditor })).toMatchObject({ blocked: true, status: 404 });
     const flow = await previewConfirmReplay(mcp, "team_remove", { adminId: F.admin.inactive }, async (p) => {
       expect(p.preview.member).toMatchObject({ id: F.admin.inactive, email: "gone@artisansstories.com" });

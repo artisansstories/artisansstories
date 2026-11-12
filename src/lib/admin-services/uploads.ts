@@ -27,6 +27,11 @@ export const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 // ─── AI Alt Text ─────────────────────────────────────────────────────────────
 
 export const ALT_TEXT_TIMEOUT_MS = 8000;
+/** ALT_TEXT_TIMEOUT_MS env overrides the default (the e2e suite shortens it). */
+function altTextTimeoutMs(): number {
+  const n = Number(process.env.ALT_TEXT_TIMEOUT_MS);
+  return Number.isFinite(n) && n > 0 ? n : ALT_TEXT_TIMEOUT_MS;
+}
 
 /** Alt text used when the AI isn't available: product name plus position. */
 export function fallbackAltText(productName: string | undefined | null, position?: number): string {
@@ -66,7 +71,7 @@ async function generateAltText(
         "HTTP-Referer": "https://artisansstories.com",
       },
       // A hung provider must not hold the upload open.
-      signal: AbortSignal.timeout(ALT_TEXT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(altTextTimeoutMs()),
       body: JSON.stringify({
         model: "google/gemini-2.0-flash-001",
         max_tokens: 80,

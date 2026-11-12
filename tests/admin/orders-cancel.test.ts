@@ -3,16 +3,26 @@ import { NextRequest } from "next/server";
 
 const h = vi.hoisted(() => ({ calls: [] as string[] }));
 
-const db = vi.hoisted(() => ({
-  $tenantId: "tenant_a",
-  order: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
-  customer: { findUnique: vi.fn() },
-  fulfillment: { create: vi.fn() },
-  orderItem: { update: vi.fn(), findMany: vi.fn() },
-}));
+const db = vi.hoisted(() => {
+  const d = {
+    $tenantId: "tenant_a",
+    order: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    customer: { findUnique: vi.fn() },
+    fulfillment: { create: vi.fn() },
+    orderItem: { update: vi.fn(), findMany: vi.fn() },
+    returnItem: { findMany: vi.fn(async () => []) },
+    inventory: { findMany: vi.fn(async () => [{ variantId: "v1", quantity: 4 }]), update: vi.fn(async () => ({ id: "inv1" })) },
+    inventoryLog: { create: vi.fn(async () => ({})) },
+    $transaction: vi.fn(),
+  };
+  // Interactive transaction: the callback runs against the same mocks.
+  d.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(d));
+  return d;
+});
 const stripe = vi.hoisted(() => ({
   paymentIntents: { retrieve: vi.fn(), cancel: vi.fn(), capture: vi.fn() },
   refunds: { create: vi.fn(), list: vi.fn(async () => ({ data: [] as unknown[] })) },
+  charges: { retrieve: vi.fn() },
 }));
 const emails = vi.hoisted(() => ({ send: vi.fn() }));
 const auth = vi.hoisted(() => ({ getAdminSession: vi.fn(), getTenantPrismaForAdmin: vi.fn() }));
@@ -25,7 +35,7 @@ vi.mock("@/lib/tenant-context", async () => ({
 }));
 const gprisma = vi.hoisted(() => ({ magicLinkToken: { create: vi.fn() } }));
 vi.mock("@/lib/prisma", () => ({ prisma: gprisma }));
-vi.mock("stripe", () => ({ default: class { paymentIntents = stripe.paymentIntents; refunds = stripe.refunds; } }));
+vi.mock("stripe", () => ({ default: class { paymentIntents = stripe.paymentIntents; refunds = stripe.refunds; charges = stripe.charges; } }));
 vi.mock("resend", () => ({ Resend: class { emails = emails; } }));
 vi.mock("@/lib/email-branding", () => ({ getEmailBranding: mail.getEmailBranding, emailLogoHtml: () => "<logo/>" }));
 vi.mock("@/lib/email-log", () => ({ logEmail: mail.logEmail }));
@@ -58,9 +68,12 @@ function resetCommon() {
   t("email.log", mail.logEmail, async () => undefined);
 }
 
+const VERSION = new Date("2026-01-01T00:00:00Z");
 const baseOrder = {
-  id: "o1", orderNumber: "AS-1001", email: "c@x.test", total: 5000, status: "PAID",
-  financialStatus: "PAID", stripePaymentIntentId: "pi_1", customerId: "cu_1",
+  id: "o1", orderNumber: "AS-1001", email: "c@x.test", total: 5000, status: "PROCESSING",
+  financialStatus: "PAID", stripePaymentIntentId: "pi_1", customerId: "cu_1", adminNote: null,
+  stripeCheckoutSessionId: null, updatedAt: VERSION,
+  items: [{ id: "oi1", title: "Mug", variantTitle: null, variantId: "v1", quantity: 1, total: 5000, fulfillmentStatus: null }],
 };
 
 // What the conditional updateMany wrote; findUniqueOrThrow reads it back.
@@ -76,37 +89,41 @@ beforeEach(() => {
   });
   t("db.findUniqueOrThrow", db.order.findUniqueOrThrow, async () => ({ ...baseOrder, ...written }));
   t("db.customer", db.customer.findUnique, async () => ({ firstName: "Ana" }));
-  t("stripe.retrieve", stripe.paymentIntents.retrieve, async () => ({ latest_charge: "ch_1" }));
-  t("stripe.refund", stripe.refunds.create, async () => ({ id: "re_1" }));
+  t("stripe.list", stripe.refunds.list, async () => ({ data: [] }));
+  t("stripe.retrieve", stripe.paymentIntents.retrieve, async () => ({ latest_charge: { id: "ch_1", amount: 5000, amount_refunded: 0 } }));
+  t("stripe.refund", stripe.refunds.create, async ({ amount }: { amount: number }) => ({ id: "re_1", amount }));
+  t("db.tx", db.$transaction, async (fn: (tx: unknown) => unknown) => fn(db));
+  t("inv.update", db.inventory.update, async () => ({ id: "inv1" }));
   t("stripe.cancel", stripe.paymentIntents.cancel, async () => ({ id: "pi_1" }));
 });
 
 describe("POST /api/admin/orders/[id]/cancel", () => {
-  it("PAID order: Stripe refund by payment_intent (stable key), then conditional DB update, then email + log (ORDER_REFUNDED)", async () => {
+  it("PAID order: reads the balance, refunds it (versioned key), THEN one transaction (claim + restock), then email + log", async () => {
     const res = await POST(req("cancel", { reason: "customer asked" }), ctx);
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(Object.keys(json).sort()).toEqual(["emailSent", "order", "paymentError", "refunded"]);
-    expect(json).toMatchObject({ refunded: true, paymentError: null, emailSent: true });
+    expect(json).toMatchObject({ refunded: true, refundedAmount: 5000, stripeRefundId: "re_1", paymentError: null, emailSent: true });
     expect(json.order).toMatchObject({ id: "o1", status: "CANCELLED", financialStatus: "REFUNDED", cancelReason: "customer asked" });
     expect(h.calls).toEqual([
-      "db.findUnique", "stripe.refund", "db.updateMany", "db.findUniqueOrThrow", "db.customer", "email.send", "email.log",
+      "db.findUnique", "stripe.list", "stripe.retrieve", "stripe.refund",
+      "db.tx", "db.updateMany", "inv.update", "db.findUniqueOrThrow",
+      "db.customer", "email.send", "email.log",
     ]);
-    expect(stripe.paymentIntents.retrieve).not.toHaveBeenCalled();
     expect(stripe.refunds.create).toHaveBeenCalledWith(
-      { payment_intent: "pi_1", reason: "requested_by_customer", metadata: { orderId: "o1", cancel: "true" } },
-      { idempotencyKey: "order_cancel_o1_refund" },
+      { payment_intent: "pi_1", amount: 5000, reason: "requested_by_customer", metadata: { orderId: "o1", cancel: "true" } },
+      { idempotencyKey: `order_cancel_o1_refund_${VERSION.getTime()}` },
     );
     expect(db.order.updateMany).toHaveBeenCalledWith({
-      where: { id: "o1", status: { notIn: ["CANCELLED", "REFUNDED"] } },
+      where: { id: "o1", status: { notIn: ["CANCELLED", "REFUNDED", "DELIVERED"] } },
       data: expect.objectContaining({ status: "CANCELLED", financialStatus: "REFUNDED", cancelReason: "customer asked" }),
     });
+    expect(db.inventory.update).toHaveBeenCalledWith({ where: { variantId: "v1" }, data: { quantity: { increment: 1 } } });
     expect(db.order.update).not.toHaveBeenCalled();
     expect(emails.send.mock.calls[0][0]).toMatchObject({ to: "c@x.test", subject: "Your order AS-1001 has been cancelled" });
     expect(mail.logEmail.mock.calls[0][0]).toMatchObject({ type: "ORDER_REFUNDED", relatedId: "o1", resendId: "em_1" });
   });
 
-  it("AUTHORIZED order: voids the hold (no refund, stable key) and logs ORDER_CANCELLED", async () => {
+  it("AUTHORIZED order: voids the hold first (versioned key), then cancels; logs ORDER_CANCELLED", async () => {
     db.order.findUnique.mockResolvedValueOnce({ ...baseOrder, financialStatus: "AUTHORIZED" });
     const res = await POST(req("cancel", { reason: "" }), ctx);
     const json = await res.json();
@@ -114,31 +131,34 @@ describe("POST /api/admin/orders/[id]/cancel", () => {
     expect(json.paymentError).toBeNull();
     expect(json.order.financialStatus).toBe("VOIDED");
     expect(stripe.refunds.create).not.toHaveBeenCalled();
-    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith("pi_1", undefined, { idempotencyKey: "order_cancel_o1_void" });
-    expect(h.calls.indexOf("stripe.cancel")).toBeLessThan(h.calls.indexOf("db.updateMany"));
+    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith("pi_1", undefined, { idempotencyKey: `order_cancel_o1_void_${VERSION.getTime()}` });
+    expect(h.calls.indexOf("stripe.cancel")).toBeLessThan(h.calls.indexOf("db.tx"));
     expect(mail.logEmail.mock.calls[0][0].type).toBe("ORDER_CANCELLED");
   });
 
-  it("PENDING order with a payment intent is voided too", async () => {
+  it("PENDING (unpaid) order: best-effort release after nothing else depends on it", async () => {
     db.order.findUnique.mockResolvedValueOnce({ ...baseOrder, financialStatus: "PENDING" });
     const json = await (await POST(req("cancel", { reason: "x" }), ctx)).json();
     expect(json.order.financialStatus).toBe("VOIDED");
-    expect(stripe.paymentIntents.cancel).toHaveBeenCalledTimes(1);
+    expect(stripe.paymentIntents.cancel).toHaveBeenCalledWith("pi_1", undefined, { idempotencyKey: "order_cancel_o1_void" });
     expect(stripe.refunds.create).not.toHaveBeenCalled();
   });
 
-  it("Stripe failure still cancels the order with the old financial status and reports paymentError", async () => {
+  it("Stripe refund failure: 502 blocked + retrySafe, no transaction, no email; the attempt is noted on the order", async () => {
     stripe.refunds.create.mockRejectedValueOnce(new Error("stripe down"));
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("cancel", { reason: "x" }), ctx);
-    expect(res.status).toBe(200);
-    const json = await res.json();
-    expect(json).toMatchObject({ refunded: false, order: { status: "CANCELLED", financialStatus: "PAID" } });
-    expect(typeof json.paymentError).toBe("string");
-    expect(json.paymentError).toContain("stripe down");
-    // Not refunded, so the customer is told "cancelled", not "refunded".
-    expect(mail.logEmail.mock.calls[0][0].type).toBe("ORDER_CANCELLED");
     errSpy.mockRestore();
+    expect(res.status).toBe(502);
+    const json = await res.json();
+    expect(json).toMatchObject({ done: false, blocked: true, retrySafe: true, moneyMoved: false });
+    expect(json.error).toContain("stripe down");
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.inventory.update).not.toHaveBeenCalled();
+    expect(emails.send).not.toHaveBeenCalled();
+    // Only the note is written (it also moves the version for the retry's new key).
+    expect(db.order.updateMany).toHaveBeenCalledTimes(1);
+    expect(db.order.updateMany.mock.calls[0][0].data).toEqual({ adminNote: expect.stringContaining("Cancel attempt failed") });
   });
 
   it("409 when a concurrent request already cancelled it: no email", async () => {
@@ -146,6 +166,7 @@ describe("POST /api/admin/orders/[id]/cancel", () => {
     const res = await POST(req("cancel", { reason: "x" }), ctx);
     expect(res.status).toBe(409);
     expect(db.order.findUniqueOrThrow).not.toHaveBeenCalled();
+    expect(db.inventory.update).not.toHaveBeenCalled();
     expect(emails.send).not.toHaveBeenCalled();
   });
 

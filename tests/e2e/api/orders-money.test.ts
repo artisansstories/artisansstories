@@ -292,15 +292,20 @@ describe("MCP orders_refund", () => {
 // ── cancel: route ────────────────────────────────────────────────────────────
 
 describe("POST /api/admin/orders/[id]/cancel", () => {
-  it("PAID order: full Stripe refund (key order_cancel_<id>_refund), CANCELLED/REFUNDED, refund-cancel email", async () => {
+  it("PAID order: full Stripe refund (key order_cancel_<id>_refund_<version>), CANCELLED/REFUNDED, restocked, refund-cancel email", async () => {
     await signInAs(F.admin.super);
+    const version = (await orderRow(F.order.paidCancel)).updatedAt.getTime();
     const r = await cancel(F.order.paidCancel, "Out of stock");
     expect(r.status, r.text).toBe(200);
-    expect(r.body).toMatchObject({ refunded: true, paymentError: null, emailSent: true });
+    expect(r.body).toMatchObject({ refunded: true, refundedAmount: 12000, paymentError: null, emailSent: true });
     expect(r.body.order).toMatchObject({ status: "CANCELLED", financialStatus: "REFUNDED", cancelReason: "Out of stock" });
     expect(created()).toHaveLength(1);
-    expect(created()[0].idempotencyKey).toBe(`order_cancel_${F.order.paidCancel}_refund`);
+    expect(created()[0].idempotencyKey).toBe(`order_cancel_${F.order.paidCancel}_refund_${version}`);
     expect(stripeState.refunds[0]).toMatchObject({ amount: 12000, payment_intent: "pi_paid_cancel", metadata: { orderId: F.order.paidCancel, cancel: "true" } });
+    // The unshipped red hammock goes back on the shelf (2 → 3), with a log row.
+    expect(r.body.restocked).toEqual([{ title: "Woven Hammock", variantTitle: "Red", quantity: 1, newQuantity: 3 }]);
+    expect((await prisma.inventory.findUniqueOrThrow({ where: { id: F.inventory.hammockRed } })).quantity).toBe(3);
+    expect(await prisma.inventoryLog.count({ where: { inventoryId: F.inventory.hammockRed, reason: "Order cancelled", delta: 1 } })).toBe(1);
     const o = await GET_ORDER(F.order.paidCancel);
     expect(o).toMatchObject({ status: "CANCELLED", financialStatus: "REFUNDED", cancelReason: "Out of stock" });
     expect(o.cancelledAt).toBeTruthy();
@@ -311,15 +316,19 @@ describe("POST /api/admin/orders/[id]/cancel", () => {
     expect(await prisma.emailLog.count({ where: { relatedId: F.order.paidCancel, type: "ORDER_REFUNDED" } })).toBe(1);
   });
 
-  it("AUTHORIZED order: voids the hold (key order_cancel_<id>_void), no refund, VOIDED", async () => {
+  it("AUTHORIZED order: voids the hold (key order_cancel_<id>_void_<version>), no refund, VOIDED", async () => {
     await signInAs(F.admin.super);
+    const version = (await orderRow(F.order.authorized)).updatedAt.getTime();
     const r = await cancel(F.order.authorized);
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ refunded: false, paymentError: null, emailSent: true });
     const voids = stripeState.calls.filter((c) => c.method === "paymentIntents.cancel");
     expect(voids).toHaveLength(1);
     expect(voids[0].args[0]).toBe("pi_authorized");
-    expect(voids[0].idempotencyKey).toBe(`order_cancel_${F.order.authorized}_void`);
+    expect(voids[0].idempotencyKey).toBe(`order_cancel_${F.order.authorized}_void_${version}`);
+    // Blue hammock restocked (10 → 11); the mug has no inventory row, so checkout took none.
+    expect((await prisma.inventory.findUniqueOrThrow({ where: { id: F.inventory.hammockBlue } })).quantity).toBe(11);
+    expect(await prisma.inventory.count({ where: { variantId: F.variant.mug } })).toBe(0);
     expect(created()).toHaveLength(0);
     expect(stripeState.pis.get("pi_authorized")!.status).toBe("canceled");
     expect(await GET_ORDER(F.order.authorized)).toMatchObject({ status: "CANCELLED", financialStatus: "VOIDED" });
@@ -380,31 +389,45 @@ describe("POST /api/admin/orders/[id]/cancel", () => {
     expect(stripeState.refunds).toHaveLength(1);
   });
 
-  it("Stripe refund failure: order still cancelled (documented behavior), paymentError reported, financialStatus stays PAID, refund route can finish the job", async () => {
+  it("Stripe refund failure: NOT cancelled, 502 {blocked, retrySafe}, nothing restocked or emailed; the retry succeeds with one refund", async () => {
     await signInAs(F.admin.super);
+    stripeState.cacheFailures = true; // real Stripe replays a failed key's error
     stripeState.failNext.set("refunds.create", "boom");
+    const invBefore = await prisma.inventory.findMany({ orderBy: { id: "asc" } });
     const r = await cancel(F.order.paidCancel);
-    expect(r.status).toBe(200);
-    expect(r.body.refunded).toBe(false);
-    expect(r.body.paymentError).toMatch(/Stripe refund failed: boom\. Refund the customer manually\./);
-    expect(await GET_ORDER(F.order.paidCancel)).toMatchObject({ status: "CANCELLED", financialStatus: "PAID" });
+    expect(r.status).toBe(502);
+    expect(r.body).toMatchObject({ done: false, blocked: true, retrySafe: true, moneyMoved: false });
+    expect(r.body.error).toBe(r.body.reason);
+    expect(r.body.error).toMatch(/The Stripe refund failed, so order AS-1004 was NOT cancelled and nothing was restocked: boom\. It's safe to try again/);
+    const mid = await GET_ORDER(F.order.paidCancel);
+    expect(mid).toMatchObject({ status: "PROCESSING", financialStatus: "PAID", cancelledAt: null, cancelReason: null });
+    expect(mid.adminNote).toMatch(/Cancel attempt failed \(\d{4}-\d{2}-\d{2}\): the stripe refund failed: boom\. Order not cancelled\./);
+    expect(await prisma.inventory.findMany({ orderBy: { id: "asc" } })).toEqual(invBefore);
     expect(stripeState.refunds).toHaveLength(0);
-    // Customer gets the plain cancellation email (no refund claim).
-    expect(await prisma.emailLog.count({ where: { relatedId: F.order.paidCancel, type: "ORDER_CANCELLED" } })).toBe(1);
-    // Recovery: the refund route still accepts the PAID financial status.
-    const fix = await refund(F.order.paidCancel, {});
-    expect(fix.status).toBe(200);
+    expect(resendState.sent).toHaveLength(0);
+
+    // Retry: the failure note moved the order version, so the retry uses a new
+    // idempotency key instead of getting Stripe's cached error back.
+    const retry = await cancel(F.order.paidCancel);
+    expect(retry.status, retry.text).toBe(200);
+    expect(retry.body).toMatchObject({ refunded: true, refundedAmount: 12000 });
+    const keys = created().map((c) => c.idempotencyKey);
+    expect(new Set(keys).size).toBe(2);
     expect(stripeState.refunds).toHaveLength(1);
-    expect((await orderRow(F.order.paidCancel)).financialStatus).toBe("REFUNDED");
+    expect(await orderRow(F.order.paidCancel)).toMatchObject({ status: "CANCELLED", financialStatus: "REFUNDED" });
+    expect((await prisma.inventory.findUniqueOrThrow({ where: { id: F.inventory.hammockRed } })).quantity).toBe(3);
   });
 
-  it("void failure on an AUTHORIZED order is reported (paymentError) and stays AUTHORIZED", async () => {
+  it("void failure on an AUTHORIZED order: NOT cancelled (502, retrySafe), stays PROCESSING/AUTHORIZED", async () => {
     await signInAs(F.admin.super);
     stripeState.failNext.set("paymentIntents.cancel", "stripe down");
     const r = await cancel(F.order.authorized);
-    expect(r.status).toBe(200);
-    expect(r.body.paymentError).toMatch(/Releasing the card authorization failed: stripe down/);
-    expect(await orderRow(F.order.authorized)).toMatchObject({ status: "CANCELLED", financialStatus: "AUTHORIZED" });
+    expect(r.status).toBe(502);
+    expect(r.body).toMatchObject({ blocked: true, retrySafe: true });
+    expect(r.body.error).toMatch(/Releasing the card authorization failed, so order AS-1002 was NOT cancelled/);
+    expect(await orderRow(F.order.authorized)).toMatchObject({ status: "PROCESSING", financialStatus: "AUTHORIZED" });
+    expect((await cancel(F.order.authorized)).status).toBe(200);
+    expect(await orderRow(F.order.authorized)).toMatchObject({ status: "CANCELLED", financialStatus: "VOIDED" });
   });
 
   it("email failure: emailSent=false, no EmailLog, cancel stands", async () => {
@@ -431,8 +454,10 @@ describe("MCP orders_cancel", () => {
           email: { to: "ana@example.test", type: "ORDER_REFUNDED" },
         });
         expect(p.preview.paymentAction).toMatch(/Full refund of 12000 cents/);
+        expect(p.preview).toMatchObject({ refundAmount: 12000, payment: { action: "stripe_refund", amount: 12000, chargedAmount: 12000, alreadyRefunded: 0 } });
+        expect(p.preview.restock).toEqual([expect.objectContaining({ orderItemId: F.orderItem.paidCancelHammock, quantity: 1, currentQuantity: 2, newQuantity: 3, action: "increment" })]);
         expect(await orderRow(F.order.paidCancel)).toEqual(before);
-        expect(stripeState.calls).toHaveLength(0);
+        expect(moneyCalls()).toHaveLength(0); // the preview only reads Stripe
         expect(resendState.sent).toHaveLength(0);
       });
       expect(expectConfirmed(flow)).toMatchObject({ refunded: true, paymentError: null, emailSent: true });
