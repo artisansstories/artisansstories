@@ -6,7 +6,11 @@ export async function POST(request: NextRequest) {
   try {
     await requireHouseAdminTenantId();
     const db = await getTenantPrismaForAdmin();
-    const { artisanId } = await request.json() as { artisanId: string };
+    const { artisanId } = await request.json() as { artisanId?: unknown };
+    // Without this, `where: { id: undefined }` matches EVERY artisan and disconnects them all.
+    if (typeof artisanId !== "string" || !artisanId) {
+      return NextResponse.json({ error: "artisanId required" }, { status: 400 });
+    }
     const { count } = await db.artisan.updateMany({
       where: { id: artisanId },
       data: { igAccessToken: null, igUserId: null, igTokenExpiry: null },

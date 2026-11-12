@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-// Ordered log of side effects so we can assert sequencing (matches main:
-// save reply -> send email -> log email -> mark REPLIED).
+// Ordered log of side effects so we can assert sequencing: send email FIRST,
+// then save reply -> log email -> mark REPLIED (a failed send records nothing).
 const calls: string[] = [];
 
 // ── auth / tenant ────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ beforeEach(() => {
 });
 
 describe("POST /api/admin/contact/[id]/reply", () => {
-  it("200 with { success, message, reply } and side effects in main's order", async () => {
+  it("200 with { success, message, reply }; email is sent before anything is recorded", async () => {
     const res = await POST(req({ replyText: `  ${XSS_REPLY}  ` }), params);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -121,7 +121,7 @@ describe("POST /api/admin/contact/[id]/reply", () => {
       direction: "OUTBOUND",
       senderName: "Test & <Store>",
     });
-    expect(calls).toEqual(["reply.create", "email.send", "email.log", "message.update"]);
+    expect(calls).toEqual(["email.send", "reply.create", "email.log", "message.update"]);
     expect(db.contactMessage.update).toHaveBeenCalledWith({
       where: { id: "msg_1" },
       data: { status: "REPLIED" },
@@ -161,6 +161,17 @@ describe("POST /api/admin/contact/[id]/reply", () => {
     expect(logged.bodyHtml).not.toContain("<b>there</b>");
     expect(logged.bodyHtml).toContain("&lt;script&gt;");
     expect(logged.bodyHtml).toContain("Re: Hi &lt;b&gt;there&lt;/b&gt;");
+  });
+
+  it("502 when Resend reports an error: no reply saved, nothing logged, not marked REPLIED", async () => {
+    resendSend.mockImplementation(async () => {
+      calls.push("email.send");
+      return { data: null, error: { name: "validation_error", message: "Domain not verified" } };
+    });
+    const res = await POST(req({ replyText: "Hi" }), params);
+    expect(res.status).toBe(502);
+    expect((await res.json()).error).toContain("Domain not verified");
+    expect(calls).toEqual(["email.send"]);
   });
 
   it("400 when reply text is blank, nothing sent", async () => {

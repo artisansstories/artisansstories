@@ -17,6 +17,7 @@
 import { prisma } from "./prisma";
 import { DEFAULT_TENANT_ID } from "./tenant-context";
 import { tenantBaseUrl } from "./tenant-host";
+import { escapeHtml } from "./escape-html";
 
 /** The Artisans Stories logo served from R2, used as the house email logo. */
 const AS_LOGO_URL =
@@ -110,8 +111,10 @@ export async function getEmailBranding(tenantId: string): Promise<EmailBranding>
  * image. Shared by every transactional template's logo header.
  */
 export function emailLogoHtml(branding: EmailBranding, width = 400): string {
+  // Store name and logo URL are tenant-controlled: escape before interpolating.
+  const storeName = escapeHtml(branding.storeName);
   if (branding.logoUrl) {
-    return `<img src="${branding.logoUrl}" alt="${branding.storeName}" width="${width}" style="display:block;margin:0 auto;width:${width}px;max-width:90%;height:auto;" />`;
+    return `<img src="${escapeHtml(branding.logoUrl)}" alt="${storeName}" width="${width}" style="display:block;margin:0 auto;width:${width}px;max-width:90%;height:auto;" />`;
   }
-  return `<span style="display:inline-block;font-family:'Helvetica Neue',Arial,sans-serif;font-size:26px;font-weight:700;color:#3a2e24;letter-spacing:0.02em;">${branding.storeName}</span>`;
+  return `<span style="display:inline-block;font-family:'Helvetica Neue',Arial,sans-serif;font-size:26px;font-weight:700;color:#3a2e24;letter-spacing:0.02em;">${storeName}</span>`;
 }

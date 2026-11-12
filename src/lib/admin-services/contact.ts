@@ -21,6 +21,7 @@ import { ok, fail } from "./result";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export type ContactStatus = "UNREAD" | "READ" | "REPLIED" | "ARCHIVED";
+const CONTACT_STATUSES: readonly string[] = ["UNREAD", "READ", "REPLIED", "ARCHIVED"];
 
 // ── list / get ──────────────────────────────────────────────────────────────
 
@@ -78,6 +79,14 @@ export interface ContactUpdateBody {
 }
 
 export async function updateContactMessage(db: TenantPrisma, id: string, body: ContactUpdateBody) {
+  if (body.status !== undefined && !CONTACT_STATUSES.includes(body.status)) {
+    return fail(400, `status must be one of ${CONTACT_STATUSES.join(", ")}`);
+  }
+  if (body.notes !== undefined && body.notes !== null && typeof body.notes !== "string") {
+    return fail(400, "notes must be a string");
+  }
+  const exists = await db.contactMessage.findUnique({ where: { id }, select: { id: true } });
+  if (!exists) return fail(404, "Message not found");
   const message = await db.contactMessage.update({
     where: { id },
     data: {
@@ -150,7 +159,7 @@ export function buildContactReplyEmail(branding: EmailBranding, contactMsg: Cont
 }
 
 async function replyGuard(db: TenantPrisma, id: string, replyText: string | undefined) {
-  if (!replyText?.trim()) {
+  if (typeof replyText !== "string" || !replyText.trim()) {
     return fail(400, "Reply text is required");
   }
   const contactMsg = await db.contactMessage.findUnique({ where: { id } });
@@ -190,7 +199,19 @@ export async function sendContactReply(db: TenantPrisma, id: string, replyText: 
 
   const branding = await getEmailBranding(db.$tenantId);
 
-  // Save reply to DB first
+  // Send first: if Resend refuses, nothing is recorded and the message is not
+  // marked REPLIED (it used to save the reply and mark REPLIED regardless).
+  let replyResult: Awaited<ReturnType<typeof resend.emails.send>>;
+  try {
+    replyResult = await resend.emails.send(buildContactReplyEmail(branding, contactMsg, replyText));
+  } catch (err) {
+    return fail(502, `Reply email could not be sent: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  if (replyResult.error || !replyResult.data) {
+    return fail(502, `Reply email could not be sent: ${replyResult.error?.message ?? "unknown Resend error"}`);
+  }
+
+  // Record the sent reply
   const savedReply = await db.contactReply.create({
     data: {
       tenantId: db.$tenantId,
@@ -201,13 +222,9 @@ export async function sendContactReply(db: TenantPrisma, id: string, replyText: 
     },
   });
 
-  // Send via Resend
-  const replyResult = await resend.emails.send(buildContactReplyEmail(branding, contactMsg, replyText));
-
-  const replyBodyHtml = replyResult.data ? (replyResult as { data?: { html?: string } }).data?.html ?? null : null;
-  // Build body from the sent html (extract from request since Resend doesn't return body)
+  // Build the logged body (Resend doesn't return the sent html)
   const contactReplyHtml = `<div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;"><p><strong>To:</strong> ${escapeHtml(contactMsg.name)} &lt;${escapeHtml(contactMsg.email)}&gt;</p><p><strong>Subject:</strong> Re: ${escapeHtml(contactMsg.subject)}</p><hr/><p style="white-space:pre-wrap;">${escapeHtmlMultiline(replyText.trim())}</p></div>`;
-  await logEmail({ tenantId: db.$tenantId, type: "CONTACT_REPLY", toEmail: contactMsg.email, fromEmail: branding.fromAddress, subject: `Re: ${contactMsg.subject}`, bodyHtml: replyBodyHtml ?? contactReplyHtml, resendId: replyResult.data?.id, relatedId: id, relatedType: "CONTACT" });
+  await logEmail({ tenantId: db.$tenantId, type: "CONTACT_REPLY", toEmail: contactMsg.email, fromEmail: branding.fromAddress, subject: `Re: ${contactMsg.subject}`, bodyHtml: contactReplyHtml, resendId: replyResult.data.id, relatedId: id, relatedType: "CONTACT" });
 
   // Mark as REPLIED
   const updated = await db.contactMessage.update({

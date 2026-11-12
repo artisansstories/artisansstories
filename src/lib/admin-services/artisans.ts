@@ -18,7 +18,7 @@ import { ok, fail } from "./result";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ArtisanBody = Record<string, any>;
 
-/** Instagram OAuth fields — never returned to MCP clients. */
+/** Instagram OAuth fields — never returned to MCP clients or the admin API. */
 const SECRET_FIELDS = ["igAccessToken", "igTokenExpiry", "igUserId"] as const;
 
 export function stripArtisanSecrets<T extends Record<string, unknown>>(a: T): Omit<T, (typeof SECRET_FIELDS)[number]> {
@@ -37,7 +37,7 @@ export async function listArtisans(db: TenantPrisma) {
     },
     orderBy: [{ isFeatured: "desc" }, { name: "asc" }],
   });
-  return ok({ artisans });
+  return ok({ artisans: artisans.map((a) => stripArtisanSecrets(a)) });
 }
 
 export async function getArtisan(db: TenantPrisma, id: string) {
@@ -49,7 +49,7 @@ export async function getArtisan(db: TenantPrisma, id: string) {
     },
   });
   if (!artisan) return fail(404, "Not found");
-  return ok({ artisan });
+  return ok({ artisan: stripArtisanSecrets(artisan) });
 }
 
 // ── create ──────────────────────────────────────────────────────────────────
@@ -59,7 +59,10 @@ function slugFor(body: ArtisanBody): string {
 }
 
 export async function createArtisan(db: TenantPrisma, body: ArtisanBody) {
+  if (typeof body?.name !== "string" || !body.name.trim()) return fail(400, "Name is required");
   const slug = slugFor(body);
+  const clash = await db.artisan.findFirst({ where: { slug }, select: { id: true } });
+  if (clash) return fail(409, `Slug "${slug}" is already in use`, { existingId: clash.id });
   const artisan = await db.artisan.create({
     data: {
       tenantId: db.$tenantId,
@@ -90,7 +93,7 @@ export async function createArtisan(db: TenantPrisma, body: ArtisanBody) {
   });
   revalidatePath("/artisans");
   revalidatePath("/");
-  return ok({ artisan });
+  return ok({ artisan: stripArtisanSecrets(artisan) });
 }
 
 export async function previewCreateArtisan(db: TenantPrisma, body: ArtisanBody) {
@@ -155,7 +158,17 @@ export async function updateArtisan(db: TenantPrisma, id: string, body: ArtisanB
   // Lock slug after first active publish
   const existing = await db.artisan.findUnique({ where: { id }, select: { slug: true, status: true } });
   if (!existing) return fail(404, "Not found");
+  if (body.images !== undefined && body.images !== null) {
+    const valid =
+      Array.isArray(body.images) &&
+      body.images.every((img: unknown) => !!img && typeof img === "object" && typeof (img as { url?: unknown }).url === "string" && (img as { url: string }).url.trim() !== "");
+    if (!valid) return fail(400, "images must be an array of objects, each with a url");
+  }
   const slug = existing.status === "ACTIVE" ? existing.slug : (body.slug || existing.slug);
+  if (slug !== existing.slug) {
+    const clash = await db.artisan.findFirst({ where: { slug, NOT: { id } }, select: { id: true } });
+    if (clash) return fail(409, `Slug "${slug}" is already in use`, { existingId: clash.id });
+  }
 
   const updateData: Record<string, unknown> = { slug };
   for (const [field, write] of Object.entries(FIELD_WRITERS)) {
@@ -200,7 +213,7 @@ export async function updateArtisan(db: TenantPrisma, id: string, body: ArtisanB
   if (updated?.slug) revalidatePath(`/artisans/${updated.slug}`);
   revalidatePath("/");
 
-  return ok({ artisan: updated });
+  return ok({ artisan: updated ? stripArtisanSecrets(updated) : updated });
 }
 
 /** Fields the PUT route can write (everything except Instagram OAuth fields). */
@@ -233,6 +246,10 @@ export async function previewUpdateArtisan(db: TenantPrisma, id: string, patch: 
   const cur = current as Record<string, unknown>;
   const slugLocked = current.status === "ACTIVE";
   const finalSlug = slugLocked ? current.slug : (body.slug || current.slug);
+  if (finalSlug !== current.slug) {
+    const clash = await db.artisan.findFirst({ where: { slug: finalSlug, NOT: { id } }, select: { id: true, name: true } });
+    if (clash) return fail(409, `Slug "${finalSlug}" is already used by artisan "${clash.name}"`, { existingId: clash.id });
+  }
   const changes: Record<string, { before: unknown; after: unknown }> = {};
   for (const k of UPDATABLE_FIELDS) {
     const after = k === "slug" ? finalSlug : body[k];
@@ -263,7 +280,8 @@ export async function previewUpdateArtisan(db: TenantPrisma, id: string, patch: 
 // ── delete ──────────────────────────────────────────────────────────────────
 
 export async function deleteArtisan(db: TenantPrisma, id: string) {
-  await db.artisan.delete({ where: { id } });
+  const { count } = await db.artisan.deleteMany({ where: { id } });
+  if (count === 0) return fail(404, "Not found");
   return ok({ ok: true });
 }
 

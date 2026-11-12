@@ -7,16 +7,21 @@ import crypto from "crypto";
 import { getEmailBranding, emailLogoHtml, type EmailBranding } from "@/lib/email-branding";
 import { logEmail } from "@/lib/email-log";
 import { safeAdminCallback } from "@/lib/safe-callback";
+import { escapeHtml } from "@/lib/escape-html";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 function adminMagicLinkEmail(magicLink: string, branding: EmailBranding): string {
+  // Tenant-controlled values are escaped before going into the HTML.
+  const storeName = escapeHtml(branding.storeName);
+  const accentColor = escapeHtml(branding.accentColor);
+  const href = escapeHtml(magicLink);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin sign in — ${branding.storeName}</title>
+  <title>Admin sign in — ${storeName}</title>
 </head>
 <body style="margin:0;padding:0;background:#f5f0e8;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f5f0e8;padding:32px 16px;">
@@ -30,11 +35,11 @@ function adminMagicLinkEmail(magicLink: string, branding: EmailBranding): string
         <tr>
           <td style="padding:40px 40px 32px;text-align:center;">
             <h2 style="margin:0 0 12px;font-size:22px;color:#3a2e24;font-weight:600;">Admin Sign In</h2>
-            <p style="margin:0 0 28px;font-size:15px;color:#7a6852;line-height:1.6;">Click the button below to access the ${branding.storeName} admin. This link expires in 15 minutes and can only be used once.</p>
+            <p style="margin:0 0 28px;font-size:15px;color:#7a6852;line-height:1.6;">Click the button below to access the ${storeName} admin. This link expires in 15 minutes and can only be used once.</p>
             <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 32px;">
               <tr>
-                <td style="background:${branding.accentColor};border-radius:10px;">
-                  <a href="${magicLink}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to Admin</a>
+                <td style="background:${accentColor};border-radius:10px;">
+                  <a href="${href}" style="display:inline-block;padding:16px 40px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;letter-spacing:0.04em;font-family:'Helvetica Neue',Arial,sans-serif;">Sign In to Admin</a>
                 </td>
               </tr>
             </table>
@@ -45,7 +50,7 @@ function adminMagicLinkEmail(magicLink: string, branding: EmailBranding): string
         </tr>
         <tr>
           <td style="padding:20px 40px;background:#3a2e24;text-align:center;">
-            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${branding.storeName}. All rights reserved.</p>
+            <p style="margin:0;font-size:11px;color:rgba(255,255,255,0.35);">&copy; ${new Date().getFullYear()} ${storeName}. All rights reserved.</p>
           </td>
         </tr>
       </table>

@@ -104,19 +104,32 @@ export interface KbArticleBody {
   readTimeMin?: unknown;
 }
 
-/** Full replacement of title/category/excerpt/content/readTimeMin (as the PUT route does). */
+/**
+ * Update title/category/excerpt/content/readTimeMin. A field that is absent (or
+ * null) keeps its current value; the columns are NOT NULL, so writing null used
+ * to fail with a 500 on any partial body.
+ */
 export async function updateKbArticle(tenantId: string, slug: string, body: KbArticleBody) {
-  const { title, category, excerpt, content, readTimeMin } = body;
+  const { title, category, excerpt, content } = body;
+  for (const [k, v] of Object.entries({ title, category, excerpt, content })) {
+    if (v !== undefined && v !== null && typeof v !== "string") return fail(400, `${k} must be a string`);
+  }
+  let readTimeMin: number | null = null;
+  if (body.readTimeMin !== undefined && body.readTimeMin !== null && body.readTimeMin !== "") {
+    readTimeMin = Number(body.readTimeMin);
+    if (!Number.isInteger(readTimeMin) || readTimeMin < 1) return fail(400, "readTimeMin must be a positive whole number");
+  }
 
   const client = new Client({ connectionString: DB });
   await client.connect();
   try {
     const result = await client.query(
       `UPDATE "KBArticle"
-       SET title = $1, category = $2, excerpt = $3, content = $4, "readTimeMin" = $5, "updatedAt" = NOW()
+       SET title = COALESCE($1, title), category = COALESCE($2, category), excerpt = COALESCE($3, excerpt),
+           content = COALESCE($4, content), "readTimeMin" = COALESCE($5::int, "readTimeMin"), "updatedAt" = NOW()
        WHERE slug = $6 AND "tenantId" = $7
        RETURNING *`,
-      [title, category, excerpt, content, readTimeMin, slug, tenantId]
+      [title ?? null, category ?? null, excerpt ?? null, content ?? null, readTimeMin, slug, tenantId]
     );
     if (result.rows.length === 0) {
       return fail(404, "Not found");
@@ -131,7 +144,7 @@ const KB_FIELDS = ["title", "category", "excerpt", "content", "readTimeMin"] as 
 
 /**
  * MCP partial update: overlay the patch on the current article so omitted
- * fields keep their values (the PUT route would otherwise write NULLs).
+ * fields keep their values, and so the preview can show before/after.
  */
 export async function mergeKbPatch(tenantId: string, slug: string, patch: KbArticleBody) {
   const cur = await getKbArticle(tenantId, slug);

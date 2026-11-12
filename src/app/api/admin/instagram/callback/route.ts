@@ -11,12 +11,13 @@ export async function GET(request: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://artisansstories.com";
 
   if (error || !code || !stateRaw) {
-    return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=${error ?? "missing_code"}`);
+    return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=${encodeURIComponent(error ?? "missing_code")}`);
   }
 
   let artisanId: string;
   try {
     artisanId = JSON.parse(Buffer.from(stateRaw, "base64").toString()).artisanId;
+    if (typeof artisanId !== "string" || !artisanId) throw new Error("no artisanId");
   } catch {
     return NextResponse.redirect(`${siteUrl}/admin/artisans?ig_error=invalid_state`);
   }
