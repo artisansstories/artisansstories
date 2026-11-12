@@ -453,9 +453,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     setRefunding(true);
     setActionError("");
     try {
-      const amountCents = refundAmount
-        ? Math.round(parseFloat(refundAmount) * 100)
-        : undefined;
+      // Blank = full refund. Anything else must be a positive dollar amount:
+      // "abc" used to become NaN → null, which the server reads as a FULL refund.
+      const trimmed = refundAmount.trim();
+      const amountCents = trimmed ? Math.round(Number(trimmed) * 100) : undefined;
+      if (amountCents !== undefined && (!Number.isFinite(amountCents) || amountCents <= 0)) {
+        setActionError("Enter a refund amount in dollars (e.g. 25.00), or leave it blank for a full refund.");
+        return;
+      }
       const res = await fetch(`/api/admin/orders/${order.id}/refund`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

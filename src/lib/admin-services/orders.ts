@@ -52,11 +52,13 @@ export function buildOrderWhere(p: OrderListParams): Prisma.OrderWhereInput {
   if (financialStatus && Object.values(FinancialStatus).includes(financialStatus as FinancialStatus)) {
     where.financialStatus = financialStatus as FinancialStatus;
   }
-  if (startDate) {
-    where.createdAt = { ...((where.createdAt as object) ?? {}), gte: new Date(startDate) };
+  // Unparseable dates are ignored (like unknown status values), not a 500.
+  const start = startDate ? new Date(startDate) : null;
+  if (start && !isNaN(start.getTime())) {
+    where.createdAt = { ...((where.createdAt as object) ?? {}), gte: start };
   }
-  if (endDate) {
-    const end = new Date(endDate);
+  const end = endDate ? new Date(endDate) : null;
+  if (end && !isNaN(end.getTime())) {
     end.setHours(23, 59, 59, 999);
     where.createdAt = { ...((where.createdAt as object) ?? {}), lte: end };
   }
@@ -90,8 +92,9 @@ export async function exportOrdersCsv(db: TenantPrisma, p: OrderListParams): Pro
 }
 
 export async function listOrders(db: TenantPrisma, p: OrderListParams) {
-  const page = Math.max(1, p.page ?? 1);
-  const limit = Math.min(100, Math.max(1, p.limit ?? 20));
+  // parseInt of a junk query param is NaN; fall back to the defaults.
+  const page = Math.max(1, Number.isFinite(p.page) ? (p.page as number) : 1);
+  const limit = Math.min(100, Math.max(1, Number.isFinite(p.limit) ? (p.limit as number) : 20));
   const where = buildOrderWhere(p);
   const [total, orders] = await Promise.all([
     db.order.count({ where }),
@@ -148,6 +151,9 @@ export async function findOrderIdByNumber(db: TenantPrisma, orderNumber: string)
 // ── note ────────────────────────────────────────────────────────────────────
 
 export async function setOrderNote(db: TenantPrisma, id: string, adminNote: string) {
+  if (typeof adminNote !== "string") return fail(400, "adminNote must be a string");
+  const existing = await db.order.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) return fail(404, "Order not found");
   const order = await db.order.update({
     where: { id },
     data: { adminNote },
@@ -331,7 +337,13 @@ export interface RefundBody {
   reason?: string;
 }
 
-async function refundGuard(db: TenantPrisma, id: string) {
+async function refundGuard(db: TenantPrisma, id: string, body: RefundBody) {
+  // Omitted amount = full refund. Anything else must be whole positive cents:
+  // 0, negatives, fractions or strings used to fall through to a FULL refund.
+  const amount: unknown = body?.amount;
+  if (amount !== undefined && amount !== null && !(typeof amount === "number" && Number.isInteger(amount) && amount > 0)) {
+    return fail(400, "amount must be a positive whole number of cents (omit it for a full refund)");
+  }
   const order = await db.order.findUnique({ where: { id } });
   if (!order) return fail(404, "Order not found");
 
@@ -349,7 +361,7 @@ async function refundGuard(db: TenantPrisma, id: string) {
 }
 
 export async function previewRefund(db: TenantPrisma, id: string, body: RefundBody) {
-  const g = await refundGuard(db, id);
+  const g = await refundGuard(db, id, body);
   if (!g.ok) return g;
   const order = g.data;
   const pi = await stripe.paymentIntents.retrieve(order.stripePaymentIntentId as string, { expand: ["latest_charge"] });
@@ -391,7 +403,7 @@ export function orderRefundIdempotencyKey(orderId: string, version: Date, amount
 }
 
 export async function refundOrder(db: TenantPrisma, id: string, body: RefundBody) {
-  const g = await refundGuard(db, id);
+  const g = await refundGuard(db, id, body);
   if (!g.ok) return g;
   const order = g.data;
   const piId = order.stripePaymentIntentId as string;
@@ -508,9 +520,13 @@ export interface FulfillBody {
   items: Array<{ orderItemId: string; quantity: number }>;
 }
 
+/** Fulfilling a closed order would flip it back to SHIPPED and email the customer. */
+const FULFILL_CLOSED_ERROR = "Order is cancelled or refunded and cannot be fulfilled";
+
 export async function previewFulfill(db: TenantPrisma, id: string, body: FulfillBody) {
   const order = await db.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) return fail(404, "Order not found");
+  if (order.status === "CANCELLED" || order.status === "REFUNDED") return fail(400, FULFILL_CLOSED_ERROR);
   const known = new Map(order.items.map((i) => [i.id, i]));
   const unknown = body.items.filter((i) => !known.has(i.orderItemId)).map((i) => i.orderItemId);
   if (unknown.length) return fail(400, `Order item(s) not on this order: ${unknown.join(", ")}`);
@@ -544,6 +560,7 @@ export async function fulfillOrder(db: TenantPrisma, id: string, body: FulfillBo
     include: { items: true },
   });
   if (!order) return fail(404, "Order not found");
+  if (order.status === "CANCELLED" || order.status === "REFUNDED") return fail(400, FULFILL_CLOSED_ERROR);
   const known = new Set(order.items.map((i) => i.id));
   const unknownItems = (body.items ?? []).filter((i) => !known.has(i.orderItemId)).map((i) => i.orderItemId);
   if (!body.items?.length) return fail(400, "Select at least one item to fulfill");
