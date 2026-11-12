@@ -34,6 +34,7 @@ import { prisma } from "./prisma";
  *   - Tenant, TenantApiKey, TenantTheme — platform/global models.
  *   - MagicLinkToken — looked up by its globally-unique secret `token`; the
  *     tenant is derived FROM the resolved token row, not used to scope it.
+ *   - McpNonce — claimed by its globally-unique hash id (src/lib/mcp/nonce.ts).
  */
 export const TENANT_SCOPED_MODELS = new Set<string>([
   "StoreSettings",

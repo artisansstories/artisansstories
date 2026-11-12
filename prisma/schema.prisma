@@ -161,9 +161,23 @@ model StoreSettings {
   updatedAt              DateTime @updatedAt
   adminLogoSize          Int      @default(280)
   productDisclaimer      String?  @default("Each piece is handcrafted by skilled artisans, making every item one-of-a-kind. Natural materials, hand-dyeing, weaving, and hand-finishing mean slight variations in color, texture, size, and pattern from piece to piece — and from the photos shown. These natural differences are not defects; they are the hallmark of authentic handmade craftsmanship and make your piece uniquely yours. We stand behind the quality of every item we sell.")
+  mcpEnabled             Boolean  @default(false)
 
   @@unique([tenantId])
   @@index([tenantId])
+}
+
+/// Single-use markers for MCP credentials (confirm tokens, OAuth auth codes).
+/// The id is the sha256 of the token or code; inserting it claims it. Rows are
+/// only needed until expiresAt and are pruned opportunistically.
+model McpNonce {
+  id        String   @id
+  kind      String
+  tenantId  String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model AdminUser {
