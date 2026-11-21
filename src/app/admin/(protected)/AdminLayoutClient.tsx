@@ -33,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/linktree", label: "Link Hub", icon: IconLink, mobileShow: false, houseOnly: true },
   { href: "/admin/landing-page", label: "Landing Page", icon: IconHome, mobileShow: false, houseOnly: true },
   { href: "/admin/email-template", label: "Email Template", icon: IconMail, mobileShow: false, houseOnly: true },
+  { href: "/admin/notice", label: "Notice Banner", icon: IconMegaphone, mobileShow: false },
   { href: "/admin/team", label: "Team", icon: IconTeam, mobileShow: false },
   { href: "/admin/settings", label: "Settings", icon: IconSettings, mobileShow: true },
   { href: "/admin/settings/ai", label: "AI Assistants", icon: IconSparkle, mobileShow: false },
@@ -45,6 +46,9 @@ function activeNavHref(pathname: string): string | undefined {
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 }
 
+function IconMegaphone({ size = 20 }: { size?: number }) {
+  return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z"/><path d="M16 8.5a5 5 0 0 1 0 7"/><path d="M19 5.5a9 9 0 0 1 0 13"/></svg>);
+}
 function IconSparkle({ size = 20 }: { size?: number }) {
   return (<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z"/></svg>);
 }

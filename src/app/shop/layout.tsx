@@ -1,11 +1,10 @@
-"use client";
-
 import React from "react";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { CartDrawerProvider } from "@/components/CartDrawerProvider";
 import CartDrawer from "@/components/CartDrawer";
 import ShopNav from "@/components/ShopNav";
 import ShopFooter from "@/components/ShopFooter";
+import StoreNoticeBanner from "@/components/StoreNoticeBanner";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -43,6 +42,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
           ::-webkit-scrollbar-thumb { background: #d8cfc0; border-radius: 6px; }
         `}</style>
 
+        <StoreNoticeBanner />
         <ShopNav />
 
         <main style={{ flex: 1 }}>

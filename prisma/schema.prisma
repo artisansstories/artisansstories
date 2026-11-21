@@ -182,6 +182,23 @@ model McpNonce {
   @@index([expiresAt])
 }
 
+/// Storefront notice banner (one per store). Shown at the top of the live
+/// storefront while isVisible AND startsAt <= now < endsAt (null = open).
+/// Created by prisma/migrations/add_store_notice.sql.
+model StoreNotice {
+  id        String    @id @default(cuid())
+  tenantId  String    @unique
+  message   String
+  linkLabel String?
+  linkUrl   String?
+  style     String    @default("info")
+  isVisible Boolean   @default(false)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
 model AdminUser {
   id        String    @id @default(cuid())
   tenantId  String

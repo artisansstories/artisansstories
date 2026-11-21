@@ -207,7 +207,7 @@ describe.skipIf(SKIP)("admin UI (next start, local DB)", () => {
 
     // The key is real: the MCP server accepts it for this store.
     const mcp = await connectMcp(token);
-    expect((await mcp.toolNames()).length).toBe(95);
+    expect((await mcp.toolNames()).length).toBe(99);
     await mcp.close();
 
     await page.getByRole("button", { name: "Done" }).click();

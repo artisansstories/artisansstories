@@ -316,6 +316,7 @@ const TENANT_DELETE_ORDER: string[] = [
   "LinkTreeSettings",
   // standalone tenant rows
   "Discount",
+  "StoreNotice",
   "StoreSettings",
   "AdminUser",
   "WelcomeEmailTemplate",

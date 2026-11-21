@@ -620,26 +620,26 @@ describe("house-only tools", () => {
   const HOUSE_ONLY = ALL_TOOLS.filter((t) => t.houseOnly).map((t) => t.name).sort();
   const HOUSE_ONLY_PATTERN = /^(artisans_|kb_|linktree_|landing_page_|email_template_|instagram_status$)/;
 
-  it("registry totals match docs/MCP.md (39 read, 24 write, 32 sensitive; 24 house-only)", () => {
-    expect(ALL_TOOLS).toHaveLength(95);
-    expect(ALL_TOOLS.filter((t) => t.kind === "read")).toHaveLength(39);
+  it("registry totals match docs/MCP.md (40 read, 24 write, 35 sensitive; 24 house-only)", () => {
+    expect(ALL_TOOLS).toHaveLength(99);
+    expect(ALL_TOOLS.filter((t) => t.kind === "read")).toHaveLength(40);
     expect(ALL_TOOLS.filter((t) => t.kind === "write")).toHaveLength(24);
-    expect(ALL_TOOLS.filter((t) => t.kind === "sensitive")).toHaveLength(32);
+    expect(ALL_TOOLS.filter((t) => t.kind === "sensitive")).toHaveLength(35);
     expect(HOUSE_ONLY).toHaveLength(24);
-    expect(READ_TOOLS.length + WRITE_TOOLS.length).toBe(95);
+    expect(READ_TOOLS.length + WRITE_TOOLS.length).toBe(99);
     // houseOnly flag and name families agree both ways.
     expect(HOUSE_ONLY.every((n) => HOUSE_ONLY_PATTERN.test(n))).toBe(true);
     expect(ALL_TOOLS.filter((t) => HOUSE_ONLY_PATTERN.test(t.name)).map((t) => t.name).sort()).toEqual(HOUSE_ONLY);
-    expect(new Set(ALL_TOOLS.map((t) => t.name)).size).toBe(95);
+    expect(new Set(ALL_TOOLS.map((t) => t.name)).size).toBe(99);
   });
 
-  it("tools/list counts per key: house admin 95, house read 39, other admin 71, other read 29", async () => {
+  it("tools/list counts per key: house admin 99, house read 40, other admin 75, other read 30", async () => {
     const houseOnlyReads = READ_TOOLS.filter((t) => t.houseOnly).length; // 10
     const expected: [string, number][] = [
-      [KEYS.houseAdmin, 95],
-      [KEYS.houseRead, 39],
-      [KEYS.otherAdmin, 95 - 24],
-      [KEYS.otherRead, 39 - houseOnlyReads],
+      [KEYS.houseAdmin, 99],
+      [KEYS.houseRead, 40],
+      [KEYS.otherAdmin, 99 - 24],
+      [KEYS.otherRead, 40 - houseOnlyReads],
     ];
     expect(houseOnlyReads).toBe(10);
     for (const [key, n] of expected) {

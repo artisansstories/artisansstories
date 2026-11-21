@@ -1,6 +1,7 @@
 /**
  * Store admin core — mirrors /api/admin/{dashboard,reports/*,settings,team/*}
- * via src/lib/admin-services/{dashboard,reports,settings,team}.ts.
+ * and /api/admin/store-notice via src/lib/admin-services/{dashboard,reports,
+ * settings,team,store-notice}.ts.
  */
 import { z } from "zod";
 import { readTool, writeTool, zId, type McpTool, type ToolCtx } from "../kit";
@@ -8,6 +9,8 @@ import { getDashboard } from "@/lib/admin-services/dashboard";
 import * as reports from "@/lib/admin-services/reports";
 import * as settings from "@/lib/admin-services/settings";
 import * as team from "@/lib/admin-services/team";
+import * as notice from "@/lib/admin-services/store-notice";
+import { STORE_NOTICE_INPUT } from "@/lib/store-notice";
 import { fail } from "@/lib/admin-services/result";
 
 const TEAM_ROLE = ["SUPER_ADMIN", "ADMIN", "EDITOR"] as const;
@@ -171,6 +174,53 @@ export const tools: McpTool[] = [
       const { body } = await settings.mergeEmailBranding(ctx.db, a);
       return settings.updateEmailBranding(ctx.db, body);
     },
+  }),
+
+  // ── storefront notice banner ──────────────────────────────────────────────
+  readTool({
+    name: "notice_get",
+    title: "Get storefront notice",
+    description:
+      "The storefront notice banner (one per store): message, optional link, style, show/hide flag, start and expiry (UTC ISO plus Los Angeles display times), and its computed status: live (on the storefront now), scheduled, expired, hidden, or none. The banner only appears while the store itself is live.",
+    input: {},
+    run: (ctx) => notice.getNotice(ctx.db),
+  }),
+
+  writeTool({
+    name: "notice_set",
+    title: "Set storefront notice",
+    kind: "sensitive",
+    idempotent: true,
+    description:
+      "Create or update the notice banner shown at the top of the public storefront. Only fields you pass change; when no notice exists, message is required and the rest default to style info, shown, starting now, never expiring. Times without an offset are Los Angeles time. Needs ADMIN or SUPER_ADMIN (API keys act as ADMIN). The preview shows before/after and whether it will be live immediately.",
+    input: STORE_NOTICE_INPUT,
+    preview: (ctx, a) => notice.previewSetNotice(ctx.db, ctx, a),
+    execute: (ctx, a) => notice.setNotice(ctx.db, ctx, a),
+  }),
+
+  writeTool({
+    name: "notice_set_visibility",
+    title: "Show or hide storefront notice",
+    kind: "sensitive",
+    idempotent: true,
+    description:
+      "Show (true) or hide (false) the existing storefront notice without changing its text or dates. A shown notice is only on the storefront between its start and expiry. Needs ADMIN or SUPER_ADMIN.",
+    input: { isVisible: z.boolean().describe("true = show, false = hide") },
+    preview: (ctx, a) => notice.previewSetNoticeVisibility(ctx.db, ctx, a.isVisible),
+    execute: (ctx, a) => notice.setNoticeVisibility(ctx.db, ctx, a.isVisible),
+  }),
+
+  writeTool({
+    name: "notice_clear",
+    title: "Delete storefront notice",
+    kind: "sensitive",
+    destructive: true,
+    idempotent: true,
+    description:
+      "Permanently delete the storefront notice (text, link and dates). To take it down but keep it for later, use notice_set_visibility with false. Needs ADMIN or SUPER_ADMIN.",
+    input: {},
+    preview: (ctx) => notice.previewClearNotice(ctx.db, ctx),
+    execute: (ctx) => notice.clearNotice(ctx.db, ctx),
   }),
 
   // ── team ──────────────────────────────────────────────────────────────────

@@ -172,6 +172,7 @@ const STATUS_TOOLS: Array<[prefix: string, tool: string]> = [
   ["tax_", "tax_get"],
   ["settings_", "settings_get"],
   ["team_", "team_list"],
+  ["notice_", "notice_get"],
   ["artisans_", "artisans_get"],
   ["kb_", "kb_articles_get"],
   ["contact_", "contact_message_get"],

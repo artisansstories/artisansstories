@@ -71,6 +71,7 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
   "KBArticle",
   "ProductAddon",
   "OrderItemAddon",
+  "StoreNotice",
 ]);
 
 // Operations whose `where` must carry the tenant filter.
