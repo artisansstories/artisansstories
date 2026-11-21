@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import type { TenantPrisma } from "@/lib/tenant-prisma";
 import { ok, fail, type ServiceResult, type ServiceFail, type AdminActor } from "./result";
 import { isLegacyTaxValue } from "./tax";
+import { validateTrackingIds } from "@/lib/analytics-ids";
 
 /** Hide legacy "TAX:{json}" data that older code stored in the Pixel ID field. */
 function withRealPixel<T extends { facebookPixelId: string | null }>(settings: T): T {
@@ -123,6 +124,28 @@ export function pickWritableSettings(body: Record<string, unknown>): Record<stri
   return data;
 }
 
+/**
+ * Validate + normalize googleAnalyticsId / facebookPixelId (400 on a bad
+ * format). Only values that change are checked: the Settings form sends every
+ * field, so an older malformed value must not block saving anything else (the
+ * storefront ignores it anyway). A blank Pixel ID never overwrites a leftover
+ * legacy "TAX:" value — the form shows that field as empty, so saving it must
+ * not wipe tax data the migration skipped (saving tax settings clears it).
+ */
+function checkTrackingIds(existing: Record<string, unknown> | null, data: Record<string, unknown>): ServiceFail | null {
+  const changed: Record<string, unknown> = {};
+  for (const k of ["googleAnalyticsId", "facebookPixelId"] as const) {
+    if (!(k in data)) continue;
+    if (existing && data[k] === existing[k]) delete data[k];
+    else changed[k] = data[k];
+  }
+  const error = validateTrackingIds(changed);
+  if (error) return fail(400, error);
+  Object.assign(data, changed);
+  if (data.facebookPixelId === null && isLegacyTaxValue(existing?.facebookPixelId as string | null)) delete data.facebookPixelId;
+  return null;
+}
+
 /** Roles that may publish or unpublish the store (StoreSettings.storeEnabled). */
 export const PUBLISH_ROLES = ["SUPER_ADMIN", "ADMIN"] as const;
 
@@ -152,10 +175,12 @@ export async function updateSettings(
   const existing = await db.storeSettings.findFirst({ where: {} });
   const denied = publishDenied(actor, existing?.storeEnabled ?? false, data);
   if (denied) return denied;
+  const invalid = checkTrackingIds(existing, data);
+  if (invalid) return invalid;
   const settings = existing
     ? await db.storeSettings.update({ where: { id: existing.id }, data })
     : await db.storeSettings.create({ data: data as never });
-  return ok(settings);
+  return ok(withRealPixel(settings));
 }
 
 /** Read-only: field-by-field before/after of a StoreSettings update. */
@@ -171,9 +196,11 @@ export async function previewUpdateSettings(
   const existing = (await db.storeSettings.findFirst({ where: {} })) as Record<string, unknown> | null;
   const denied = publishDenied(actor, existing?.storeEnabled === true, patch);
   if (denied) return denied;
+  const invalid = checkTrackingIds(existing, patch);
+  if (invalid) return invalid;
   const changes: Array<{ field: string; before: unknown; after: unknown }> = [];
   const unchanged: string[] = [];
-  for (const f of fields) {
+  for (const f of Object.keys(patch)) {
     const before = existing ? existing[f] ?? null : "(schema default)";
     if (existing && before === patch[f]) unchanged.push(f);
     else changes.push({ field: f, before, after: patch[f] });

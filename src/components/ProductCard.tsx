@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart, formatPrice, CartItem } from "@/lib/cart";
 import { useCartDrawer } from "./CartDrawerProvider";
 import { discountBadge, getPromoThemeStyle } from "@/lib/discount";
+import { toAnalyticsItem, trackAddToCart } from "@/lib/analytics";
 
 interface ProductCardProduct {
   id: string;
@@ -93,6 +94,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       slug: product.slug,
     };
     addItem(item, cap);
+    trackAddToCart(toAnalyticsItem(item));
     setAdded(true);
     openCart();
     setTimeout(() => setAdded(false), 2500);

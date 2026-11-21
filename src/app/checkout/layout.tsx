@@ -4,6 +4,7 @@ import { Cormorant_Garamond, Inter } from "next/font/google";
 import { headers } from "next/headers";
 import { parseTenantHost } from "@/lib/tenant-host";
 import { prisma } from "@/lib/prisma";
+import StoreAnalytics from "@/components/StoreAnalytics";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -54,6 +55,7 @@ export default async function CheckoutLayout({ children }: { children: React.Rea
         fontFamily: "var(--font-inter), 'Inter', sans-serif",
       }}
     >
+      <StoreAnalytics />
       <style>{`
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { height: 100%; }

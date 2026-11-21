@@ -25,7 +25,7 @@ export default function PrivacyPage() {
                 Privacy Policy
               </h1>
               <p style={{ fontFamily: "'Inter',sans-serif", fontSize: 14, color: "#9a876e", margin: 0 }}>
-                Last updated: June 2026
+                Last updated: November 2026
               </p>
             </div>
 
@@ -93,7 +93,9 @@ export default function PrivacyPage() {
                   <li style={{ marginBottom: 6 }}>Session cookies to keep you signed in to your account</li>
                   <li style={{ marginBottom: 6 }}>Cart cookies to preserve items in your shopping session</li>
                 </ul>
-                <p>We do not use advertising trackers, Meta Pixel, Google Analytics, or any cross-site tracking. You can disable cookies in your browser; some features (like staying signed in) will not work without them.</p>
+                <p>We use Vercel Web Analytics and Speed Insights to count page visits and measure site performance. They do not use cookies and do not identify you personally.</p>
+                <p style={{ marginTop: 10 }}>When the store has turned them on, our shop pages may also load Google Analytics and the Meta Pixel. These set cookies and record the pages you visit and shopping activity (products viewed, items added to the cart, checkout and completed orders, including order number and amounts). We never send them your name, email address or postal address. They are not used in our admin area.</p>
+                <p style={{ marginTop: 10 }}>To opt out, use the <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer" style={{ color: "#8B6914" }}>Google Analytics opt-out browser add-on</a>, manage how Meta uses this data in your <a href="https://www.facebook.com/adpreferences" target="_blank" rel="noopener noreferrer" style={{ color: "#8B6914" }}>Facebook ad preferences</a>, or block third-party cookies in your browser. You can disable cookies entirely; some features (like staying signed in) will not work without them.</p>
               </Section>
 
               <Divider />

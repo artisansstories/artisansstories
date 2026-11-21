@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { trackPurchaseOnce } from "@/lib/analytics";
 
 interface PageProps {
   params: Promise<{ orderNumber: string }>;
@@ -9,12 +10,26 @@ interface PageProps {
 
 export default function CheckoutSuccessPage({ params }: PageProps) {
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+  // Read once, then drop ?email= from the address bar so page-view analytics
+  // (GA4 / Meta Pixel / Vercel) never see the shopper's email.
+  const [email] = useState(() => searchParams.get("email") || "");
   const [orderNumber, setOrderNumber] = useState<string>("");
 
   useEffect(() => {
     params.then((p) => setOrderNumber(p.orderNumber));
   }, [params]);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("email")) return;
+    url.searchParams.delete("email");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, []);
+
+  // purchase fires once per order (reloads and revisits are ignored).
+  useEffect(() => {
+    if (orderNumber) trackPurchaseOnce(orderNumber);
+  }, [orderNumber]);
 
   return (
     <div

@@ -50,7 +50,12 @@ const SETTINGS_INPUT = {
   pinterestUrl: zText("Pinterest URL"),
   metaTitle: zText("SEO meta title"),
   metaDescription: zText("SEO meta description"),
-  googleAnalyticsId: zText("Google Analytics measurement id"),
+  googleAnalyticsId: zText(
+    "GA4 Measurement ID, e.g. G-AB12CD34EF (G- then letters/digits). Loads Google Analytics on the storefront only. Empty string turns it off. Any other format is rejected.",
+  ),
+  facebookPixelId: zText(
+    "Meta Pixel ID: 15-16 digits. Loads the Pixel on the storefront only. Empty string turns it off. Any other format is rejected.",
+  ),
   productDisclaimer: zText("Disclaimer shown on product pages"),
 };
 

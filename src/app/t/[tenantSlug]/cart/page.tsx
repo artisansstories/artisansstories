@@ -13,7 +13,8 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toAnalyticsItem, trackBeginCheckout, trackViewCart } from "@/lib/analytics";
 import { useCart } from "../_components/CartContext";
 
 function formatPrice(cents: number): string {
@@ -34,9 +35,18 @@ export default function CartPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // view_cart once, after the saved cart has loaded.
+  const viewCartSent = useRef(false);
+  useEffect(() => {
+    if (viewCartSent.current || items.length === 0) return;
+    viewCartSent.current = true;
+    trackViewCart(items.map(toAnalyticsItem), totalAmount);
+  }, [items, totalAmount]);
+
   // We redirect to Stripe checkout via our internal API route
   async function handleCheckout() {
     if (items.length === 0) return;
+    trackBeginCheckout(items.map(toAnalyticsItem), totalAmount);
     setLoading(true);
     setError(null);
 

@@ -136,7 +136,7 @@ function idPaths(shape: Record<string, z.ZodTypeAny>, prefix = ""): string[] {
 
 /** Id-shaped arguments that are not store records (never looked up in the database). */
 const NOT_RECORD_IDS: Record<string, string[]> = {
-  settings_update: ["googleAnalyticsId"], // Google Analytics measurement id (free text)
+  settings_update: ["googleAnalyticsId", "facebookPixelId"], // GA4 / Meta Pixel ids (tracking ids, not records)
   email_template_update: ["socialLinks[].id"], // client-side key inside a JSON array
 };
 

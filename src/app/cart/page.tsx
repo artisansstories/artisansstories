@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart, formatPrice } from "@/lib/cart";
+import { toAnalyticsItem, trackViewCart } from "@/lib/analytics";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +65,14 @@ export default function CartPage() {
   const [discountLoading, setDiscountLoading] = useState(false);
   // Inventory caps keyed by variantId
   const [inventoryCaps, setInventoryCaps] = useState<Record<string, number>>({});
+
+  // view_cart once, after the persisted cart has loaded.
+  const viewCartSent = useRef(false);
+  useEffect(() => {
+    if (viewCartSent.current || items.length === 0) return;
+    viewCartSent.current = true;
+    trackViewCart(items.map(toAnalyticsItem));
+  }, [items]);
 
   // Fetch inventory for all cart items on load
   useEffect(() => {

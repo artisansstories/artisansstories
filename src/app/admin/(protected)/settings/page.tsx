@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { gaStatus, pixelStatus, type TrackingStatus } from "@/lib/analytics-ids";
 
 interface StoreSettings {
   id: string;
@@ -24,6 +25,7 @@ interface StoreSettings {
   metaTitle: string | null;
   metaDescription: string | null;
   googleAnalyticsId: string | null;
+  facebookPixelId: string | null;
   lowStockThreshold: number;
   lowStockAlertEmail: string | null;
   adminLogoSize: number;
@@ -56,6 +58,28 @@ const SECTION_TITLE: React.CSSProperties = {
   paddingBottom: 12,
   borderBottom: "1px solid #f0ebe0",
 };
+
+const HINT_STYLE: React.CSSProperties = {
+  fontFamily: "'Inter', sans-serif",
+  fontSize: 12,
+  color: "#9a876e",
+  margin: "6px 0 0",
+};
+
+const TRACKING_STATUS: Record<TrackingStatus, { label: string; color: string }> = {
+  active: { label: "Active — loads on the storefront once saved", color: "#2e7d32" },
+  not_set: { label: "Not set", color: "#9a876e" },
+  invalid: { label: "Invalid format — fix it before saving", color: "#c0392b" },
+};
+
+function TrackingStatusLine({ status }: { status: TrackingStatus }) {
+  const { label, color } = TRACKING_STATUS[status];
+  return (
+    <p style={{ ...HINT_STYLE, color, fontWeight: 600 }} data-testid="tracking-status">
+      Status: {label}
+    </p>
+  );
+}
 
 const LABEL_STYLE: React.CSSProperties = {
   display: "block",
@@ -116,6 +140,7 @@ export default function SettingsPage() {
     metaTitle: "",
     metaDescription: "",
     googleAnalyticsId: "",
+    facebookPixelId: "",
     productDisclaimer: "",
     emailFromName: "",
     emailReplyTo: "",
@@ -186,14 +211,20 @@ export default function SettingsPage() {
           }),
         }),
       ]);
-      if (!putRes.ok || !patchRes.ok) throw new Error("Failed to save");
+      if (!putRes.ok) {
+        // Show validation messages (e.g. a malformed GA4 / Pixel ID) as-is.
+        const body = await putRes.json().catch(() => null);
+        if (putRes.status === 400 && body?.error) throw new Error(body.error);
+        throw new Error("Failed to save settings");
+      }
+      if (!patchRes.ok) throw new Error("Failed to save settings");
       const data = await putRes.json();
       const emailData = await patchRes.json();
       setSettings({ ...data, ...emailData });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      setError("Failed to save settings");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -512,9 +543,26 @@ export default function SettingsPage() {
           <label style={LABEL_STYLE}>Default Meta Description</label>
           <textarea style={TEXTAREA_STYLE} value={settings.metaDescription ?? ""} onChange={(e) => update("metaDescription", e.target.value)} placeholder="Discover handcrafted artisan goods from El Salvador..." />
         </div>
+      </div>
+
+      {/* 7b. Analytics */}
+      <div style={SECTION_STYLE}>
+        <h2 style={SECTION_TITLE}>Analytics</h2>
+        <p style={HINT_STYLE}>
+          Tracking loads on your storefront only (never in admin) and sends page views plus shopping events
+          (product views, add to cart, checkout, purchases). No customer names, emails or addresses are sent.
+        </p>
+        <div style={{ marginBottom: 16 }}>
+          <label style={LABEL_STYLE}>Google Analytics 4 Measurement ID</label>
+          <input style={INPUT_STYLE} value={settings.googleAnalyticsId ?? ""} onChange={(e) => update("googleAnalyticsId", e.target.value)} placeholder="G-AB12CD34EF" />
+          <p style={HINT_STYLE}>Paste your GA4 Measurement ID, e.g. G-AB12CD34EF (Google Analytics → Admin → Data streams). Leave blank to turn it off.</p>
+          <TrackingStatusLine status={gaStatus(settings.googleAnalyticsId)} />
+        </div>
         <div>
-          <label style={LABEL_STYLE}>Google Analytics ID</label>
-          <input style={INPUT_STYLE} value={settings.googleAnalyticsId ?? ""} onChange={(e) => update("googleAnalyticsId", e.target.value)} placeholder="G-XXXXXXXXXX" />
+          <label style={LABEL_STYLE}>Meta Pixel ID</label>
+          <input style={INPUT_STYLE} inputMode="numeric" value={settings.facebookPixelId ?? ""} onChange={(e) => update("facebookPixelId", e.target.value)} placeholder="123456789012345" />
+          <p style={HINT_STYLE}>Paste the 15–16 digit Pixel ID from Meta Events Manager → Data sources. Leave blank to turn it off.</p>
+          <TrackingStatusLine status={pixelStatus(settings.facebookPixelId)} />
         </div>
       </div>
 

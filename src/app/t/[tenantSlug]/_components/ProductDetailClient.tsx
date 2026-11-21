@@ -9,7 +9,8 @@
  * optimistic local feedback only — it's the polished, demo-ready UI shell the
  * real cart will plug into. No colors are hardcoded.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { trackAddToCart, trackViewItem } from "@/lib/analytics";
 import { useCart } from "./CartContext";
 
 interface DetailImage {
@@ -58,6 +59,10 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
+  useEffect(() => {
+    trackViewItem({ id: product.id, name: product.name, price: product.variants[0]?.price ?? product.price, quantity: 1 });
+  }, [product]);
+
   const onSale = product.compareAtPrice != null && product.compareAtPrice > product.price;
   const images = product.images.length ? product.images : [];
   const hero = images[activeImage] ?? images[0];
@@ -94,6 +99,7 @@ export default function ProductDetailClient({ product }: { product: ProductDetai
       quantity: qty,
       imageUrl: product.images[0]?.urlMedium ?? product.images[0]?.url,
     });
+    trackAddToCart({ id: product.id, name: product.name, price, quantity: qty, variant: variantName });
     setAdded(true);
     setTimeout(() => setAdded(false), 2200);
   }

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Anonymous_Pro, Happy_Monkey, Oregano } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import VercelAnalytics from "@/components/VercelAnalytics";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
@@ -44,7 +46,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${anonymousPro.variable} ${happyMonkey.variable} ${oregano.variable}`}>
-      <body className={geist.className}>{children}</body>
+      <body className={geist.className}>
+        {children}
+        <VercelAnalytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

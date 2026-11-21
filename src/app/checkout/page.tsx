@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCart, formatPrice } from "@/lib/cart";
 import type { CartItem } from "@/lib/cart";
+import { stashPurchase, toAnalyticsItem, trackBeginCheckout } from "@/lib/analytics";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
@@ -284,6 +285,22 @@ function CheckoutForm({
   const taxTotal = serverTaxTotal !== null ? serverTaxTotal : estimatedTaxTotal;
   const total = Math.max(0, subtotal - effectiveDiscount + shippingTotal + taxTotal);
 
+  // Analytics: begin_checkout once; the purchase summary is stashed right before
+  // the success redirect (read from a ref so the Apple/Google Pay handler, set
+  // up in an effect, never sees stale totals). Product/order data only, no PII.
+  const beginCheckoutSent = useRef(false);
+  useEffect(() => {
+    if (beginCheckoutSent.current) return;
+    beginCheckoutSent.current = true;
+    trackBeginCheckout(items.map(toAnalyticsItem), subtotal);
+  }, [items, subtotal]);
+  const latestOrder = useRef({ items, total, taxTotal, shippingTotal });
+  latestOrder.current = { items, total, taxTotal, shippingTotal };
+  const stashOrder = (orderNumber: string) => {
+    const o = latestOrder.current;
+    stashPurchase({ orderNumber, value: o.total, tax: o.taxTotal, shipping: o.shippingTotal, items: o.items.map(toAnalyticsItem) });
+  };
+
   // Fetch shipping rates when country or subtotal changes
   const fetchShippingRates = useCallback(async (countryCode: string, orderSubtotal: number) => {
     setLoadingRates(true);
@@ -413,6 +430,7 @@ function CheckoutForm({
         });
         const confirmData = await confirmRes.json();
         if (confirmRes.ok && confirmData.orderNumber) {
+          stashOrder(confirmData.orderNumber);
           clearCart();
           router.push(`/checkout/success?order=${confirmData.orderNumber}`);
         } else {
@@ -631,6 +649,7 @@ function CheckoutForm({
       }
 
       // Step 4: Clear cart and redirect
+      stashOrder(confirmData.orderNumber);
       clearCart();
       router.push(`/checkout/success/${confirmData.orderNumber}?email=${encodeURIComponent(form.email)}`);
     } catch (err) {

@@ -17,6 +17,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getStorefrontTenant } from "@/lib/storefront";
 import StoreNoticeBanner from "@/components/StoreNoticeBanner";
+import StoreAnalytics from "@/components/StoreAnalytics";
 import { themeToCssVars } from "@/lib/theme";
 import { BRAND_FONT_VARS, fontStack } from "./brand-fonts";
 import { CartProvider } from "./_components/CartContext";
@@ -107,6 +108,7 @@ export default async function StorefrontLayout({
         }}
       />
 
+      <StoreAnalytics tenantId={tenant.id} />
       <StoreNoticeBanner tenantId={tenant.id} />
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}

@@ -60,6 +60,11 @@ Admin → **Notice Banner** (`/admin/notice`, every store) posts a one-line noti
 
 ---
 
+### Analytics
+- **Vercel Web Analytics + Speed Insights** load on every page (`src/app/layout.tsx`). Admin and platform page views are dropped before sending, and email-like query params are removed. To see data, turn on **Web Analytics** and **Speed Insights** in the Vercel project (Analytics and Speed Insights tabs) if they are not already on.
+- **Google Analytics 4 / Meta Pixel, per store:** paste the IDs in Admin → **Settings → Analytics** (GA4 Measurement ID like `G-AB12CD34EF`; Pixel ID = 15–16 digits). The status line shows Active / Not set / Invalid. Bad formats are rejected on save (Settings API and MCP `settings_update`). Blank turns a tracker off. They load only on storefront pages (`StoreAnalytics` in the shop, cart, checkout, account, content-page and `/t/[slug]` layouts), never in admin. A legacy `TAX:{json}` value in `facebookPixelId` counts as not set.
+- **Events** (`src/lib/analytics.ts`, a no-op when no ID is set): page_view/PageView on every navigation, view_item/ViewContent, add_to_cart/AddToCart, view_cart (GA4 only), begin_checkout/InitiateCheckout, and purchase/Purchase on `/checkout/success/[order]`. The purchase event has the order number, value, tax and shipping, and fires once per order. USD, product IDs, names and prices only; no customer PII. Tenant `/t/[slug]` stores use Stripe-hosted checkout, so they get begin_checkout but no purchase event yet.
+
 ## Local development
 
 ```bash

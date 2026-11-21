@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCart, formatPrice, CartItem, stableAddonHash } from "@/lib/cart";
 import { useCartDrawer } from "@/components/CartDrawerProvider";
 import ProductCard from "@/components/ProductCard";
+import { toAnalyticsItem, trackAddToCart, trackViewItem } from "@/lib/analytics";
 import { discountBadge, getPromoThemeStyle } from "@/lib/discount";
 import MonogramAddon from "@/components/MonogramAddon";
 import type { CartItemAddon, MonogramConfig } from "@/types/addons";
@@ -281,6 +282,15 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         }
         const data = await res.json();
         setProduct(data.product);
+        const firstVariant = data.product.variants?.[0];
+        trackViewItem(
+          toAnalyticsItem({
+            productId: data.product.id,
+            name: data.product.name,
+            price: firstVariant?.price ?? data.product.price,
+            quantity: 1,
+          }),
+        );
         setRelatedProducts(data.relatedProducts ?? []);
 
         // Initialize selected options with first value of each option
@@ -410,6 +420,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
     };
     // Pass availableQty cap so total in cart never exceeds stock
     addItem(item, availableQty < 999 ? availableQty : undefined);
+    trackAddToCart(toAnalyticsItem(item));
     setAddedToCart(true);
     openCart();
     setTimeout(() => setAddedToCart(false), 3000);
