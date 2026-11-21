@@ -1,6 +1,6 @@
 # Feature verification: admin routes and MCP tools
 
-Every `/api/admin/*` route + method and every MCP tool (95) is covered by integration tests in `tests/e2e/`. They run against a throwaway local Postgres seeded with two stores (`artisans-stories`, the house store, and `other-store`), with every external service faked. Run them with:
+Every `/api/admin/*` route + method and every MCP tool (99) is covered by tests: integration tests in `tests/e2e/` for 95 of them, and unit tests (`tests/admin/store-notice.test.ts`) for the four `notice_*` tools. They run against a throwaway local Postgres seeded with two stores (`artisans-stories`, the house store, and `other-store`), with every external service faked. Run them with:
 
 ```bash
 npm run test:e2e          # starts /tmp/as-testdb on :54329, runs everything, stops it
@@ -26,7 +26,7 @@ E2E_SKIP_UI=1 npm run test:e2e   # skip the next build + browser tests
 
 | Suite | Files | Tests |
 |---|---|---|
-| Unit (`npx vitest run`) | 16 | 151 |
+| Unit (`npx vitest run`) | 17 | 175 |
 | E2E (`npm run test:e2e`) | 27 | 695 |
 
 ## Matrix
@@ -122,14 +122,20 @@ Route paths are relative to `/api/admin/`. ✓ means covered and passing. "401/4
 | Link Hub links | `linktree/links` GET, POST, PUT, DELETE; `linktree/links/reorder` POST | ✓ | `linktree_links_list`, `linktree_link_create/update/delete`, `linktree_links_reorder` | ✓ | other store's link id → 404, untouched |
 | Link Hub analytics | `linktree/analytics` GET | ✓ | `linktree_analytics` | ✓ | counts match the seeded click logs |
 
+### Storefront notice banner: `tests/admin/store-notice.test.ts` (unit)
+
+| Feature | Route + methods | Route test | MCP tool(s) | MCP test | Notes |
+|---|---|---|---|---|---|
+| Notice banner | `store-notice` GET, PUT, PATCH, DELETE | ✓ | `notice_get`, `notice_set`, `notice_set_visibility`, `notice_clear` | ✓ | unit tests with an in-memory table: EDITOR reads but can't write (403 / blocked preview); smuggled `tenantId` ignored; other store's confirm token refused. No session → 401 via `auth-sweep`. Storefront rendering (live pages only, never Coming Soon, hidden/scheduled/expired, dismiss, 320px) checked by hand against `next start` on the local DB, 2026-11-20. |
+
 ### Cross-cutting: `tests/e2e/api/mcp-isolation.test.ts`, `mcp-scopes.test.ts`, `auth-sweep.test.ts`, `session-liveness.test.ts`
 
 | Property | Test | Notes |
 |---|---|---|
 | Tenant isolation | ✓ | The list of every tool argument that names a record is built from the live registry, and a guard fails if a tool is missing from it. Each is tried with the other store's key against a house row: no data, no confirm token, no side effect, house rows unchanged. A smuggled `tenantId` and confirm tokens from the other store are refused. |
-| House-only tools | ✓ | `tools/list`: house admin 95, house read 39, other admin 71, other read 29. The 24 house-only tools are not listed for the other store and calling one fails cleanly. |
+| House-only tools | ✓ | `tools/list`: house admin 99, house read 40, other admin 75, other read 30. The 24 house-only tools are not listed for the other store and calling one fails cleanly. |
 | Read-only key | ✓ | Only `[Read]` tools are listed; calling any write tool name fails with no DB change. Storefront and revoked keys → 401; store switch off or store suspended → 403. |
-| No session → 401 | ✓ | All 100 handlers in the 67 admin route files (found on disk at test time) × 10 bad-cookie variants → 401, never 500, with no side effect. |
+| No session → 401 | ✓ | All 104 handlers in the 68 admin route files (found on disk at test time) × 10 bad-cookie variants → 401, never 500, with no side effect. |
 | Role gates | ✓ | EDITOR / ADMIN / SUPER_ADMIN refusals match between routes, MCP and the UI. Roles and active status are read live, so a deactivated or deleted admin's existing session stops working immediately. |
 | Admin UI pages | ✓ | `tests/e2e/ui/admin-pages.test.ts`: all 33 house `/admin` pages and 6 other-store pages, with seeded data on screen and no error page, browser exception or API 5xx; house-only pages redirect for the other store; the AI Assistants flow (toggle, mint, use, list, revoke) works; refused actions are hidden or disabled (Cancel vs Create return, team menus, Super Admin option, the Store status switch for EDITORs); a failed refund shows its reason in the cancel dialog; the Instagram panel connects/disconnects; no outbound requests except the deliberately refused Stripe call. |
 

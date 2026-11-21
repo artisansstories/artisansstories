@@ -55,6 +55,9 @@ Platform operators manage all tenants from `artisansstories.com/platform`.
 ### House-only features
 Landing Page, Knowledge Base, Artisans, Link Hub, and Email Template are exclusive to tenant zero (Artisans Stories). All other tenants see a focused store admin: Products, Orders, Customers, Discounts, Shipping, Tax, Returns, Inventory, SKUs, Settings, Communications, Team.
 
+### Storefront notice banner
+Admin → **Notice Banner** (`/admin/notice`, every store) posts a one-line notice across the top of the live storefront: message (≤ 280 chars, plain text), optional link (`https://…` or `/path`), style (Info / Success / Warning / Urgent), a **Show/Hide** switch, a start time (empty = immediately) and an optional expiration. Times are entered and shown in Pacific time and stored UTC. The status pill reads Live now / Scheduled / Expired / Hidden. The banner is evaluated on every request, so it appears and expires without a deploy or cache delay. It never shows on the Coming Soon page or in admin. Visitors can close it with ×, and it stays closed for them until the notice is edited. Editing needs ADMIN or SUPER_ADMIN. MCP: `notice_get`, `notice_set`, `notice_set_visibility`, `notice_clear` (see [docs/MCP.md](docs/MCP.md)). Table: `StoreNotice` (`prisma/migrations/add_store_notice.sql`).
+
 ---
 
 ## Local development

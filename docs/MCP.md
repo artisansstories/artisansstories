@@ -105,7 +105,7 @@ Claude and ChatGPT connectors: give them `https://<host>/api/mcp` and they run t
 ## How tools behave
 
 - **Tags:** every description starts with `[Read]`, `[Write]` or `[Sensitive write]`. Every tool sets `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint` (true for anything that emails a customer, moves money, or calls an outside service).
-- **Sensitive** covers refunds, cancellations, payment capture (fulfilling an authorized order), customer emails and replies, resend-email, team changes, deletes, and anything that publishes (product or artisan to ACTIVE, store live/unlive, landing page, Link Hub, email template).
+- **Sensitive** covers refunds, cancellations, payment capture (fulfilling an authorized order), customer emails and replies, resend-email, team changes, deletes, and anything that publishes (product or artisan to ACTIVE, store live/unlive, storefront notice banner, landing page, Link Hub, email template).
 - **Preview → confirm** (every write). The first call, without `confirmToken`, writes nothing and returns `status:"pending_confirmation"`, a `preview` with real values (refund amount and refundable balance, email recipient and subject, rows affected, before/after diffs), and a `confirmToken`. The second call with identical arguments plus the token executes. The token is an HMAC over (tenant, tool, canonical args, expiry): keys sorted, nulls dropped, 10-minute TTL, compared with `timingSafeEqual`. The preview is **re-run** on confirm, so a state change in between (e.g. the order was already refunded) blocks instead of executing.
 - **Single-use confirm tokens:** after the token verifies and the preview re-runs, the kit claims the token by inserting `sha256(token)` into `McpNonce` (kind `confirm`), **before** the side effect. The primary key is the only arbiter, so of any number of sequential or concurrent confirms with one token, exactly one executes. The rest get `{done:false, blocked:true, reason:"This confirmation was already used. Request a new preview."}`. If the claim itself fails (DB error), nothing runs and the result says so (fail closed).
 - **Outcomes:** `pending_confirmation` → `confirmed` (`done:true`), or `done:false, blocked:true, reason, retry` with retry guidance by status (401 reconnect, 403 don't retry, 404 recheck ids, 409 conflict, 5xx retry once). Expected failures are never `isError`. If the side effect **throws** midway, the token stays claimed and the result is `status:"unknown"` with `checkWith` naming the read tool to check first (e.g. `orders_get` for `orders_refund`, `returns_get` for returns, `contact_message_get` for replies). Any retry needs a new preview.
@@ -153,11 +153,12 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
   - **Single-use credentials:** confirm-token double use, concurrent double claim (exactly one success), claim-before-side-effect, fail closed on a claim error, the status-unknown result naming the check tool, and the same cases for OAuth codes.
   - **Transport:** `initialize`/`tools/list` through the real SDK transport, read-only registry, the 401 discovery header, CORS, lenient Accept, 429s, the route segment config, and 405/OPTIONS.
   - **Admin routes** (`tests/admin/`): order refund/cancel/fulfill/resend-email, return refund, contact reply (escaping), Link Hub/email template, and the settings whitelist and landing-page house gate.
+  - **Storefront notice** (`tests/admin/store-notice.test.ts`): the active window (hidden / before start / live / after expiry / no expiry), PT time parsing, validation, the admin route's role gate, the four `notice_*` tools (preview → confirm → replay blocked, EDITOR refused, tenant isolation, cross-store token refused), and that the public loader never returns a notice for a Coming Soon store.
 - `MCP_KEY=oss_live_… npx tsx scripts/mcp-smoke.ts` (optionally `MCP_URL=…`, `MCP_PATH_TOKEN=1`): runs `initialize` + `tools/list` against a running server. It never calls a tool.
 
-## Tool list (95)
+## Tool list (99)
 
-39 read, 24 write, 32 sensitive write. 24 are house-only.
+40 read, 24 write, 35 sensitive write. 24 are house-only.
 
 ### Dashboard, reports, settings, team (12)
 
@@ -175,6 +176,17 @@ Both models are in `schema.prisma`, and `src/lib/mcp/tenant-flag.ts` uses the ty
 | `team_add` | Sensitive write | open-world | Grant a person admin access and email them an admin sign-in link. Only a SUPER_ADMIN can add a SUPER_ADMIN (API keys act as ADMIN). |
 | `team_update` | Sensitive write | idempotent | Change an admin's role and/or deactivate or reactivate them. Owner protection: never yourself; only a SUPER_ADMIN touches a SUPER_ADMIN or grants it (API keys never can); at least one active SUPER_ADMIN always remains. |
 | `team_remove` | Sensitive write | destructive | Permanently delete an admin user from this store. |
+
+### Storefront notice banner (4)
+
+One notice per store, shown at the top of the **live** storefront (never the Coming Soon page or admin) while it is shown AND start ≤ now AND (no expiry OR now < expiry). Same service and zod schema as Admin → Notice Banner (`src/lib/admin-services/store-notice.ts`, `src/lib/store-notice.ts`). Writes need ADMIN or SUPER_ADMIN (API keys act as ADMIN; EDITOR is refused at preview). Times are UTC ISO with an offset, or `YYYY-MM-DDTHH:mm` read as Los Angeles time; an empty or `now` start means immediately.
+
+| Tool | Tag | Flags | What it does |
+|---|---|---|---|
+| `notice_get` | Read |  | The notice (message, link, style, show flag, start/expiry in UTC and PT) and its computed status: live, scheduled, expired, hidden or none. |
+| `notice_set` | Sensitive write | idempotent | Create or update the notice; only passed fields change (new notice: message required, defaults info / shown / starts now / never expires). Message ≤ 280 chars plain text; link needs label + `https://` or `/path` URL; expiry must be after start. The preview says whether it goes live immediately. |
+| `notice_set_visibility` | Sensitive write | idempotent | Show or hide the existing notice without changing text or dates. |
+| `notice_clear` | Sensitive write | destructive, idempotent | Permanently delete the notice. |
 
 ### Orders (9)
 
