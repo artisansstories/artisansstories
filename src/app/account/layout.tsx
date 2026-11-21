@@ -1,6 +1,7 @@
 import { getAccountSession } from '@/lib/account-session';
 import Image from 'next/image';
 import AccountNav from './AccountNav';
+import StoreNoticeBanner from '@/components/StoreNoticeBanner';
 import { headers } from 'next/headers';
 import { parseTenantHost } from '@/lib/tenant-host';
 import { prisma } from '@/lib/prisma';
@@ -53,6 +54,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
       `}</style>
 
       <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#faf7f2' }}>
+
+        <StoreNoticeBanner />
 
         {/* Header */}
         <header style={{
